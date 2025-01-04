@@ -9,9 +9,14 @@ import (
 	"strconv"
 )
 
+type ServerConf struct {
+	Port int `mapstructure:"server.port"`
+}
+
 type Server struct {
 	httpServer  *http.Server
 	baseContext context.Context
+	serverConf  *ServerConf
 }
 
 //func NewServer(port int, baseContext context.Context, handlers ...Handler) *Server {
@@ -33,16 +38,16 @@ type Server struct {
 //	return &Server{s, baseContext}
 //}
 
-func NewServer(port int, baseContext context.Context, handler http.Handler) *Server {
+func NewServer(conf *ServerConf, baseContext context.Context, handler http.Handler) *Server {
 	s := &http.Server{
-		Addr:    ":" + strconv.Itoa(port),
+		Addr:    ":" + strconv.Itoa(conf.Port),
 		Handler: handler,
 		BaseContext: func(_ net.Listener) context.Context {
 			return baseContext
 		},
 	}
 
-	return &Server{s, baseContext}
+	return &Server{s, baseContext, conf}
 }
 
 func (s *Server) Start() {

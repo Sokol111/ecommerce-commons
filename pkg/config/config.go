@@ -5,7 +5,7 @@ import (
 	"github.com/spf13/viper"
 )
 
-func LoadConfig[T any](configFile string) T {
+func LoadConfig[T any](configFile string) *T {
 	v := viper.New()
 	v.SetConfigFile(configFile)
 	viper.AutomaticEnv()
@@ -18,5 +18,5 @@ func LoadConfig[T any](configFile string) T {
 	if err != nil {
 		panic(fmt.Errorf("failed to unmarshal config file [%s] to type [%T]: %s", configFile, conf, err))
 	}
-	return conf
+	return &conf
 }

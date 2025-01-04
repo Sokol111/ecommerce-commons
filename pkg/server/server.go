@@ -2,34 +2,41 @@ package server
 
 import (
 	"context"
-	"github.com/gin-gonic/gin"
-	"github.com/rs/zerolog/log"
 	"golang.org/x/sync/errgroup"
+	"log/slog"
 	"net"
 	"net/http"
 	"strconv"
 )
-
-type Handler interface {
-	BindRoutes(*gin.Engine)
-}
 
 type Server struct {
 	httpServer  *http.Server
 	baseContext context.Context
 }
 
-func NewServer(port int, baseContext context.Context, handlers ...Handler) *Server {
-	engine := gin.Default()
-	engine.Use(errorHandler)
+//func NewServer(port int, baseContext context.Context, handlers ...Handler) *Server {
+//	engine := gin.Default()
+//	engine.Use(errorHandler)
+//
+//	for _, h := range handlers {
+//		h.BindRoutes(engine)
+//	}
+//
+//	s := &http.Server{
+//		Addr:    ":" + strconv.Itoa(port),
+//		Handler: engine,
+//		BaseContext: func(_ net.Listener) context.Context {
+//			return baseContext
+//		},
+//	}
+//
+//	return &Server{s, baseContext}
+//}
 
-	for _, h := range handlers {
-		h.BindRoutes(engine)
-	}
-
+func NewServer(port int, baseContext context.Context, handler http.Handler) *Server {
 	s := &http.Server{
 		Addr:    ":" + strconv.Itoa(port),
-		Handler: engine,
+		Handler: handler,
 		BaseContext: func(_ net.Listener) context.Context {
 			return baseContext
 		},
@@ -42,7 +49,7 @@ func (s *Server) Start() {
 	g, gCtx := errgroup.WithContext(s.baseContext)
 
 	g.Go(func() error {
-		log.Info().Msgf("Listening and serving HTTP on %s", s.httpServer.Addr)
+		slog.Info("listening and serving HTTP", slog.String("addr", s.httpServer.Addr))
 		return s.httpServer.ListenAndServe()
 	})
 
@@ -52,6 +59,6 @@ func (s *Server) Start() {
 	})
 
 	if err := g.Wait(); err != nil {
-		log.Error().Msgf("exit reason: %s", err)
+		slog.Error("exit reason", slog.Any("error", err))
 	}
 }

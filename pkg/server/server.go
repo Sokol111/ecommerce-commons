@@ -19,25 +19,6 @@ type Server struct {
 	serverConf  *ServerConf
 }
 
-//func NewServer(port int, baseContext context.Context, handlers ...Handler) *Server {
-//	engine := gin.Default()
-//	engine.Use(errorHandler)
-//
-//	for _, h := range handlers {
-//		h.BindRoutes(engine)
-//	}
-//
-//	s := &http.Server{
-//		Addr:    ":" + strconv.Itoa(port),
-//		Handler: engine,
-//		BaseContext: func(_ net.Listener) context.Context {
-//			return baseContext
-//		},
-//	}
-//
-//	return &Server{s, baseContext}
-//}
-
 func NewServer(conf *ServerConf, baseContext context.Context, handler http.Handler) *Server {
 	s := &http.Server{
 		Addr:    ":" + strconv.Itoa(conf.Port),

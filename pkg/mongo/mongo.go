@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
+	"log/slog"
 	"time"
 )
 
@@ -52,4 +53,17 @@ func (m *Mongo) Disconnect() {
 	if err := m.client.Disconnect(context.Background()); err != nil {
 		panic(fmt.Errorf("failed to disconnect from mongo: %v", err))
 	}
+}
+
+func (m *Mongo) CreateSimpleIndex(ctx context.Context, collection string, keys interface{}) {
+	ctxTimeout, cancel := context.WithTimeout(ctx, 5*time.Second)
+	defer cancel()
+	indexModel := mongo.IndexModel{
+		Keys: keys,
+	}
+	name, err := m.database.Collection(collection).Indexes().CreateOne(ctxTimeout, indexModel)
+	if err != nil {
+		panic(fmt.Errorf("failed to create indexes: %v", err))
+	}
+	slog.Info("index created: " + name)
 }

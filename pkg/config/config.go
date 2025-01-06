@@ -15,7 +15,7 @@ func LoadConfig[T any](configFile string) *T {
 		panic(fmt.Errorf("failed to read config file [%s]: %s", configFile, err))
 	}
 	var conf T
-	err = v.Unmarshal(conf)
+	err = v.Unmarshal(&conf)
 	if err != nil {
 		panic(fmt.Errorf("failed to unmarshal config file [%s] to type [%T]: %s", configFile, conf, err))
 	}

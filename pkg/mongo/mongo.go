@@ -10,11 +10,11 @@ import (
 )
 
 type MongoConf struct {
-	Host     string `mapstructure:"mongo.host"`
-	Port     int    `mapstructure:"mongo.port"`
-	Username string `mapstructure:"mongo.username"`
-	Password string `mapstructure:"mongo.password"`
-	Database string `mapstructure:"mongo.database"`
+	Host     string `mapstructure:"host"`
+	Port     int    `mapstructure:"port"`
+	Username string `mapstructure:"username"`
+	Password string `mapstructure:"password"`
+	Database string `mapstructure:"database"`
 }
 
 type Mongo struct {

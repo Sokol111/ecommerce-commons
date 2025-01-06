@@ -6,7 +6,7 @@ import (
 )
 
 func LoadConfig[T any](configFile string, sub string) *T {
-	v := viper.New().Sub(sub)
+	v := viper.Sub(sub)
 	v.SetConfigFile(configFile)
 	v.AutomaticEnv()
 	err := v.ReadInConfig()

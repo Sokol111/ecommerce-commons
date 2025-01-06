@@ -8,7 +8,6 @@ import (
 func LoadConfig[T any](configFile string) *T {
 	v := viper.New()
 	v.SetConfigFile(configFile)
-	v.AddConfigPath(".")
 	v.AutomaticEnv()
 	err := v.ReadInConfig()
 	if err != nil {

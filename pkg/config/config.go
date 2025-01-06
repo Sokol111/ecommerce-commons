@@ -5,8 +5,8 @@ import (
 	"github.com/spf13/viper"
 )
 
-func LoadConfig[T any](configFile string, sub string) *T {
-	v := viper.Sub(sub)
+func LoadConfig[T any](configFile string) *T {
+	v := viper.New()
 	v.SetConfigFile(configFile)
 	v.AutomaticEnv()
 	err := v.ReadInConfig()

@@ -30,9 +30,9 @@ func NewMongo(conf *MongoConf) *Mongo {
 func (m *Mongo) Connect(ctx context.Context, timeout time.Duration) *mongo.Database {
 	var uri string
 	if m.conf.Username != "" {
-		uri = fmt.Sprintf("mongodb://%s:%s@%s:%d", m.conf.Username, m.conf.Password, m.conf.Host, m.conf.Port)
+		uri = fmt.Sprintf("mongodb://%s:%s@%s:%d/%s", m.conf.Username, m.conf.Password, m.conf.Host, m.conf.Port, m.conf.Database)
 	} else {
-		uri = fmt.Sprintf("mongodb://%s:%d", m.conf.Host, m.conf.Port)
+		uri = fmt.Sprintf("mongodb://%s:%d/%s", m.conf.Host, m.conf.Port, m.conf.Database)
 	}
 	client, err := mongo.Connect(ctx, options.Client().ApplyURI(uri))
 	if err != nil {

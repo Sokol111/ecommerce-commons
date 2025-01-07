@@ -10,11 +10,12 @@ import (
 )
 
 type MongoConf struct {
-	Host     string `mapstructure:"host"`
-	Port     int    `mapstructure:"port"`
-	Username string `mapstructure:"username"`
-	Password string `mapstructure:"password"`
-	Database string `mapstructure:"database"`
+	Host       string `mapstructure:"host"`
+	Port       int    `mapstructure:"port"`
+	ReplicaSet string `mapstructure:"replica-set"`
+	Username   string `mapstructure:"username"`
+	Password   string `mapstructure:"password"`
+	Database   string `mapstructure:"database"`
 }
 
 type Mongo struct {
@@ -30,9 +31,9 @@ func NewMongo(conf *MongoConf) *Mongo {
 func (m *Mongo) Connect(ctx context.Context, timeout time.Duration) *mongo.Database {
 	var uri string
 	if m.conf.Username != "" {
-		uri = fmt.Sprintf("mongodb://%s:%s@%s:%d/%s", m.conf.Username, m.conf.Password, m.conf.Host, m.conf.Port, m.conf.Database)
+		uri = fmt.Sprintf("mongodb://%s:%s@%s:%d/%s?replicaSet=%s", m.conf.Username, m.conf.Password, m.conf.Host, m.conf.Port, m.conf.Database, m.conf.ReplicaSet)
 	} else {
-		uri = fmt.Sprintf("mongodb://%s:%d/%s", m.conf.Host, m.conf.Port, m.conf.Database)
+		uri = fmt.Sprintf("mongodb://%s:%d/%s?replicaSet=%s", m.conf.Host, m.conf.Port, m.conf.Database, m.conf.ReplicaSet)
 	}
 	client, err := mongo.Connect(ctx, options.Client().ApplyURI(uri))
 	if err != nil {

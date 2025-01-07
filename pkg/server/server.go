@@ -10,7 +10,7 @@ import (
 )
 
 type ServerConf struct {
-	Port int `mapstructure:"server.port"`
+	Port int `mapstructure:"port"`
 }
 
 type Server struct {

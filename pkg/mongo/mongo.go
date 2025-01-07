@@ -28,7 +28,7 @@ func NewMongo(conf *MongoConf) *Mongo {
 	return &Mongo{conf: conf}
 }
 
-func (m *Mongo) Connect(ctx context.Context, timeout time.Duration) *mongo.Database {
+func (m *Mongo) Connect(ctx context.Context, timeout time.Duration) {
 	var uri string
 	if m.conf.Username != "" {
 		uri = fmt.Sprintf("mongodb://%s:%s@%s:%d/%s?replicaSet=%s", m.conf.Username, m.conf.Password, m.conf.Host, m.conf.Port, m.conf.Database, m.conf.ReplicaSet)
@@ -39,6 +39,7 @@ func (m *Mongo) Connect(ctx context.Context, timeout time.Duration) *mongo.Datab
 	if err != nil {
 		panic(fmt.Errorf("failed to connect to mongo: %v", err))
 	}
+	m.client = client
 
 	ctxTimeout, cancel := context.WithTimeout(ctx, timeout)
 	defer cancel()
@@ -49,7 +50,7 @@ func (m *Mongo) Connect(ctx context.Context, timeout time.Duration) *mongo.Datab
 		panic(fmt.Errorf("failed to ping mongo with timeout [%v] err: %v", timeout, err))
 	}
 
-	return client.Database(m.conf.Database)
+	m.database = client.Database(m.conf.Database)
 }
 
 func (m *Mongo) GetDatabase() *mongo.Database {

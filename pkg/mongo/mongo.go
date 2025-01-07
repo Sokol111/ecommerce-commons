@@ -28,7 +28,13 @@ func NewMongo(conf *MongoConf) *Mongo {
 }
 
 func (m *Mongo) Connect(ctx context.Context, timeout time.Duration) *mongo.Database {
-	client, err := mongo.Connect(ctx, options.Client().ApplyURI(fmt.Sprintf("mongodb://%s:%s@%s:%d", m.conf.Username, m.conf.Password, m.conf.Host, m.conf.Port)))
+	var uri string
+	if m.conf.Username != "" {
+		uri = fmt.Sprintf("mongodb://%s:%s@%s:%d", m.conf.Username, m.conf.Password, m.conf.Host, m.conf.Port)
+	} else {
+		uri = fmt.Sprintf("mongodb://%s:%d", m.conf.Host, m.conf.Port)
+	}
+	client, err := mongo.Connect(ctx, options.Client().ApplyURI(uri))
 	if err != nil {
 		panic(fmt.Errorf("failed to connect to mongo: %v", err))
 	}

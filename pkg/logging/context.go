@@ -1,4 +1,4 @@
-package handler
+package logging
 
 type LoggingContext interface {
 	RequestMethod() string

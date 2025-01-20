@@ -45,6 +45,6 @@ func (s *Server) Start() {
 	})
 
 	if err := g.Wait(); err != nil {
-		slog.Error("exit reason", slog.Any("error", err))
+		slog.Error("exited", slog.Any("error", err))
 	}
 }

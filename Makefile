@@ -13,5 +13,8 @@ start-kafka:
 stop-kafka:
 	docker compose -f /infrastructure/docker/kafka.yml down
 
+update-dependencies:
+	go get -u ./...
+
 test:
 	go test ./... -v -cover

@@ -3,9 +3,12 @@ version: '3'
 services:
   mongo:
     image: mongo:7.0
+    container_name: mongo
     command: ["--replSet", "rs0", "--bind_ip_all", "--port", "27017"]
     ports:
       - 27017:27017
+    networks:
+      - shared-network
     extra_hosts:
       - "host.docker.internal:host-gateway"
     healthcheck:
@@ -21,3 +24,7 @@ services:
 #volumes:
 #  mongo1_data:
 #  mongo1_config:
+
+networks:
+  shared-network:
+    driver: bridge

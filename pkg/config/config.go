@@ -3,11 +3,13 @@ package config
 import (
 	"fmt"
 	"github.com/spf13/viper"
+	"strings"
 )
 
 func LoadConfig[T any](configFile string) *T {
 	v := viper.New()
 	v.SetConfigFile(configFile)
+	v.SetEnvKeyReplacer(strings.NewReplacer(".", "_"))
 	v.AutomaticEnv()
 	err := v.ReadInConfig()
 	if err != nil {

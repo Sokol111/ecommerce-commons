@@ -6,19 +6,17 @@ import (
 	"strings"
 )
 
-func LoadConfig[T any](configFile string) *T {
+func LoadConfig[T any](configFile string) (*T, error) {
 	v := viper.New()
 	v.SetConfigFile(configFile)
 	v.SetEnvKeyReplacer(strings.NewReplacer(".", "_"))
 	v.AutomaticEnv()
-	err := v.ReadInConfig()
-	if err != nil {
-		panic(fmt.Errorf("failed to read config file [%s]: %s", configFile, err))
+	if err := v.ReadInConfig(); err != nil {
+		return nil, fmt.Errorf("failed to read config file [%s]: %w", configFile, err)
 	}
 	var conf T
-	err = v.Unmarshal(&conf)
-	if err != nil {
-		panic(fmt.Errorf("failed to unmarshal config file [%s] to type [%T]: %s", configFile, conf, err))
+	if err := v.Unmarshal(&conf); err != nil {
+		return nil, fmt.Errorf("failed to unmarshal config file [%s] to type [%T]: %w", configFile, conf, err)
 	}
-	return &conf
+	return &conf, nil
 }

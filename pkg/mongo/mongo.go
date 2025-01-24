@@ -75,11 +75,8 @@ func (m *Mongo) Disconnect(timeout time.Duration) {
 	slog.Info("disconnected from mongo")
 }
 
-func (m *Mongo) CreateIndexes(ctx context.Context, collection string, timeout time.Duration, indexes []mongo.IndexModel) {
-	ctxTimeout, cancel := context.WithTimeout(ctx, timeout)
-	defer cancel()
-
-	names, err := m.database.Collection(collection).Indexes().CreateMany(ctxTimeout, indexes)
+func (m *Mongo) CreateIndexes(ctx context.Context, collection string, indexes []mongo.IndexModel) {
+	names, err := m.database.Collection(collection).Indexes().CreateMany(ctx, indexes)
 	if err != nil {
 		panic(fmt.Errorf("failed to create indexes: %w", err))
 	}
@@ -89,7 +86,7 @@ func (m *Mongo) CreateIndexes(ctx context.Context, collection string, timeout ti
 	}
 }
 
-func (m *Mongo) CreateSimpleIndex(ctx context.Context, collection string, timeout time.Duration, keys interface{}) {
+func (m *Mongo) CreateSimpleIndex(ctx context.Context, collection string, keys interface{}) {
 	indexModel := mongo.IndexModel{Keys: keys}
-	m.CreateIndexes(ctx, collection, timeout, []mongo.IndexModel{indexModel})
+	m.CreateIndexes(ctx, collection, []mongo.IndexModel{indexModel})
 }

@@ -66,7 +66,9 @@ func (m *Mongo) GetCollection(collection string) *mongo.Collection {
 	return m.database.Collection(collection)
 }
 
-func (m *Mongo) Disconnect(ctx context.Context) {
+func (m *Mongo) Disconnect(timeout time.Duration) {
+	ctx, cancel := context.WithTimeout(context.Background(), timeout)
+	defer cancel()
 	if err := m.client.Disconnect(ctx); err != nil {
 		panic(fmt.Errorf("failed to disconnect from mongo: %w", err))
 	}

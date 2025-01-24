@@ -24,12 +24,12 @@ type Mongo struct {
 	conf     *MongoConf
 }
 
-func NewMongo(conf *MongoConf) (*Mongo, error) {
+func NewMongo(conf *MongoConf) *Mongo {
 	if err := validateConfig(conf); err != nil {
-		return nil, err
+		panic(err)
 	}
 
-	return &Mongo{conf: conf}, nil
+	return &Mongo{conf: conf}
 }
 
 func validateConfig(conf *MongoConf) error {
@@ -39,24 +39,20 @@ func validateConfig(conf *MongoConf) error {
 	return nil
 }
 
-func (m *Mongo) Connect(ctx context.Context, timeout time.Duration) error {
+func (m *Mongo) Connect(ctx context.Context) {
 	uri := buildURI(m.conf)
 	client, err := mongo.Connect(ctx, options.Client().ApplyURI(uri))
 	if err != nil {
-		return fmt.Errorf("failed to connect to mongo: %w", err)
+		panic(fmt.Errorf("failed to connect to mongo: %w", err))
 	}
 	m.client = client
 
-	ctxTimeout, cancel := context.WithTimeout(ctx, timeout)
-	defer cancel()
-
-	if err := client.Ping(ctxTimeout, nil); err != nil {
-		return fmt.Errorf("failed to ping mongo: %w", err)
+	if err := client.Ping(ctx, nil); err != nil {
+		panic(fmt.Errorf("failed to ping mongo: %w", err))
 	}
 
 	m.database = client.Database(m.conf.Database)
 	slog.Info("connected to mongo", slog.String("host", m.conf.Host), slog.Int("port", m.conf.Port))
-	return nil
 }
 
 func buildURI(conf *MongoConf) string {
@@ -70,32 +66,28 @@ func (m *Mongo) GetCollection(collection string) *mongo.Collection {
 	return m.database.Collection(collection)
 }
 
-func (m *Mongo) Disconnect(ctx context.Context) error {
+func (m *Mongo) Disconnect(ctx context.Context) {
 	if err := m.client.Disconnect(ctx); err != nil {
-		return fmt.Errorf("failed to disconnect from mongo: %w", err)
+		panic(fmt.Errorf("failed to disconnect from mongo: %w", err))
 	}
 	slog.Info("disconnected from mongo")
-	return nil
 }
 
-func (m *Mongo) CreateIndexes(ctx context.Context, collection string, timeout time.Duration, indexes []mongo.IndexModel) ([]string, error) {
+func (m *Mongo) CreateIndexes(ctx context.Context, collection string, timeout time.Duration, indexes []mongo.IndexModel) {
 	ctxTimeout, cancel := context.WithTimeout(ctx, timeout)
 	defer cancel()
 
 	names, err := m.database.Collection(collection).Indexes().CreateMany(ctxTimeout, indexes)
 	if err != nil {
-		return nil, fmt.Errorf("failed to create indexes: %w", err)
+		panic(fmt.Errorf("failed to create indexes: %w", err))
 	}
 
-	slog.Info("indexes created", slog.Any("indexes", names), slog.String("collection", collection))
-	return names, nil
+	for _, name := range names {
+		slog.Info("index created", slog.String("name", name), slog.String("collection", collection))
+	}
 }
 
-func (m *Mongo) CreateSimpleIndex(ctx context.Context, collection string, timeout time.Duration, keys interface{}) (string, error) {
+func (m *Mongo) CreateSimpleIndex(ctx context.Context, collection string, timeout time.Duration, keys interface{}) {
 	indexModel := mongo.IndexModel{Keys: keys}
-	names, err := m.CreateIndexes(ctx, collection, timeout, []mongo.IndexModel{indexModel})
-	if err != nil {
-		return "", err
-	}
-	return names[0], nil
+	m.CreateIndexes(ctx, collection, timeout, []mongo.IndexModel{indexModel})
 }

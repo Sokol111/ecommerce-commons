@@ -25,19 +25,22 @@ type Mongo struct {
 }
 
 func NewMongo(conf *MongoConf) (*Mongo, error) {
-	if conf.Host == "" || conf.Port == 0 || conf.Database == "" {
-		return nil, fmt.Errorf("invalid Mongo configuration")
+	if err := validateConfig(conf); err != nil {
+		return nil, err
 	}
+
 	return &Mongo{conf: conf}, nil
 }
 
-func (m *Mongo) Connect(ctx context.Context, timeout time.Duration) error {
-	var uri string
-	if m.conf.Username != "" {
-		uri = fmt.Sprintf("mongodb://%s:%s@%s:%d/%s?replicaSet=%s", m.conf.Username, m.conf.Password, m.conf.Host, m.conf.Port, m.conf.Database, m.conf.ReplicaSet)
-	} else {
-		uri = fmt.Sprintf("mongodb://%s:%d/%s?replicaSet=%s", m.conf.Host, m.conf.Port, m.conf.Database, m.conf.ReplicaSet)
+func validateConfig(conf *MongoConf) error {
+	if conf.Host == "" || conf.Port == 0 || conf.Database == "" {
+		return fmt.Errorf("invalid Mongo configuration")
 	}
+	return nil
+}
+
+func (m *Mongo) Connect(ctx context.Context, timeout time.Duration) error {
+	uri := buildURI(m.conf)
 	client, err := mongo.Connect(ctx, options.Client().ApplyURI(uri))
 	if err != nil {
 		return fmt.Errorf("failed to connect to mongo: %w", err)
@@ -56,8 +59,15 @@ func (m *Mongo) Connect(ctx context.Context, timeout time.Duration) error {
 	return nil
 }
 
-func (m *Mongo) GetDatabase() *mongo.Database {
-	return m.database
+func buildURI(conf *MongoConf) string {
+	if conf.Username != "" {
+		return fmt.Sprintf("mongodb://%s:%s@%s:%d/%s?replicaSet=%s", conf.Username, conf.Password, conf.Host, conf.Port, conf.Database, conf.ReplicaSet)
+	}
+	return fmt.Sprintf("mongodb://%s:%d/%s?replicaSet=%s", conf.Host, conf.Port, conf.Database, conf.ReplicaSet)
+}
+
+func (m *Mongo) GetCollection(collection string) *mongo.Collection {
+	return m.database.Collection(collection)
 }
 
 func (m *Mongo) Disconnect(ctx context.Context) error {

@@ -47,7 +47,7 @@ func TestLoadConfig_MissingFile(t *testing.T) {
 
 	assert.Error(t, err)
 	assert.Nil(t, conf)
-	assert.Contains(t, err.Error(), "failed to read config file")
+	assert.Contains(t, err.Error(), "config file [nonexistent.yaml] does not exist")
 }
 
 func TestLoadConfig_InvalidFormat(t *testing.T) {

@@ -2,9 +2,12 @@ package kafka
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"github.com/confluentinc/confluent-kafka-go/v2/kafka"
-	"log"
+	"log/slog"
+	"math"
+	"time"
 )
 
 type ConsumerInterface interface {
@@ -14,49 +17,74 @@ type ConsumerInterface interface {
 
 type KafkaConsumer struct {
 	consumer *kafka.Consumer
-	topics   []string
+	topic    string
+	handler  MessageHandler
 }
 
-func NewKafkaConsumer(conf *KafkaConf, groupID string, topics []string) (*KafkaConsumer, error) {
+func NewKafkaConsumer(brokers, groupID, topic string, handler MessageHandler) (*KafkaConsumer, error) {
 	c, err := kafka.NewConsumer(&kafka.ConfigMap{
-		"bootstrap.servers": conf.Brokers,
+		"bootstrap.servers": brokers,
 		"group.id":          groupID,
 		"auto.offset.reset": "earliest",
 	})
 	if err != nil {
-		return nil, fmt.Errorf("не вдалося створити консьюмера: %w", err)
+		return nil, fmt.Errorf("failed to create consumer: %w", err)
 	}
 
-	err = c.SubscribeTopics(topics, nil)
+	err = c.SubscribeTopics([]string{topic}, nil)
 	if err != nil {
-		return nil, fmt.Errorf("не вдалося підписатися на теми: %w", err)
+		return nil, fmt.Errorf("failed to subscribe to topic %s: %w", topic, err)
 	}
 
 	return &KafkaConsumer{
 		consumer: c,
-		topics:   topics,
+		topic:    topic,
+		handler:  handler,
 	}, nil
 }
 
-func (kc *KafkaConsumer) Consume(ctx context.Context) error {
-	log.Println("Kafka Consumer запущено...")
-	for {
-		select {
-		case <-ctx.Done():
-			log.Println("Kafka Consumer отримав сигнал завершення")
-			return nil
-		default:
-			msg, err := kc.consumer.ReadMessage(-1) // Блокуючий виклик
-			if err == nil {
-				log.Printf("Отримано повідомлен ня з %s: %s\n", *msg.TopicPartition.Topic, string(msg.Value))
-			} else if !err.(kafka.Error).IsTimeout() {
-				fmt.Printf("Consumer error: %v (%v)\n", err, msg)
+func (kc *KafkaConsumer) StartConsuming(ctx context.Context) {
+	go func() {
+		slog.Info(fmt.Sprintf("kafka consumer for topic %s is started", kc.topic))
+
+		for {
+			select {
+			case <-ctx.Done():
+				slog.Info(fmt.Sprintf("kafka consumer for topic %s stopped", kc.topic))
+				return
+			default:
+				msg, err := kc.consumer.ReadMessage(5 * time.Second)
+				if err != nil {
+					var kafkaErr kafka.Error
+					if errors.As(err, &kafkaErr) && kafkaErr.IsTimeout() {
+						continue
+					}
+					slog.Error(fmt.Sprintf("failed to read message from topic %s: %v", kc.topic, err))
+					continue
+				}
+
+				for attempt := 1; ; attempt++ {
+					if ctx.Err() != nil {
+						slog.Info(fmt.Sprintf("kafka consumer for topic %s stopped", kc.topic))
+						return
+					}
+
+					err := kc.handler.HandleMessage(ctx, msg)
+					if err == nil {
+						_, commitErr := kc.consumer.CommitMessage(msg)
+						if commitErr == nil {
+							break
+						}
+						slog.Error(fmt.Sprintf("failed to commit message for topic %s: %v", kc.topic, commitErr))
+					}
+
+					time.Sleep(time.Duration(math.Min(float64(attempt*2), 10)) * time.Second)
+				}
 			}
 		}
-	}
+	}()
 }
 
-// Close закриває консьюмера
 func (kc *KafkaConsumer) Close() {
 	kc.consumer.Close()
 }

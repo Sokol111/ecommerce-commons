@@ -6,7 +6,8 @@ import (
 )
 
 type KafkaConf struct {
-	Brokers string `mapstructure:"brokers"`
+	Brokers       string `mapstructure:"brokers"`
+	ConsumerGroup string `mapstructure:"consumer-group"`
 }
 
 type MessageHandler interface {

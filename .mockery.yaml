@@ -1,6 +1,6 @@
 with-expecter: true
 filename: "mock_{{.InterfaceName | snakecase}}.go"
-dir: "{{.InterfaceDir}}/mocks"
+dir: "test/mocks"
 outpkg: "mocks"
 packages:
 #  github.com/Sokol111/ecommerce-commons/pkg/mongo:

@@ -1,4 +1,4 @@
-package logging
+package commonslogging
 
 type LoggingContext interface {
 	RequestMethod() string

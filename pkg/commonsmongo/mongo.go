@@ -1,4 +1,4 @@
-package mongo
+package commonsmongo
 
 import (
 	"context"

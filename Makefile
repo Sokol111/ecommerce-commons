@@ -1,4 +1,4 @@
-create-mocks:
+generate-mocks:
 	mockery
 
 start-docker-mongo: stop-mongo

@@ -7,7 +7,7 @@ import (
 )
 
 type ProducerInterface interface {
-	SendMessage(topic string, message []byte) error
+	Produce(message *kafka.Message, deliveryChan chan kafka.Event) error
 	Close()
 }
 
@@ -38,13 +38,10 @@ func NewKafkaProducer(conf *KafkaConf) (*KafkaProducer, error) {
 	return &KafkaProducer{producer: p, conf: conf}, nil
 }
 
-func (kp *KafkaProducer) SendMessage(topic string, message []byte) error {
-	err := kp.producer.Produce(&kafka.Message{
-		TopicPartition: kafka.TopicPartition{Topic: &topic, Partition: kafka.PartitionAny},
-		Value:          message,
-	}, nil)
+func (kp *KafkaProducer) Produce(message *kafka.Message, deliveryChan chan kafka.Event) error {
+	err := kp.producer.Produce(message, deliveryChan)
 	if err != nil {
-		return fmt.Errorf("failed to send message to topic %s: %w", topic, err)
+		return fmt.Errorf("failed to send message to topic %s: %w", message.TopicPartition, err)
 	}
 	return nil
 }

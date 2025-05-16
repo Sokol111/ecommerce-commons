@@ -3,7 +3,7 @@ package commonskafka
 import (
 	"fmt"
 	"github.com/confluentinc/confluent-kafka-go/v2/kafka"
-	"log/slog"
+	"go.uber.org/zap"
 )
 
 type ProducerInterface interface {
@@ -14,9 +14,10 @@ type ProducerInterface interface {
 type KafkaProducer struct {
 	producer *kafka.Producer
 	conf     *KafkaConf
+	log      *zap.Logger
 }
 
-func NewKafkaProducer(conf *KafkaConf) (*KafkaProducer, error) {
+func NewKafkaProducer(conf *KafkaConf, log *zap.Logger) (*KafkaProducer, error) {
 	p, err := kafka.NewProducer(&kafka.ConfigMap{"bootstrap.servers": conf.Brokers})
 	if err != nil {
 		return nil, fmt.Errorf("failed to create producer: %w", err)
@@ -27,9 +28,9 @@ func NewKafkaProducer(conf *KafkaConf) (*KafkaProducer, error) {
 			switch ev := e.(type) {
 			case *kafka.Message:
 				if ev.TopicPartition.Error != nil {
-					slog.Error(fmt.Sprintf("failed to publish message to: %v\n", ev.TopicPartition))
+					log.Error(fmt.Sprintf("failed to publish message to: %v", ev.TopicPartition))
 				} else {
-					slog.Info(fmt.Sprintf("message published to: %v\n", ev.TopicPartition))
+					log.Info(fmt.Sprintf("message published to: %v", ev.TopicPartition))
 				}
 			}
 		}

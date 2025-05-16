@@ -3,11 +3,18 @@ package commonsmongo
 import (
 	"context"
 	"fmt"
+	"time"
+
+	"github.com/spf13/viper"
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
-	"log/slog"
-	"time"
+	"go.uber.org/fx"
+	"go.uber.org/zap"
 )
+
+type Config struct {
+	Mongo MongoConf `mapstructure:"mongo"`
+}
 
 type MongoConf struct {
 	Host       string `mapstructure:"host"`
@@ -18,44 +25,74 @@ type MongoConf struct {
 	Database   string `mapstructure:"database"`
 }
 
+var MongoModule = fx.Options(
+	fx.Provide(
+		NewMongo,
+		NewMongoConfig,
+	),
+)
+
+func NewMongoConfig(v *viper.Viper) (MongoConf, error) {
+	var cfg MongoConf
+	if err := v.Sub("mongo").UnmarshalExact(&cfg); err != nil {
+		return cfg, fmt.Errorf("failed to load mongo config: %w", err)
+	}
+	return cfg, nil
+}
+
 type Mongo struct {
 	client   *mongo.Client
 	database *mongo.Database
-	conf     *MongoConf
+	conf     MongoConf
+	log      *zap.Logger
 }
 
-func NewMongo(conf *MongoConf) *Mongo {
+func NewMongo(lc fx.Lifecycle, log *zap.Logger, conf MongoConf) (*Mongo, error) {
 	if err := validateConfig(conf); err != nil {
-		panic(err)
+		return nil, err
 	}
 
-	return &Mongo{conf: conf}
+	m := &Mongo{conf: conf, log: log}
+
+	lc.Append(fx.Hook{
+		OnStart: func(ctx context.Context) error {
+			return m.connect(ctx)
+		},
+		OnStop: func(ctx context.Context) error {
+			return m.disconnect(ctx)
+		},
+	})
+
+	return m, nil
 }
 
-func validateConfig(conf *MongoConf) error {
+func validateConfig(conf MongoConf) error {
 	if conf.Host == "" || conf.Port == 0 || conf.Database == "" {
 		return fmt.Errorf("invalid Mongo configuration")
 	}
 	return nil
 }
 
-func (m *Mongo) Connect(ctx context.Context) {
+func (m *Mongo) connect(ctx context.Context) error {
+	c, cancel := context.WithTimeout(ctx, 10*time.Second)
+	defer cancel()
 	uri := buildURI(m.conf)
-	client, err := mongo.Connect(ctx, options.Client().ApplyURI(uri))
+	client, err := mongo.Connect(c, options.Client().ApplyURI(uri))
 	if err != nil {
-		panic(fmt.Errorf("failed to connect to mongo: %w", err))
+		return fmt.Errorf("failed to connect to mongo: %w", err)
 	}
 	m.client = client
 
-	if err := client.Ping(ctx, nil); err != nil {
-		panic(fmt.Errorf("failed to ping mongo: %w", err))
+	if err := client.Ping(c, nil); err != nil {
+		return fmt.Errorf("failed to ping mongo: %w", err)
 	}
 
 	m.database = client.Database(m.conf.Database)
-	slog.Info("connected to mongo", slog.String("host", m.conf.Host), slog.Int("port", m.conf.Port))
+	m.log.Info("connected to mongo", zap.String("host", m.conf.Host), zap.Int("port", m.conf.Port))
+	return nil
 }
 
-func buildURI(conf *MongoConf) string {
+func buildURI(conf MongoConf) string {
 	if conf.Username != "" {
 		return fmt.Sprintf("mongodb://%s:%s@%s:%d/%s?replicaSet=%s", conf.Username, conf.Password, conf.Host, conf.Port, conf.Database, conf.ReplicaSet)
 	}
@@ -66,27 +103,28 @@ func (m *Mongo) GetCollection(collection string) *mongo.Collection {
 	return m.database.Collection(collection)
 }
 
-func (m *Mongo) Disconnect(timeout time.Duration) {
-	ctx, cancel := context.WithTimeout(context.Background(), timeout)
+func (m *Mongo) disconnect(ctx context.Context) error {
+	c, cancel := context.WithTimeout(ctx, 10*time.Second)
 	defer cancel()
-	if err := m.client.Disconnect(ctx); err != nil {
-		panic(fmt.Errorf("failed to disconnect from mongo: %w", err))
+	if err := m.client.Disconnect(c); err != nil {
+		return fmt.Errorf("failed to disconnect from mongo: %w", err)
 	}
-	slog.Info("disconnected from mongo")
+	return nil
 }
 
-func (m *Mongo) CreateIndexes(ctx context.Context, collection string, indexes []mongo.IndexModel) {
+func (m *Mongo) CreateIndexes(ctx context.Context, collection string, indexes []mongo.IndexModel) error {
 	names, err := m.database.Collection(collection).Indexes().CreateMany(ctx, indexes)
 	if err != nil {
-		panic(fmt.Errorf("failed to create indexes: %w", err))
+		return fmt.Errorf("failed to create indexes: %w", err)
 	}
 
 	for _, name := range names {
-		slog.Info("index created", slog.String("name", name), slog.String("collection", collection))
+		m.log.Info("index created", zap.String("name", name), zap.String("collection", collection))
 	}
+	return nil
 }
 
-func (m *Mongo) CreateSimpleIndex(ctx context.Context, collection string, keys interface{}) {
+func (m *Mongo) CreateSimpleIndex(ctx context.Context, collection string, keys interface{}) error {
 	indexModel := mongo.IndexModel{Keys: keys}
-	m.CreateIndexes(ctx, collection, []mongo.IndexModel{indexModel})
+	return m.CreateIndexes(ctx, collection, []mongo.IndexModel{indexModel})
 }

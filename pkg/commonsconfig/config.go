@@ -3,25 +3,30 @@ package commonsconfig
 import (
 	"fmt"
 	"github.com/spf13/viper"
+	"go.uber.org/fx"
 	"os"
 	"strings"
 )
 
-func LoadConfig[T any](configFile string) (*T, error) {
-	if _, err := os.Stat(configFile); os.IsNotExist(err) {
-		return nil, fmt.Errorf("config file [%s] does not exist: %w", configFile, err)
-	}
+var ViperModule = fx.Options(
+	fx.Provide(NewViper),
+)
 
+func NewViper() (*viper.Viper, error) {
 	v := viper.New()
-	v.SetConfigFile(configFile)
+	configPath := os.Getenv("CONFIG_PATH")
+	if configPath == "" {
+		configPath = "./configs/config.yml"
+	}
+	if _, err := os.Stat(configPath); os.IsNotExist(err) {
+		return nil, fmt.Errorf("config file [%s] does not exist: %w", configPath, err)
+	}
+	v.SetConfigFile(configPath)
 	v.SetEnvKeyReplacer(strings.NewReplacer(".", "_"))
 	v.AutomaticEnv()
+
 	if err := v.ReadInConfig(); err != nil {
-		return nil, fmt.Errorf("failed to read config file [%s]: %w", configFile, err)
+		return nil, fmt.Errorf("failed to read config file [%s]: %w", configPath, err)
 	}
-	var conf T
-	if err := v.UnmarshalExact(&conf); err != nil {
-		return nil, fmt.Errorf("failed to unmarshal config file [%s] to type [%T]: %w", configFile, conf, err)
-	}
-	return &conf, nil
+	return v, nil
 }

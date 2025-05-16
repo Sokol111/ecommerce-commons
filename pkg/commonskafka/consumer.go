@@ -5,7 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"github.com/confluentinc/confluent-kafka-go/v2/kafka"
-	"log/slog"
+	"go.uber.org/zap"
 	"math"
 	"time"
 )
@@ -19,9 +19,10 @@ type KafkaConsumer struct {
 	consumer *kafka.Consumer
 	topic    string
 	handler  MessageHandler
+	log      *zap.Logger
 }
 
-func NewKafkaConsumer(brokers, groupID, topic string, handler MessageHandler) (*KafkaConsumer, error) {
+func NewKafkaConsumer(brokers, groupID, topic string, handler MessageHandler, log *zap.Logger) (*KafkaConsumer, error) {
 	c, err := kafka.NewConsumer(&kafka.ConfigMap{
 		"bootstrap.servers": brokers,
 		"group.id":          groupID,
@@ -40,17 +41,18 @@ func NewKafkaConsumer(brokers, groupID, topic string, handler MessageHandler) (*
 		consumer: c,
 		topic:    topic,
 		handler:  handler,
+		log:      log,
 	}, nil
 }
 
 func (kc *KafkaConsumer) StartConsuming(ctx context.Context) {
 	go func() {
-		slog.Info(fmt.Sprintf("kafka consumer for topic %s is started", kc.topic))
+		kc.log.Info(fmt.Sprintf("kafka consumer for topic %s is started", kc.topic))
 
 		for {
 			select {
 			case <-ctx.Done():
-				slog.Info(fmt.Sprintf("kafka consumer for topic %s stopped", kc.topic))
+				kc.log.Info(fmt.Sprintf("kafka consumer for topic %s stopped", kc.topic))
 				return
 			default:
 				msg, err := kc.consumer.ReadMessage(5 * time.Second)
@@ -59,13 +61,13 @@ func (kc *KafkaConsumer) StartConsuming(ctx context.Context) {
 					if errors.As(err, &kafkaErr) && kafkaErr.IsTimeout() {
 						continue
 					}
-					slog.Error(fmt.Sprintf("failed to read message from topic %s: %v", kc.topic, err))
+					kc.log.Error(fmt.Sprintf("failed to read message from topic %s: %v", kc.topic, err))
 					continue
 				}
 
 				for attempt := 1; ; attempt++ {
 					if ctx.Err() != nil {
-						slog.Info(fmt.Sprintf("kafka consumer for topic %s stopped", kc.topic))
+						kc.log.Info(fmt.Sprintf("kafka consumer for topic %s stopped", kc.topic))
 						return
 					}
 
@@ -75,7 +77,7 @@ func (kc *KafkaConsumer) StartConsuming(ctx context.Context) {
 						if commitErr == nil {
 							break
 						}
-						slog.Error(fmt.Sprintf("failed to commit message for topic %s: %v", kc.topic, commitErr))
+						kc.log.Error(fmt.Sprintf("failed to commit message for topic %s", kc.topic), zap.Error(commitErr))
 					}
 
 					time.Sleep(time.Duration(math.Min(float64(attempt*2), 10)) * time.Second)

@@ -2,49 +2,57 @@ package commonsserver
 
 import (
 	"context"
-	"golang.org/x/sync/errgroup"
-	"log/slog"
+	"fmt"
 	"net"
 	"net/http"
 	"strconv"
+
+	"github.com/spf13/viper"
+	"go.uber.org/fx"
+	"go.uber.org/zap"
 )
 
 type ServerConf struct {
 	Port int `mapstructure:"port"`
 }
 
-type Server struct {
-	httpServer  *http.Server
-	baseContext context.Context
-	serverConf  *ServerConf
+var HttpServerModule = fx.Options(
+	fx.Provide(
+		NewServer,
+		NewServerConfig,
+	),
+	fx.Invoke(StartHTTPServer),
+)
+
+func NewServerConfig(v *viper.Viper) (ServerConf, error) {
+	var cfg ServerConf
+	if err := v.Sub("server").UnmarshalExact(&cfg); err != nil {
+		return cfg, fmt.Errorf("failed to load server config: %w", err)
+	}
+	return cfg, nil
 }
 
-func NewServer(conf *ServerConf, baseContext context.Context, handler http.Handler) *Server {
-	s := &http.Server{
+func StartHTTPServer(*http.Server) {}
+
+func NewServer(lc fx.Lifecycle, log *zap.Logger, conf ServerConf, handler http.Handler) *http.Server {
+	srv := &http.Server{
 		Addr:    ":" + strconv.Itoa(conf.Port),
 		Handler: handler,
-		BaseContext: func(_ net.Listener) context.Context {
-			return baseContext
+	}
+	lc.Append(fx.Hook{
+		OnStart: func(ctx context.Context) error {
+			ln, err := net.Listen("tcp", srv.Addr)
+			if err != nil {
+				log.Error("failed to listen", zap.Error(err))
+				return err
+			}
+			log.Info("starting HTTP server at", zap.String("addr", srv.Addr))
+			go srv.Serve(ln)
+			return nil
 		},
-	}
-
-	return &Server{s, baseContext, conf}
-}
-
-func (s *Server) Start() {
-	g, gCtx := errgroup.WithContext(s.baseContext)
-
-	g.Go(func() error {
-		slog.Info("listening and serving HTTP", slog.String("addr", s.httpServer.Addr))
-		return s.httpServer.ListenAndServe()
+		OnStop: func(ctx context.Context) error {
+			return srv.Shutdown(ctx)
+		},
 	})
-
-	g.Go(func() error {
-		<-gCtx.Done()
-		return s.httpServer.Shutdown(context.Background())
-	})
-
-	if err := g.Wait(); err != nil {
-		slog.Error("exited", slog.Any("error", err))
-	}
+	return srv
 }

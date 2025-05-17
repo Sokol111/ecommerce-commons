@@ -2,6 +2,7 @@ package commonskafka
 
 import (
 	"context"
+
 	"github.com/confluentinc/confluent-kafka-go/v2/kafka"
 )
 

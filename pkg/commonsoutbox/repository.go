@@ -4,11 +4,12 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"time"
+
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
-	"time"
 )
 
 type OutboxRepository interface {
@@ -51,7 +52,7 @@ func (r *OutboxMongoRepository) FetchAndLock(ctx context.Context) (OutboxEntity,
 
 	if err != nil {
 		if errors.Is(err, mongo.ErrNoDocuments) {
-			return OutboxEntity{}, fmt.Errorf("failed to fetch outbox entity: %w", EntityNotFoundError)
+			return OutboxEntity{}, fmt.Errorf("failed to fetch outbox entity: %w", ErrEntityNotFound)
 		}
 		return OutboxEntity{}, fmt.Errorf("failed to fetch outbox entity: %w", err)
 	}
@@ -66,6 +67,7 @@ func (r *OutboxMongoRepository) Create(ctx context.Context, payload string, key 
 		Topic:          topic,
 		CreatedAt:      time.Now().UTC(),
 		Status:         "PROCESSING",
+		LockExpiresAt:  time.Now().Add(30 * time.Second),
 		AttemptsToSend: 0,
 	}
 	result, err := r.collection.InsertOne(ctx, entity)

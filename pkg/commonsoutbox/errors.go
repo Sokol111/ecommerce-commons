@@ -2,4 +2,4 @@ package commonsoutbox
 
 import "errors"
 
-var EntityNotFoundError = errors.New("entity not found in database")
+var ErrEntityNotFound = errors.New("entity not found in database")

@@ -2,6 +2,7 @@ package commonskafka
 
 import (
 	"fmt"
+
 	"github.com/confluentinc/confluent-kafka-go/v2/kafka"
 	"go.uber.org/zap"
 )

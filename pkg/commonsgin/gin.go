@@ -1,12 +1,21 @@
-package commonsserver
+package commonsgin
 
 import (
+	"time"
+
 	"github.com/gin-gonic/gin"
 	"go.uber.org/zap"
-	"time"
 )
 
-func ErrorLoggerMiddleware(log *zap.Logger) gin.HandlerFunc {
+func NewEngine(log *zap.Logger) *gin.Engine {
+	engine := gin.New()
+	engine.Use(gin.Logger())
+	engine.Use(gin.Recovery())
+	engine.Use(errorLoggerMiddleware(log))
+	return engine
+}
+
+func errorLoggerMiddleware(log *zap.Logger) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		start := time.Now()
 		c.Next()

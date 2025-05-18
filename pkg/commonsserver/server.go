@@ -2,57 +2,44 @@ package commonsserver
 
 import (
 	"context"
-	"fmt"
 	"net"
 	"net/http"
 	"strconv"
 
-	"github.com/spf13/viper"
-	"go.uber.org/fx"
 	"go.uber.org/zap"
 )
 
-type ServerConf struct {
-	Port int `mapstructure:"port"`
+type ServerInterface interface {
+	Serve() error
+	Shutdown(ctx context.Context) error
 }
 
-var HttpServerModule = fx.Options(
-	fx.Provide(
-		NewServer,
-		NewServerConfig,
-	),
-	fx.Invoke(StartHTTPServer),
-)
-
-func NewServerConfig(v *viper.Viper) (ServerConf, error) {
-	var cfg ServerConf
-	if err := v.Sub("server").UnmarshalExact(&cfg); err != nil {
-		return cfg, fmt.Errorf("failed to load server config: %w", err)
-	}
-	return cfg, nil
+type Server struct {
+	httpSrv *http.Server
+	log     *zap.Logger
 }
 
-func StartHTTPServer(*http.Server) {}
-
-func NewServer(lc fx.Lifecycle, log *zap.Logger, conf ServerConf, handler http.Handler) *http.Server {
+func NewServer(log *zap.Logger, conf ServerConf, handler http.Handler) *Server {
 	srv := &http.Server{
 		Addr:    ":" + strconv.Itoa(conf.Port),
 		Handler: handler,
 	}
-	lc.Append(fx.Hook{
-		OnStart: func(ctx context.Context) error {
-			ln, err := net.Listen("tcp", srv.Addr)
-			if err != nil {
-				log.Error("failed to listen", zap.Error(err))
-				return err
-			}
-			log.Info("starting HTTP server at", zap.String("addr", srv.Addr))
-			go srv.Serve(ln)
-			return nil
-		},
-		OnStop: func(ctx context.Context) error {
-			return srv.Shutdown(ctx)
-		},
-	})
-	return srv
+	return &Server{
+		httpSrv: srv,
+		log:     log,
+	}
+}
+
+func (s *Server) Serve() error {
+	ln, err := net.Listen("tcp", s.httpSrv.Addr)
+	if err != nil {
+		s.log.Error("failed to listen", zap.Error(err))
+		return err
+	}
+	s.log.Info("starting HTTP server at", zap.String("addr", s.httpSrv.Addr))
+	return s.httpSrv.Serve(ln)
+}
+
+func (s *Server) Shutdown(ctx context.Context) error {
+	return s.httpSrv.Shutdown(ctx)
 }

@@ -1,0 +1,33 @@
+package commonsserver
+
+import (
+	"context"
+	"net/http"
+
+	"go.uber.org/fx"
+	"go.uber.org/zap"
+)
+
+var HttpServerModule = fx.Options(
+	fx.Provide(
+		ProvideNewServer,
+		NewServerConfig,
+	),
+	fx.Invoke(StartHTTPServer),
+)
+
+func StartHTTPServer(ServerInterface) {}
+
+func ProvideNewServer(lc fx.Lifecycle, log *zap.Logger, conf ServerConf, handler http.Handler) ServerInterface {
+	srv := NewServer(log, conf, handler)
+	lc.Append(fx.Hook{
+		OnStart: func(ctx context.Context) error {
+			go srv.Serve()
+			return nil
+		},
+		OnStop: func(ctx context.Context) error {
+			return srv.Shutdown(ctx)
+		},
+	})
+	return srv
+}

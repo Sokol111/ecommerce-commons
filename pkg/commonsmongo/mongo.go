@@ -5,39 +5,16 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/spf13/viper"
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
-	"go.uber.org/fx"
 	"go.uber.org/zap"
 )
 
-type Config struct {
-	Mongo MongoConf `mapstructure:"mongo"`
-}
-
-type MongoConf struct {
-	Host       string `mapstructure:"host"`
-	Port       int    `mapstructure:"port"`
-	ReplicaSet string `mapstructure:"replica-set"`
-	Username   string `mapstructure:"username"`
-	Password   string `mapstructure:"password"`
-	Database   string `mapstructure:"database"`
-}
-
-var MongoModule = fx.Options(
-	fx.Provide(
-		NewMongo,
-		NewMongoConfig,
-	),
-)
-
-func NewMongoConfig(v *viper.Viper) (MongoConf, error) {
-	var cfg MongoConf
-	if err := v.Sub("mongo").UnmarshalExact(&cfg); err != nil {
-		return cfg, fmt.Errorf("failed to load mongo config: %w", err)
-	}
-	return cfg, nil
+type MongoInterface interface {
+	Connect(ctx context.Context) error
+	Disconnect(ctx context.Context) error
+	CreateIndexes(ctx context.Context, collection string, indexes []mongo.IndexModel) error
+	CreateSimpleIndex(ctx context.Context, collection string, keys interface{}) error
 }
 
 type Mongo struct {
@@ -47,23 +24,11 @@ type Mongo struct {
 	log      *zap.Logger
 }
 
-func NewMongo(lc fx.Lifecycle, log *zap.Logger, conf MongoConf) (*Mongo, error) {
+func NewMongo(log *zap.Logger, conf MongoConf) (*Mongo, error) {
 	if err := validateConfig(conf); err != nil {
 		return nil, err
 	}
-
-	m := &Mongo{conf: conf, log: log}
-
-	lc.Append(fx.Hook{
-		OnStart: func(ctx context.Context) error {
-			return m.connect(ctx)
-		},
-		OnStop: func(ctx context.Context) error {
-			return m.disconnect(ctx)
-		},
-	})
-
-	return m, nil
+	return &Mongo{conf: conf, log: log}, nil
 }
 
 func validateConfig(conf MongoConf) error {
@@ -73,7 +38,7 @@ func validateConfig(conf MongoConf) error {
 	return nil
 }
 
-func (m *Mongo) connect(ctx context.Context) error {
+func (m *Mongo) Connect(ctx context.Context) error {
 	c, cancel := context.WithTimeout(ctx, 10*time.Second)
 	defer cancel()
 	uri := buildURI(m.conf)
@@ -103,7 +68,10 @@ func (m *Mongo) GetCollection(collection string) *mongo.Collection {
 	return m.database.Collection(collection)
 }
 
-func (m *Mongo) disconnect(ctx context.Context) error {
+func (m *Mongo) Disconnect(ctx context.Context) error {
+	if m.client == nil {
+		return nil
+	}
 	c, cancel := context.WithTimeout(ctx, 10*time.Second)
 	defer cancel()
 	if err := m.client.Disconnect(c); err != nil {

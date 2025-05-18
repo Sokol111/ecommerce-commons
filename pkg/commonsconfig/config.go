@@ -2,14 +2,10 @@ package commonsconfig
 
 import (
 	"fmt"
-	"github.com/spf13/viper"
-	"go.uber.org/fx"
 	"os"
 	"strings"
-)
 
-var ViperModule = fx.Options(
-	fx.Provide(NewViper),
+	"github.com/spf13/viper"
 )
 
 func NewViper() (*viper.Viper, error) {

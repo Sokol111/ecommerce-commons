@@ -5,23 +5,17 @@ import (
 	"errors"
 	"fmt"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/Sokol111/ecommerce-commons/pkg/commonskafka"
 	"github.com/confluentinc/confluent-kafka-go/v2/kafka"
 	"go.mongodb.org/mongo-driver/bson/primitive"
-	"go.uber.org/fx"
 	"go.uber.org/zap"
 )
 
 type OutboxInterface interface {
-	Create(payload string, key string, topic string) error
-}
-
-func NewOutboxModule() fx.Option {
-	return fx.Provide(
-		NewOutbox,
-	)
+	Create(ctx context.Context, payload string, key string, topic string) error
 }
 
 type Outbox struct {
@@ -36,51 +30,63 @@ type Outbox struct {
 	wg         sync.WaitGroup
 	cancelFunc context.CancelFunc
 	ctx        context.Context
+
+	startOnce sync.Once
+	stopOnce  sync.Once
+	started   atomic.Bool
 }
 
-func NewOutbox(lc fx.Lifecycle, log *zap.Logger, producer commonskafka.ProducerInterface, repository OutboxRepository) *Outbox {
-	o := &Outbox{
+func NewOutbox(log *zap.Logger, producer commonskafka.ProducerInterface, repository OutboxRepository) *Outbox {
+	return &Outbox{
 		producer:     producer,
 		repository:   repository,
 		entitiesChan: make(chan OutboxEntity, 100),
 		deliveryChan: make(chan kafka.Event, 1000),
 		log:          log.With(zap.String("component", "outbox")),
 	}
+}
 
-	lc.Append(fx.Hook{
-		OnStart: func(ctx context.Context) error {
-			c, cancel := context.WithCancel(ctx)
-			o.ctx = c
-			o.cancelFunc = cancel
-			o.start()
-			return nil
-		},
-		OnStop: func(ctx context.Context) error {
-			o.stop()
-			return nil
-		},
+func (o *Outbox) Start() {
+	o.startOnce.Do(func() {
+		o.log.Info("starting outbox workers")
+		o.ctx, o.cancelFunc = context.WithCancel(context.Background())
+		go o.startFetchingWorker()
+		go o.startSendingWorker()
+		o.wg.Add(1)
+		go o.startConfirmationWorker()
+		o.started.Store(true)
+		o.log.Info("Outbox started")
 	})
-	return o
 }
 
-func (o *Outbox) start() {
-	o.log.Info("starting outbox workers")
-	go o.startFetchingWorker()
-	go o.startSendingWorker()
-	o.wg.Add(1)
-	go o.startConfirmationWorker()
-	o.log.Info("Outbox started")
+func (o *Outbox) Stop(ctx context.Context) {
+	if !o.started.Load() {
+		o.log.Warn("outbox not started, skipping stop")
+		return
+	}
+
+	o.stopOnce.Do(func() {
+		o.log.Info("stopping outbox")
+		o.cancelFunc()
+
+		done := make(chan struct{})
+		go func() {
+			defer close(done)
+			o.wg.Wait()
+		}()
+
+		select {
+		case <-done:
+		case <-ctx.Done():
+			o.log.Warn("shutdown timed out")
+		}
+
+		o.log.Info("outbox stopped")
+	})
 }
 
-func (o *Outbox) stop() {
-	o.log.Info("stopping outbox")
-	o.cancelFunc()
-	o.wg.Wait()
-	o.log.Info("outbox stopped")
-}
-
-func (o *Outbox) Create(payload string, key string, topic string) error {
-	entity, err := o.repository.Create(o.ctx, payload, key, topic)
+func (o *Outbox) Create(ctx context.Context, payload string, key string, topic string) error {
+	entity, err := o.repository.Create(ctx, payload, key, topic)
 	if err != nil {
 		return fmt.Errorf("failed to create outbox message: %w", err)
 	}

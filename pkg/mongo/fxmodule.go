@@ -1,4 +1,4 @@
-package commonsmongo
+package mongo
 
 import (
 	"context"
@@ -14,7 +14,7 @@ var MongoModule = fx.Options(
 	),
 )
 
-func ProvideNewMongo(lc fx.Lifecycle, log *zap.Logger, conf MongoConf) (MongoInterface, error) {
+func ProvideNewMongo(lc fx.Lifecycle, log *zap.Logger, conf Config) (Mongo, error) {
 	if err := validateConfig(conf); err != nil {
 		return nil, err
 	}

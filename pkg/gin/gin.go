@@ -1,4 +1,4 @@
-package commonsgin
+package gin
 
 import (
 	"time"

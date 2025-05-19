@@ -1,4 +1,4 @@
-package commonslogging
+package logging
 
 import (
 	"go.uber.org/fx"

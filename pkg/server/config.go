@@ -1,4 +1,4 @@
-package commonsserver
+package server
 
 import (
 	"fmt"
@@ -6,12 +6,12 @@ import (
 	"github.com/spf13/viper"
 )
 
-type ServerConf struct {
+type Config struct {
 	Port int `mapstructure:"port"`
 }
 
-func NewServerConfig(v *viper.Viper) (ServerConf, error) {
-	var cfg ServerConf
+func NewConfig(v *viper.Viper) (Config, error) {
+	var cfg Config
 	if err := v.Sub("server").UnmarshalExact(&cfg); err != nil {
 		return cfg, fmt.Errorf("failed to load server config: %w", err)
 	}

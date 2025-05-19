@@ -1,4 +1,4 @@
-package commonsoutbox
+package outbox
 
 import (
 	"time"

@@ -1,4 +1,4 @@
-package commonskafka
+package kafka
 
 import (
 	"context"
@@ -6,7 +6,7 @@ import (
 	"github.com/confluentinc/confluent-kafka-go/v2/kafka"
 )
 
-type KafkaConf struct {
+type Config struct {
 	Brokers       string `mapstructure:"brokers"`
 	ConsumerGroup string `mapstructure:"consumer-group"`
 }

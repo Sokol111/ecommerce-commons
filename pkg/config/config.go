@@ -1,4 +1,4 @@
-package commonsconfig
+package config
 
 import (
 	"fmt"

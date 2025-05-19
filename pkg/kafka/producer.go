@@ -1,4 +1,4 @@
-package commonskafka
+package kafka
 
 import (
 	"fmt"
@@ -7,18 +7,17 @@ import (
 	"go.uber.org/zap"
 )
 
-type ProducerInterface interface {
+type Producer interface {
 	Produce(message *kafka.Message, deliveryChan chan kafka.Event) error
 	Close()
 }
 
-type KafkaProducer struct {
+type producer struct {
 	producer *kafka.Producer
-	conf     *KafkaConf
 	log      *zap.Logger
 }
 
-func NewKafkaProducer(conf *KafkaConf, log *zap.Logger) (*KafkaProducer, error) {
+func NewProducer(conf Config, log *zap.Logger) (Producer, error) {
 	p, err := kafka.NewProducer(&kafka.ConfigMap{"bootstrap.servers": conf.Brokers})
 	if err != nil {
 		return nil, fmt.Errorf("failed to create producer: %w", err)
@@ -37,18 +36,18 @@ func NewKafkaProducer(conf *KafkaConf, log *zap.Logger) (*KafkaProducer, error) 
 		}
 	}()
 
-	return &KafkaProducer{producer: p, conf: conf}, nil
+	return &producer{producer: p, log: log}, nil
 }
 
-func (kp *KafkaProducer) Produce(message *kafka.Message, deliveryChan chan kafka.Event) error {
-	err := kp.producer.Produce(message, deliveryChan)
+func (p *producer) Produce(message *kafka.Message, deliveryChan chan kafka.Event) error {
+	err := p.producer.Produce(message, deliveryChan)
 	if err != nil {
 		return fmt.Errorf("failed to send message to topic %s: %w", message.TopicPartition, err)
 	}
 	return nil
 }
 
-func (kp *KafkaProducer) Close() {
-	kp.producer.Flush(15000)
-	kp.producer.Close()
+func (p *producer) Close() {
+	p.producer.Flush(15000)
+	p.producer.Close()
 }

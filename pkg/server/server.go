@@ -1,4 +1,4 @@
-package commonsserver
+package server
 
 import (
 	"context"
@@ -9,28 +9,28 @@ import (
 	"go.uber.org/zap"
 )
 
-type ServerInterface interface {
+type Server interface {
 	Serve() error
 	Shutdown(ctx context.Context) error
 }
 
-type Server struct {
+type server struct {
 	httpSrv *http.Server
 	log     *zap.Logger
 }
 
-func NewServer(log *zap.Logger, conf ServerConf, handler http.Handler) *Server {
+func NewServer(log *zap.Logger, conf Config, handler http.Handler) Server {
 	srv := &http.Server{
 		Addr:    ":" + strconv.Itoa(conf.Port),
 		Handler: handler,
 	}
-	return &Server{
+	return &server{
 		httpSrv: srv,
 		log:     log,
 	}
 }
 
-func (s *Server) Serve() error {
+func (s *server) Serve() error {
 	ln, err := net.Listen("tcp", s.httpSrv.Addr)
 	if err != nil {
 		s.log.Error("failed to listen", zap.Error(err))
@@ -40,6 +40,6 @@ func (s *Server) Serve() error {
 	return s.httpSrv.Serve(ln)
 }
 
-func (s *Server) Shutdown(ctx context.Context) error {
+func (s *server) Shutdown(ctx context.Context) error {
 	return s.httpSrv.Shutdown(ctx)
 }

@@ -1,4 +1,4 @@
-package commonsmongo
+package mongo
 
 import (
 	"fmt"
@@ -6,7 +6,7 @@ import (
 	"github.com/spf13/viper"
 )
 
-type MongoConf struct {
+type Config struct {
 	Host       string `mapstructure:"host"`
 	Port       int    `mapstructure:"port"`
 	ReplicaSet string `mapstructure:"replica-set"`
@@ -15,8 +15,8 @@ type MongoConf struct {
 	Database   string `mapstructure:"database"`
 }
 
-func NewMongoConfig(v *viper.Viper) (MongoConf, error) {
-	var cfg MongoConf
+func NewConfig(v *viper.Viper) (Config, error) {
+	var cfg Config
 	if err := v.Sub("mongo").UnmarshalExact(&cfg); err != nil {
 		return cfg, fmt.Errorf("failed to load mongo config: %w", err)
 	}

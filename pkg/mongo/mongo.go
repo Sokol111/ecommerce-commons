@@ -1,48 +1,59 @@
-package commonsmongo
+package mongo
 
 import (
 	"context"
 	"fmt"
 	"time"
 
-	"go.mongodb.org/mongo-driver/mongo"
+	mongodriver "go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
 	"go.uber.org/zap"
 )
 
-type MongoInterface interface {
+func GetCollection[T any](mongo Mongo, collection string) (T, error) {
+	coll := mongo.getCollection(collection)
+	result, ok := any(coll).(T)
+	if !ok {
+		var zero T
+		return zero, fmt.Errorf("collection does not implement required interface")
+	}
+	return result, nil
+}
+
+type Mongo interface {
 	Connect(ctx context.Context) error
 	Disconnect(ctx context.Context) error
-	CreateIndexes(ctx context.Context, collection string, indexes []mongo.IndexModel) error
+	getCollection(collection string) *mongodriver.Collection
+	CreateIndexes(ctx context.Context, collection string, indexes []mongodriver.IndexModel) error
 	CreateSimpleIndex(ctx context.Context, collection string, keys interface{}) error
 }
 
-type Mongo struct {
-	client   *mongo.Client
-	database *mongo.Database
-	conf     MongoConf
+type mongo struct {
+	client   *mongodriver.Client
+	database *mongodriver.Database
+	conf     Config
 	log      *zap.Logger
 }
 
-func NewMongo(log *zap.Logger, conf MongoConf) (*Mongo, error) {
+func NewMongo(log *zap.Logger, conf Config) (Mongo, error) {
 	if err := validateConfig(conf); err != nil {
 		return nil, err
 	}
-	return &Mongo{conf: conf, log: log}, nil
+	return &mongo{conf: conf, log: log}, nil
 }
 
-func validateConfig(conf MongoConf) error {
+func validateConfig(conf Config) error {
 	if conf.Host == "" || conf.Port == 0 || conf.Database == "" {
 		return fmt.Errorf("invalid Mongo configuration")
 	}
 	return nil
 }
 
-func (m *Mongo) Connect(ctx context.Context) error {
+func (m *mongo) Connect(ctx context.Context) error {
 	c, cancel := context.WithTimeout(ctx, 10*time.Second)
 	defer cancel()
 	uri := buildURI(m.conf)
-	client, err := mongo.Connect(c, options.Client().ApplyURI(uri))
+	client, err := mongodriver.Connect(c, options.Client().ApplyURI(uri))
 	if err != nil {
 		return fmt.Errorf("failed to connect to mongo: %w", err)
 	}
@@ -57,18 +68,18 @@ func (m *Mongo) Connect(ctx context.Context) error {
 	return nil
 }
 
-func buildURI(conf MongoConf) string {
+func buildURI(conf Config) string {
 	if conf.Username != "" {
 		return fmt.Sprintf("mongodb://%s:%s@%s:%d/%s?replicaSet=%s", conf.Username, conf.Password, conf.Host, conf.Port, conf.Database, conf.ReplicaSet)
 	}
 	return fmt.Sprintf("mongodb://%s:%d/%s?replicaSet=%s", conf.Host, conf.Port, conf.Database, conf.ReplicaSet)
 }
 
-func (m *Mongo) GetCollection(collection string) *mongo.Collection {
+func (m *mongo) getCollection(collection string) *mongodriver.Collection {
 	return m.database.Collection(collection)
 }
 
-func (m *Mongo) Disconnect(ctx context.Context) error {
+func (m *mongo) Disconnect(ctx context.Context) error {
 	if m.client == nil {
 		return nil
 	}
@@ -80,7 +91,7 @@ func (m *Mongo) Disconnect(ctx context.Context) error {
 	return nil
 }
 
-func (m *Mongo) CreateIndexes(ctx context.Context, collection string, indexes []mongo.IndexModel) error {
+func (m *mongo) CreateIndexes(ctx context.Context, collection string, indexes []mongodriver.IndexModel) error {
 	names, err := m.database.Collection(collection).Indexes().CreateMany(ctx, indexes)
 	if err != nil {
 		return fmt.Errorf("failed to create indexes: %w", err)
@@ -92,7 +103,7 @@ func (m *Mongo) CreateIndexes(ctx context.Context, collection string, indexes []
 	return nil
 }
 
-func (m *Mongo) CreateSimpleIndex(ctx context.Context, collection string, keys interface{}) error {
-	indexModel := mongo.IndexModel{Keys: keys}
-	return m.CreateIndexes(ctx, collection, []mongo.IndexModel{indexModel})
+func (m *mongo) CreateSimpleIndex(ctx context.Context, collection string, keys interface{}) error {
+	indexModel := mongodriver.IndexModel{Keys: keys}
+	return m.CreateIndexes(ctx, collection, []mongodriver.IndexModel{indexModel})
 }

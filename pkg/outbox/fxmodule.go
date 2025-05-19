@@ -1,9 +1,9 @@
-package commonsoutbox
+package outbox
 
 import (
 	"context"
 
-	"github.com/Sokol111/ecommerce-commons/pkg/commonskafka"
+	"github.com/Sokol111/ecommerce-commons/pkg/kafka"
 	"go.uber.org/fx"
 	"go.uber.org/zap"
 )
@@ -14,7 +14,7 @@ func NewOutboxModule() fx.Option {
 	)
 }
 
-func ProvideNewOutbox(lc fx.Lifecycle, log *zap.Logger, producer commonskafka.ProducerInterface, repository OutboxRepository) OutboxInterface {
+func ProvideNewOutbox(lc fx.Lifecycle, log *zap.Logger, producer kafka.ProducerInterface, repository OutboxRepository) OutboxInterface {
 	o := NewOutbox(log, producer, repository)
 
 	lc.Append(fx.Hook{

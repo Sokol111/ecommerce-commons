@@ -1,4 +1,4 @@
-package commonsconfig
+package config
 
 import "go.uber.org/fx"
 

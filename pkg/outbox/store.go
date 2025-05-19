@@ -1,4 +1,4 @@
-package commonsoutbox
+package outbox
 
 import (
 	"context"
@@ -12,7 +12,9 @@ import (
 	"go.mongodb.org/mongo-driver/mongo/options"
 )
 
-type OutboxRepository interface {
+var errEntityNotFound = errors.New("entity not found in database")
+
+type Store interface {
 
 	// can return EntityNotFoundError
 	FetchAndLock(ctx context.Context) (OutboxEntity, error)
@@ -22,15 +24,15 @@ type OutboxRepository interface {
 	UpdateAsSentByIds(ctx context.Context, ids []primitive.ObjectID) error
 }
 
-type OutboxMongoRepository struct {
-	collection MongoCollection
+type store struct {
+	collection collection
 }
 
-func NewOutboxMongoRepository(collection MongoCollection) *OutboxMongoRepository {
-	return &OutboxMongoRepository{collection}
+func NewStore(collection collection) Store {
+	return &store{collection}
 }
 
-func (r *OutboxMongoRepository) FetchAndLock(ctx context.Context) (OutboxEntity, error) {
+func (r *store) FetchAndLock(ctx context.Context) (OutboxEntity, error) {
 	var message OutboxEntity
 
 	opts := options.FindOneAndUpdate().SetSort(bson.M{"lockExpiresAt": 1, "createdAt": 1}).SetReturnDocument(options.After)
@@ -52,7 +54,7 @@ func (r *OutboxMongoRepository) FetchAndLock(ctx context.Context) (OutboxEntity,
 
 	if err != nil {
 		if errors.Is(err, mongo.ErrNoDocuments) {
-			return OutboxEntity{}, fmt.Errorf("failed to fetch outbox entity: %w", ErrEntityNotFound)
+			return OutboxEntity{}, fmt.Errorf("failed to fetch outbox entity: %w", errEntityNotFound)
 		}
 		return OutboxEntity{}, fmt.Errorf("failed to fetch outbox entity: %w", err)
 	}
@@ -60,7 +62,7 @@ func (r *OutboxMongoRepository) FetchAndLock(ctx context.Context) (OutboxEntity,
 	return message, nil
 }
 
-func (r *OutboxMongoRepository) Create(ctx context.Context, payload string, key string, topic string) (OutboxEntity, error) {
+func (r *store) Create(ctx context.Context, payload string, key string, topic string) (OutboxEntity, error) {
 	entity := OutboxEntity{
 		Payload:        payload,
 		Key:            key,
@@ -82,7 +84,7 @@ func (r *OutboxMongoRepository) Create(ctx context.Context, payload string, key 
 	return entity, nil
 }
 
-func (r *OutboxMongoRepository) UpdateAsSentByIds(ctx context.Context, ids []primitive.ObjectID) error {
+func (r *store) UpdateAsSentByIds(ctx context.Context, ids []primitive.ObjectID) error {
 	_, err := r.collection.UpdateMany(ctx,
 		bson.M{"_id": bson.M{"$in": ids}},
 		bson.M{"$set": bson.M{"status": "SENT"}, "$unset": bson.M{"lockExpiresAt": ""}})

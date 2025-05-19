@@ -1,4 +1,4 @@
-package commonsserver
+package server
 
 import (
 	"context"
@@ -11,14 +11,14 @@ import (
 var HttpServerModule = fx.Options(
 	fx.Provide(
 		ProvideNewServer,
-		NewServerConfig,
+		NewConfig,
 	),
 	fx.Invoke(StartHTTPServer),
 )
 
 func StartHTTPServer(ServerInterface) {}
 
-func ProvideNewServer(lc fx.Lifecycle, log *zap.Logger, conf ServerConf, handler http.Handler) ServerInterface {
+func ProvideNewServer(lc fx.Lifecycle, log *zap.Logger, conf Config, handler http.Handler) ServerInterface {
 	srv := NewServer(log, conf, handler)
 	lc.Append(fx.Hook{
 		OnStart: func(ctx context.Context) error {

@@ -1,28 +1,29 @@
-package commonskafka
+package kafka
 
 import (
 	"context"
 	"errors"
 	"fmt"
-	"github.com/confluentinc/confluent-kafka-go/v2/kafka"
-	"go.uber.org/zap"
 	"math"
 	"time"
+
+	"github.com/confluentinc/confluent-kafka-go/v2/kafka"
+	"go.uber.org/zap"
 )
 
-type ConsumerInterface interface {
-	Consume(ctx context.Context) error
+type Consumer interface {
+	StartConsuming(ctx context.Context)
 	Close()
 }
 
-type KafkaConsumer struct {
+type consumer struct {
 	consumer *kafka.Consumer
 	topic    string
 	handler  MessageHandler
 	log      *zap.Logger
 }
 
-func NewKafkaConsumer(brokers, groupID, topic string, handler MessageHandler, log *zap.Logger) (*KafkaConsumer, error) {
+func NewConsumer(brokers, groupID, topic string, handler MessageHandler, log *zap.Logger) (Consumer, error) {
 	c, err := kafka.NewConsumer(&kafka.ConfigMap{
 		"bootstrap.servers": brokers,
 		"group.id":          groupID,
@@ -37,7 +38,7 @@ func NewKafkaConsumer(brokers, groupID, topic string, handler MessageHandler, lo
 		return nil, fmt.Errorf("failed to subscribe to topic %s: %w", topic, err)
 	}
 
-	return &KafkaConsumer{
+	return &consumer{
 		consumer: c,
 		topic:    topic,
 		handler:  handler,
@@ -45,39 +46,39 @@ func NewKafkaConsumer(brokers, groupID, topic string, handler MessageHandler, lo
 	}, nil
 }
 
-func (kc *KafkaConsumer) StartConsuming(ctx context.Context) {
+func (c *consumer) StartConsuming(ctx context.Context) {
 	go func() {
-		kc.log.Info(fmt.Sprintf("kafka consumer for topic %s is started", kc.topic))
+		c.log.Info(fmt.Sprintf("kafka consumer for topic %s is started", c.topic))
 
 		for {
 			select {
 			case <-ctx.Done():
-				kc.log.Info(fmt.Sprintf("kafka consumer for topic %s stopped", kc.topic))
+				c.log.Info(fmt.Sprintf("kafka consumer for topic %s stopped", c.topic))
 				return
 			default:
-				msg, err := kc.consumer.ReadMessage(5 * time.Second)
+				msg, err := c.consumer.ReadMessage(5 * time.Second)
 				if err != nil {
 					var kafkaErr kafka.Error
 					if errors.As(err, &kafkaErr) && kafkaErr.IsTimeout() {
 						continue
 					}
-					kc.log.Error(fmt.Sprintf("failed to read message from topic %s: %v", kc.topic, err))
+					c.log.Error(fmt.Sprintf("failed to read message from topic %s: %v", c.topic, err))
 					continue
 				}
 
 				for attempt := 1; ; attempt++ {
 					if ctx.Err() != nil {
-						kc.log.Info(fmt.Sprintf("kafka consumer for topic %s stopped", kc.topic))
+						c.log.Info(fmt.Sprintf("kafka consumer for topic %s stopped", c.topic))
 						return
 					}
 
-					err := kc.handler.HandleMessage(ctx, msg)
+					err := c.handler.HandleMessage(ctx, msg)
 					if err == nil {
-						_, commitErr := kc.consumer.CommitMessage(msg)
+						_, commitErr := c.consumer.CommitMessage(msg)
 						if commitErr == nil {
 							break
 						}
-						kc.log.Error(fmt.Sprintf("failed to commit message for topic %s", kc.topic), zap.Error(commitErr))
+						c.log.Error(fmt.Sprintf("failed to commit message for topic %s", c.topic), zap.Error(commitErr))
 					}
 
 					time.Sleep(time.Duration(math.Min(float64(attempt*2), 10)) * time.Second)
@@ -87,6 +88,6 @@ func (kc *KafkaConsumer) StartConsuming(ctx context.Context) {
 	}()
 }
 
-func (kc *KafkaConsumer) Close() {
+func (kc *consumer) Close() {
 	kc.consumer.Close()
 }

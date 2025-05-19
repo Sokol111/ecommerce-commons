@@ -14,11 +14,13 @@ import (
 	"go.uber.org/zap"
 )
 
-type OutboxInterface interface {
+type Outbox interface {
 	Create(ctx context.Context, payload string, key string, topic string) error
+	Start()
+	Stop(ctx context.Context)
 }
 
-type Outbox struct {
+type outbox struct {
 	producer kafka.Producer
 	store    Store
 
@@ -36,8 +38,8 @@ type Outbox struct {
 	started   atomic.Bool
 }
 
-func NewOutbox(log *zap.Logger, producer kafka.Producer, store Store) *Outbox {
-	return &Outbox{
+func NewOutbox(log *zap.Logger, producer kafka.Producer, store Store) Outbox {
+	return &outbox{
 		producer:     producer,
 		store:        store,
 		entitiesChan: make(chan OutboxEntity, 100),
@@ -46,7 +48,7 @@ func NewOutbox(log *zap.Logger, producer kafka.Producer, store Store) *Outbox {
 	}
 }
 
-func (o *Outbox) Start() {
+func (o *outbox) Start() {
 	o.startOnce.Do(func() {
 		o.log.Info("starting outbox workers")
 		o.ctx, o.cancelFunc = context.WithCancel(context.Background())
@@ -59,7 +61,7 @@ func (o *Outbox) Start() {
 	})
 }
 
-func (o *Outbox) Stop(ctx context.Context) {
+func (o *outbox) Stop(ctx context.Context) {
 	if !o.started.Load() {
 		o.log.Warn("outbox not started, skipping stop")
 		return
@@ -85,7 +87,7 @@ func (o *Outbox) Stop(ctx context.Context) {
 	})
 }
 
-func (o *Outbox) Create(ctx context.Context, payload string, key string, topic string) error {
+func (o *outbox) Create(ctx context.Context, payload string, key string, topic string) error {
 	entity, err := o.store.Create(ctx, payload, key, topic)
 	if err != nil {
 		return fmt.Errorf("failed to create outbox message: %w", err)
@@ -99,7 +101,7 @@ func (o *Outbox) Create(ctx context.Context, payload string, key string, topic s
 	}
 }
 
-func (o *Outbox) send(entity OutboxEntity) error {
+func (o *outbox) send(entity OutboxEntity) error {
 	err := o.producer.Produce(&confluent.Message{
 		TopicPartition: confluent.TopicPartition{Topic: &entity.Topic, Partition: confluent.PartitionAny},
 		Opaque:         entity.ID,
@@ -112,7 +114,7 @@ func (o *Outbox) send(entity OutboxEntity) error {
 	return nil
 }
 
-func (o *Outbox) startFetchingWorker() {
+func (o *outbox) startFetchingWorker() {
 	defer o.log.Info("fetching worker stopped")
 	for {
 		select {
@@ -134,7 +136,7 @@ func (o *Outbox) startFetchingWorker() {
 	}
 }
 
-func (o *Outbox) startSendingWorker() {
+func (o *outbox) startSendingWorker() {
 	defer o.log.Info("sending worker stopped")
 	for {
 		select {
@@ -149,7 +151,7 @@ func (o *Outbox) startSendingWorker() {
 	}
 }
 
-func (o *Outbox) startConfirmationWorker() {
+func (o *outbox) startConfirmationWorker() {
 	defer o.log.Info("confirmation worker stopped")
 	defer o.wg.Done()
 	events := make([]confluent.Event, 0, 100)
@@ -185,7 +187,7 @@ func (o *Outbox) startConfirmationWorker() {
 	}
 }
 
-func (o *Outbox) handleConfirmation(events []confluent.Event) {
+func (o *outbox) handleConfirmation(events []confluent.Event) {
 	defer o.wg.Done()
 	ids := make([]primitive.ObjectID, 0, len(events))
 	for _, event := range events {

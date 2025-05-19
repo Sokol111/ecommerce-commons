@@ -14,8 +14,8 @@ func NewOutboxModule() fx.Option {
 	)
 }
 
-func ProvideNewOutbox(lc fx.Lifecycle, log *zap.Logger, producer kafka.ProducerInterface, repository OutboxRepository) OutboxInterface {
-	o := NewOutbox(log, producer, repository)
+func ProvideNewOutbox(lc fx.Lifecycle, log *zap.Logger, producer kafka.Producer, store Store) Outbox {
+	o := NewOutbox(log, producer, store)
 
 	lc.Append(fx.Hook{
 		OnStart: func(ctx context.Context) error {

@@ -16,9 +16,9 @@ var HttpServerModule = fx.Options(
 	fx.Invoke(StartHTTPServer),
 )
 
-func StartHTTPServer(ServerInterface) {}
+func StartHTTPServer(Server) {}
 
-func ProvideNewServer(lc fx.Lifecycle, log *zap.Logger, conf Config, handler http.Handler) ServerInterface {
+func ProvideNewServer(lc fx.Lifecycle, log *zap.Logger, conf Config, handler http.Handler) Server {
 	srv := NewServer(log, conf, handler)
 	lc.Append(fx.Hook{
 		OnStart: func(ctx context.Context) error {

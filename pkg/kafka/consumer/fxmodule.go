@@ -4,7 +4,7 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/Sokol111/ecommerce-commons/pkg/kafka"
+	"github.com/Sokol111/ecommerce-commons/pkg/kafka/config"
 	"go.uber.org/fx"
 	"go.uber.org/zap"
 )
@@ -32,8 +32,8 @@ func RegisterHandlerAndConsumer[T any](
 	)
 }
 
-func provideNewConsumer[T any](lc fx.Lifecycle, log *zap.Logger, conf kafka.Config, handlerDef handlerDef[T]) (Consumer, error) {
-	var consumerConf *kafka.ConsumerConfig
+func provideNewConsumer[T any](lc fx.Lifecycle, log *zap.Logger, conf config.Config, handlerDef handlerDef[T]) (Consumer, error) {
+	var consumerConf *config.ConsumerConfig
 	for _, c := range conf.Consumers {
 		if c.Handler == handlerDef.Name {
 			consumerConf = &c

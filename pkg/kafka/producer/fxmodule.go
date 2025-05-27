@@ -3,7 +3,7 @@ package producer
 import (
 	"context"
 
-	"github.com/Sokol111/ecommerce-commons/pkg/kafka"
+	"github.com/Sokol111/ecommerce-commons/pkg/kafka/config"
 	"go.uber.org/fx"
 	"go.uber.org/zap"
 )
@@ -14,7 +14,7 @@ var ProducerModule = fx.Options(
 	),
 )
 
-func provideNewProducer(lc fx.Lifecycle, log *zap.Logger, conf kafka.Config) (Producer, error) {
+func provideNewProducer(lc fx.Lifecycle, log *zap.Logger, conf config.Config) (Producer, error) {
 	p, err := NewProducer(conf, log)
 
 	if err != nil {

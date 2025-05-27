@@ -10,7 +10,8 @@ import (
 var MongoModule = fx.Options(
 	fx.Provide(
 		ProvideNewMongo,
-		NewMongoConfig,
+		NewConfig,
+		NewTxManager,
 	),
 )
 

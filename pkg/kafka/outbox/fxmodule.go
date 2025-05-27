@@ -3,18 +3,18 @@ package outbox
 import (
 	"context"
 
-	"github.com/Sokol111/ecommerce-commons/pkg/kafka"
+	"github.com/Sokol111/ecommerce-commons/pkg/kafka/producer"
 	"go.uber.org/fx"
 	"go.uber.org/zap"
 )
 
-func NewOutboxModule() fx.Option {
-	return fx.Provide(
-		ProvideNewOutbox,
-	)
-}
+var OutboxModule = fx.Options(
+	fx.Provide(
+		provideNewOutbox,
+	),
+)
 
-func ProvideNewOutbox(lc fx.Lifecycle, log *zap.Logger, producer kafka.Producer, store Store) Outbox {
+func provideNewOutbox(lc fx.Lifecycle, log *zap.Logger, producer producer.Producer, store Store) Outbox {
 	o := NewOutbox(log, producer, store)
 
 	lc.Append(fx.Hook{

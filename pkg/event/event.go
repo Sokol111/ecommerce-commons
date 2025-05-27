@@ -14,5 +14,5 @@ type BaseEvent struct {
 
 type Event[T any] struct {
 	BaseEvent
-	Payload T `json:"payload"`
+	Payload *T `json:"payload"`
 }

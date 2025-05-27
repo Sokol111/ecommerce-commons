@@ -2,32 +2,33 @@ package outbox
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"sync"
 	"sync/atomic"
 	"time"
 
-	"github.com/Sokol111/ecommerce-commons/pkg/kafka"
-	confluent "github.com/confluentinc/confluent-kafka-go/v2/kafka"
+	"github.com/Sokol111/ecommerce-commons/pkg/kafka/producer"
+	"github.com/confluentinc/confluent-kafka-go/v2/kafka"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.uber.org/zap"
 )
 
 type Outbox interface {
-	Create(ctx context.Context, payload string, key string, topic string) error
+	Create(ctx context.Context, event any, key string, topic string) error
 	Start()
-	Stop(ctx context.Context)
+	Stop(ctx context.Context) error
 }
 
 type outbox struct {
-	producer kafka.Producer
+	producer producer.Producer
 	store    Store
 
 	log *zap.Logger
 
 	entitiesChan chan OutboxEntity
-	deliveryChan chan confluent.Event
+	deliveryChan chan kafka.Event
 
 	wg         sync.WaitGroup
 	cancelFunc context.CancelFunc
@@ -38,12 +39,12 @@ type outbox struct {
 	started   atomic.Bool
 }
 
-func NewOutbox(log *zap.Logger, producer kafka.Producer, store Store) Outbox {
+func NewOutbox(log *zap.Logger, producer producer.Producer, store Store) Outbox {
 	return &outbox{
 		producer:     producer,
 		store:        store,
 		entitiesChan: make(chan OutboxEntity, 100),
-		deliveryChan: make(chan confluent.Event, 1000),
+		deliveryChan: make(chan kafka.Event, 1000),
 		log:          log.With(zap.String("component", "outbox")),
 	}
 }
@@ -57,15 +58,17 @@ func (o *outbox) Start() {
 		o.wg.Add(1)
 		go o.startConfirmationWorker()
 		o.started.Store(true)
-		o.log.Info("Outbox started")
+		o.log.Info("outbox started")
 	})
 }
 
-func (o *outbox) Stop(ctx context.Context) {
+func (o *outbox) Stop(ctx context.Context) error {
 	if !o.started.Load() {
 		o.log.Warn("outbox not started, skipping stop")
-		return
+		return nil
 	}
+
+	var err error
 
 	o.stopOnce.Do(func() {
 		o.log.Info("stopping outbox")
@@ -80,15 +83,20 @@ func (o *outbox) Stop(ctx context.Context) {
 		select {
 		case <-done:
 		case <-ctx.Done():
-			o.log.Warn("shutdown timed out")
+			err = fmt.Errorf("shutdown timed out")
 		}
 
 		o.log.Info("outbox stopped")
 	})
+	return err
 }
 
-func (o *outbox) Create(ctx context.Context, payload string, key string, topic string) error {
-	entity, err := o.store.Create(ctx, payload, key, topic)
+func (o *outbox) Create(ctx context.Context, event any, key string, topic string) error {
+	eventStr, err := json.Marshal(event)
+	if err != nil {
+		return fmt.Errorf("failed to marshal event: %w", err)
+	}
+	entity, err := o.store.Create(ctx, string(eventStr), key, topic)
 	if err != nil {
 		return fmt.Errorf("failed to create outbox message: %w", err)
 	}
@@ -97,13 +105,17 @@ func (o *outbox) Create(ctx context.Context, payload string, key string, topic s
 		return nil
 	default:
 		o.log.Warn("entitiesChan is full, dropping message", zap.String("id", entity.ID.Hex()))
+		err = o.store.UpdateLockExpiresAt(ctx, entity.ID, time.Now().UTC())
+		if err != nil {
+			o.log.Warn("failed to update lockExpiresAt", zap.Error(err))
+		}
 		return nil
 	}
 }
 
 func (o *outbox) send(entity OutboxEntity) error {
-	err := o.producer.Produce(&confluent.Message{
-		TopicPartition: confluent.TopicPartition{Topic: &entity.Topic, Partition: confluent.PartitionAny},
+	err := o.producer.Produce(&kafka.Message{
+		TopicPartition: kafka.TopicPartition{Topic: &entity.Topic, Partition: kafka.PartitionAny},
 		Opaque:         entity.ID,
 		Value:          []byte(entity.Payload),
 		Key:            []byte(entity.Key),
@@ -143,6 +155,9 @@ func (o *outbox) startSendingWorker() {
 		case <-o.ctx.Done():
 			return
 		case entity := <-o.entitiesChan:
+			if o.ctx.Err() != nil {
+				return
+			}
 			err := o.send(entity)
 			if err != nil {
 				o.log.Error("failed to send outbox message", zap.String("id", entity.ID.Hex()), zap.Error(err))
@@ -152,15 +167,17 @@ func (o *outbox) startSendingWorker() {
 }
 
 func (o *outbox) startConfirmationWorker() {
-	defer o.log.Info("confirmation worker stopped")
-	defer o.wg.Done()
-	events := make([]confluent.Event, 0, 100)
+	defer func() {
+		o.log.Info("confirmation worker stopped")
+		o.wg.Done()
+	}()
+	events := make([]kafka.Event, 0, 100)
 
 	flush := func() {
 		if len(events) == 0 {
 			return
 		}
-		copySlice := make([]confluent.Event, len(events))
+		copySlice := make([]kafka.Event, len(events))
 		copy(copySlice, events)
 		o.wg.Add(1)
 		go o.handleConfirmation(copySlice)
@@ -176,6 +193,10 @@ func (o *outbox) startConfirmationWorker() {
 			flush()
 			return
 		case event := <-o.deliveryChan:
+			if o.ctx.Err() != nil {
+				flush()
+				return
+			}
 			events = append(events, event)
 			if len(events) == 100 {
 				flush()
@@ -187,11 +208,11 @@ func (o *outbox) startConfirmationWorker() {
 	}
 }
 
-func (o *outbox) handleConfirmation(events []confluent.Event) {
+func (o *outbox) handleConfirmation(events []kafka.Event) {
 	defer o.wg.Done()
 	ids := make([]primitive.ObjectID, 0, len(events))
 	for _, event := range events {
-		msg, ok := event.(*confluent.Message)
+		msg, ok := event.(*kafka.Message)
 		if !ok {
 			o.log.Warn("skipping confirmation",
 				zap.String("reason", "unexpected event type"),

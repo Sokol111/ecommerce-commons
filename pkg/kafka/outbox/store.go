@@ -21,6 +21,8 @@ type Store interface {
 
 	Create(ctx context.Context, payload string, key string, topic string) (OutboxEntity, error)
 
+	UpdateLockExpiresAt(ctx context.Context, id primitive.ObjectID, lockExpiresAt time.Time) error
+
 	UpdateAsSentByIds(ctx context.Context, ids []primitive.ObjectID) error
 }
 
@@ -82,6 +84,16 @@ func (r *store) Create(ctx context.Context, payload string, key string, topic st
 	}
 	entity.ID = id
 	return entity, nil
+}
+
+func (r *store) UpdateLockExpiresAt(ctx context.Context, id primitive.ObjectID, lockExpiresAt time.Time) error {
+	_, err := r.collection.UpdateOne(ctx,
+		bson.M{"_id": id},
+		bson.M{"$set": bson.M{"lockExpiresAt": lockExpiresAt}})
+	if err != nil {
+		return fmt.Errorf("failed to update outbox message: %w", err)
+	}
+	return nil
 }
 
 func (r *store) UpdateAsSentByIds(ctx context.Context, ids []primitive.ObjectID) error {

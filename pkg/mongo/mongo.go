@@ -10,22 +10,13 @@ import (
 	"go.uber.org/zap"
 )
 
-func GetCollection[T any](mongo Mongo, collection string) (T, error) {
-	coll := mongo.getCollection(collection)
-	result, ok := any(coll).(T)
-	if !ok {
-		var zero T
-		return zero, fmt.Errorf("collection does not implement required interface")
-	}
-	return result, nil
-}
-
 type Mongo interface {
 	Connect(ctx context.Context) error
 	Disconnect(ctx context.Context) error
-	getCollection(collection string) *mongodriver.Collection
+	GetCollection(collection string) *mongodriver.Collection
 	CreateIndexes(ctx context.Context, collection string, indexes []mongodriver.IndexModel) error
 	CreateSimpleIndex(ctx context.Context, collection string, keys interface{}) error
+	StartSession(ctx context.Context) (mongodriver.Session, error)
 }
 
 type mongo struct {
@@ -68,6 +59,10 @@ func (m *mongo) Connect(ctx context.Context) error {
 	return nil
 }
 
+func (m *mongo) StartSession(ctx context.Context) (mongodriver.Session, error) {
+	return m.client.StartSession()
+}
+
 func buildURI(conf Config) string {
 	if conf.Username != "" {
 		return fmt.Sprintf("mongodb://%s:%s@%s:%d/%s?replicaSet=%s", conf.Username, conf.Password, conf.Host, conf.Port, conf.Database, conf.ReplicaSet)
@@ -75,7 +70,7 @@ func buildURI(conf Config) string {
 	return fmt.Sprintf("mongodb://%s:%d/%s?replicaSet=%s", conf.Host, conf.Port, conf.Database, conf.ReplicaSet)
 }
 
-func (m *mongo) getCollection(collection string) *mongodriver.Collection {
+func (m *mongo) GetCollection(collection string) *mongodriver.Collection {
 	return m.database.Collection(collection)
 }
 

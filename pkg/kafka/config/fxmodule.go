@@ -1,10 +1,10 @@
-package kafka
+package config
 
 import (
 	"go.uber.org/fx"
 )
 
-var KafkaModule = fx.Options(
+var KafkaConfigModule = fx.Options(
 	fx.Provide(
 		NewConfig,
 	),

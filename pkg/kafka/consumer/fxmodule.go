@@ -9,46 +9,41 @@ import (
 	"go.uber.org/zap"
 )
 
-type HandlerDef struct {
+type handlerDef[T any] struct {
 	Name    string
-	Handler Handler[any]
+	Handler Handler[T]
 }
 
-type handlersGroup struct {
-	fx.In
-	Handlers []HandlerDef `group:"kafka_handlers"`
+func RegisterHandlerAndConsumer[T any](
+	name string,
+	constructor any,
+) fx.Option {
+	return fx.Options(
+		fx.Provide(
+			constructor,
+			func(h Handler[T]) handlerDef[T] {
+				return handlerDef[T]{Name: name, Handler: h}
+			},
+			fx.Annotate(
+				provideNewConsumer[T],
+				fx.ResultTags(`group:"kafka_consumers"`),
+			),
+		),
+	)
 }
 
-var ConsumerModule = fx.Options(
-	fx.Provide(
-		provideConsumers,
-	),
-)
-
-func provideConsumers(lc fx.Lifecycle, log *zap.Logger, conf kafka.Config, group handlersGroup) ([]Consumer, error) {
-	handlersMap := make(map[string]Handler[any])
-	for _, h := range group.Handlers {
-		handlersMap[h.Name] = h.Handler
-	}
-
-	var consumers []Consumer
-	for _, consumerConf := range conf.Consumers {
-		handler, ok := handlersMap[consumerConf.Handler]
-		if !ok {
-			return nil, fmt.Errorf("no handler found for topic: %s", consumerConf.Topic)
+func provideNewConsumer[T any](lc fx.Lifecycle, log *zap.Logger, conf kafka.Config, handlerDef handlerDef[T]) (Consumer, error) {
+	var consumerConf *kafka.ConsumerConfig
+	for _, c := range conf.Consumers {
+		if c.Handler == handlerDef.Name {
+			consumerConf = &c
+			break
 		}
-		c, err := provideNewConsumer(lc, log, conf.Brokers, consumerConf, handler)
-		if err != nil {
-			return nil, err
-		}
-		consumers = append(consumers, c)
 	}
-
-	return consumers, nil
-}
-
-func provideNewConsumer(lc fx.Lifecycle, log *zap.Logger, brokers string, consumerConf kafka.ConsumerConfig, handler Handler[any]) (Consumer, error) {
-	c, err := NewConsumer(brokers, consumerConf.GroupID, consumerConf.Topic, consumerConf.AutoOffsetReset, handler, log)
+	if consumerConf == nil {
+		return nil, fmt.Errorf("no consumer config found for handler: %s", handlerDef.Name)
+	}
+	c, err := NewConsumer(conf.Brokers, consumerConf.GroupID, consumerConf.Topic, consumerConf.AutoOffsetReset, handlerDef.Handler, log)
 	if err != nil {
 		return nil, err
 	}

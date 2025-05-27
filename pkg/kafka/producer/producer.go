@@ -3,23 +3,23 @@ package producer
 import (
 	"fmt"
 
-	"github.com/Sokol111/ecommerce-commons/pkg/kafka"
-	confluent "github.com/confluentinc/confluent-kafka-go/v2/kafka"
+	"github.com/Sokol111/ecommerce-commons/pkg/kafka/config"
+	"github.com/confluentinc/confluent-kafka-go/v2/kafka"
 	"go.uber.org/zap"
 )
 
 type Producer interface {
-	Produce(message *confluent.Message, deliveryChan chan confluent.Event) error
+	Produce(message *kafka.Message, deliveryChan chan kafka.Event) error
 	Close()
 }
 
 type producer struct {
-	producer *confluent.Producer
+	producer *kafka.Producer
 	log      *zap.Logger
 }
 
-func NewProducer(conf kafka.Config, log *zap.Logger) (Producer, error) {
-	p, err := confluent.NewProducer(&confluent.ConfigMap{"bootstrap.servers": conf.Brokers})
+func NewProducer(conf config.Config, log *zap.Logger) (Producer, error) {
+	p, err := kafka.NewProducer(&kafka.ConfigMap{"bootstrap.servers": conf.Brokers})
 	if err != nil {
 		return nil, fmt.Errorf("failed to create producer: %w", err)
 	}
@@ -40,7 +40,7 @@ func NewProducer(conf kafka.Config, log *zap.Logger) (Producer, error) {
 	return &producer{producer: p, log: log}, nil
 }
 
-func (p *producer) Produce(message *confluent.Message, deliveryChan chan confluent.Event) error {
+func (p *producer) Produce(message *kafka.Message, deliveryChan chan kafka.Event) error {
 	err := p.producer.Produce(message, deliveryChan)
 	if err != nil {
 		return fmt.Errorf("failed to send message to topic %s: %w", message.TopicPartition, err)

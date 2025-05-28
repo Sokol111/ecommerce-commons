@@ -20,7 +20,7 @@ start-kafka:
 	docker compose -f ./infrastructure/docker/kafka.yml up -d
 
 stop-kafka:
-	docker compose -f /infrastructure/docker/kafka.yml down -v
+	docker compose -f ./infrastructure/docker/kafka.yml down -v
 
 update-dependencies:
 	go get -u ./...

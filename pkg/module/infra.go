@@ -6,6 +6,7 @@ import (
 	"github.com/Sokol111/ecommerce-commons/pkg/logging"
 	"github.com/Sokol111/ecommerce-commons/pkg/mongo"
 	"github.com/Sokol111/ecommerce-commons/pkg/server"
+	"github.com/Sokol111/ecommerce-commons/pkg/swaggerui"
 	"go.uber.org/fx"
 )
 
@@ -15,4 +16,5 @@ var InfraModules = fx.Options(
 	mongo.MongoModule,
 	gin.GinModule,
 	server.HttpServerModule,
+	swaggerui.SwaggerModule,
 )

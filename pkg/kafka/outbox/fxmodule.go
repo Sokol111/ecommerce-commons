@@ -4,12 +4,17 @@ import (
 	"context"
 
 	"github.com/Sokol111/ecommerce-commons/pkg/kafka/producer"
+	"github.com/Sokol111/ecommerce-commons/pkg/mongo"
+	"go.mongodb.org/mongo-driver/bson"
+	mongodriver "go.mongodb.org/mongo-driver/mongo"
 	"go.uber.org/fx"
 	"go.uber.org/zap"
 )
 
 var OutboxModule = fx.Options(
 	fx.Provide(
+		initCollection,
+		NewStore,
 		provideNewOutbox,
 	),
 )
@@ -28,4 +33,22 @@ func provideNewOutbox(lc fx.Lifecycle, log *zap.Logger, producer producer.Produc
 		},
 	})
 	return o
+}
+
+func initCollection(lc fx.Lifecycle, m mongo.Mongo) (*mongo.CollectionWrapper[collection], error) {
+	wrapper := &mongo.CollectionWrapper[collection]{}
+	lc.Append(fx.Hook{
+		OnStart: func(ctx context.Context) error {
+			wrapper.Coll = m.GetCollection("outbox")
+			err := m.CreateIndexes(ctx, "outbox", []mongodriver.IndexModel{
+				{Keys: bson.D{{Key: "createdAt", Value: 1}}},
+				{Keys: bson.D{{Key: "lockExpiresAt", Value: 1}}},
+			})
+			if err != nil {
+				return err
+			}
+			return nil
+		},
+	})
+	return wrapper, nil
 }

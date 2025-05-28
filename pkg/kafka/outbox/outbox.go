@@ -127,6 +127,7 @@ func (o *outbox) send(entity OutboxEntity) error {
 }
 
 func (o *outbox) startFetchingWorker() {
+	o.log.Info("starting fetching worker")
 	defer o.log.Info("fetching worker stopped")
 	for {
 		select {
@@ -149,6 +150,7 @@ func (o *outbox) startFetchingWorker() {
 }
 
 func (o *outbox) startSendingWorker() {
+	o.log.Info("starting sending worker")
 	defer o.log.Info("sending worker stopped")
 	for {
 		select {
@@ -167,6 +169,7 @@ func (o *outbox) startSendingWorker() {
 }
 
 func (o *outbox) startConfirmationWorker() {
+	o.log.Info("starting confirmation worker")
 	defer func() {
 		o.log.Info("confirmation worker stopped")
 		o.wg.Done()
@@ -184,8 +187,8 @@ func (o *outbox) startConfirmationWorker() {
 		events = events[:0]
 	}
 
-	timer := time.NewTimer(2 * time.Second)
-	defer timer.Stop()
+	ticker := time.NewTicker(2 * time.Second)
+	defer ticker.Stop()
 
 	for {
 		select {
@@ -200,9 +203,8 @@ func (o *outbox) startConfirmationWorker() {
 			events = append(events, event)
 			if len(events) == 100 {
 				flush()
-				timer.Reset(2 * time.Second)
 			}
-		case <-timer.C:
+		case <-ticker.C:
 			flush()
 		}
 	}

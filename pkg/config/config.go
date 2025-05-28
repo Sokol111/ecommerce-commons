@@ -3,26 +3,61 @@ package config
 import (
 	"fmt"
 	"os"
-	"strings"
 
+	"github.com/joho/godotenv"
 	"github.com/spf13/viper"
+	"go.uber.org/fx"
 )
 
-func NewViper() (*viper.Viper, error) {
+type Environment string
+
+const (
+	EnvDevelopment Environment = "development"
+	EnvProduction  Environment = "production"
+)
+
+func (e Environment) isValid() bool {
+	switch e {
+	case EnvDevelopment, EnvProduction:
+		return true
+	}
+	return false
+}
+
+var ViperModule = fx.Options(
+	fx.Provide(
+		provideAppEnv,
+		newViper,
+	),
+)
+
+func provideAppEnv() (Environment, error) {
+	_ = godotenv.Load()
+	env := Environment(os.Getenv("APP_ENV"))
+	if !env.isValid() {
+		return "", fmt.Errorf("invalid APP_ENV: %s", env)
+	}
+	return Environment(env), nil
+}
+
+func newViper(env Environment) (*viper.Viper, error) {
 	v := viper.New()
-	configPath := os.Getenv("CONFIG_PATH")
-	if configPath == "" {
-		configPath = "./configs/config.yml"
-	}
-	if _, err := os.Stat(configPath); os.IsNotExist(err) {
-		return nil, fmt.Errorf("config file [%s] does not exist: %w", configPath, err)
-	}
-	v.SetConfigFile(configPath)
-	v.SetEnvKeyReplacer(strings.NewReplacer(".", "_"))
+
+	configName := "config." + string(env)
+	configPath := "./configs"
+
+	v.SetConfigName(configName)
+	v.SetConfigType("yaml")
+	v.AddConfigPath(configPath)
 	v.AutomaticEnv()
 
+	fullConfigPath := fmt.Sprintf("%s/%s.yaml", configPath, configName)
+	if _, err := os.Stat(fullConfigPath); os.IsNotExist(err) {
+		return nil, fmt.Errorf("config file [%s] does not exist: %w", fullConfigPath, err)
+	}
+
 	if err := v.ReadInConfig(); err != nil {
-		return nil, fmt.Errorf("failed to read config file [%s]: %w", configPath, err)
+		return nil, fmt.Errorf("failed to read config file [%s]: %w", fullConfigPath, err)
 	}
 	return v, nil
 }

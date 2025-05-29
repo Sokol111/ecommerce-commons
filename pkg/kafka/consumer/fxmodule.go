@@ -9,6 +9,17 @@ import (
 	"go.uber.org/zap"
 )
 
+var ConsumerModule = fx.Options(
+	fx.Invoke(
+		fx.Annotate(
+			func(consumers []Consumer, log *zap.Logger) {
+				log.Debug("kafka consumers initialized", zap.Int("len", len(consumers)))
+			},
+			fx.ParamTags(`group:"kafka_consumers"`),
+		),
+	),
+)
+
 type handlerDef[T any] struct {
 	Name    string
 	Handler Handler[T]
@@ -24,6 +35,8 @@ func RegisterHandlerAndConsumer[T any](
 			func(h Handler[T]) handlerDef[T] {
 				return handlerDef[T]{Name: name, Handler: h}
 			},
+		),
+		fx.Provide(
 			fx.Annotate(
 				provideNewConsumer[T],
 				fx.ResultTags(`group:"kafka_consumers"`),

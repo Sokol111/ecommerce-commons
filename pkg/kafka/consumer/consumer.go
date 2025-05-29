@@ -130,8 +130,8 @@ func (c *consumer[T]) startProcessingWorker() {
 func (c *consumer[T]) handleMessage(message *kafka.Message) {
 	for attempt := 1; c.ctx.Err() == nil; attempt++ {
 
-		var event *event.Event[T]
-		err := c.parseMessage(message, event)
+		var event event.Event[T]
+		err := c.parseMessage(message, &event)
 		if err != nil {
 			c.log.Error("failed to parse message",
 				zap.String("key", string(message.Key)),
@@ -142,7 +142,7 @@ func (c *consumer[T]) handleMessage(message *kafka.Message) {
 			return
 		}
 
-		err = c.validateEvent(event)
+		err = c.validateEvent(&event)
 		if err != nil {
 			c.log.Error("failed to validate event",
 				zap.String("key", string(message.Key)),
@@ -166,7 +166,7 @@ func (c *consumer[T]) handleMessage(message *kafka.Message) {
 			return
 		}
 
-		err = c.handler.Process(c.ctx, event)
+		err = c.handler.Process(c.ctx, &event)
 
 		if err != nil {
 			c.log.Error("failed to process message", zap.Error(err))
@@ -233,9 +233,9 @@ func (c *consumer[T]) validateEvent(e *event.Event[T]) error {
 		return fmt.Errorf("empty Version")
 	}
 
-	if e.TraceId == "" {
-		return fmt.Errorf("empty TraceId")
-	}
+	// if e.TraceId == "" {
+	// 	return fmt.Errorf("empty TraceId")
+	// }
 
 	return nil
 }
@@ -265,7 +265,9 @@ func (c *consumer[T]) Stop(ctx context.Context) error {
 		}
 
 		if _, commitErr := c.consumer.Commit(); commitErr != nil {
-			c.log.Error("failed to commit offsets", zap.Error(commitErr))
+			if commitErr.(kafka.Error).Code() != kafka.ErrNoOffset {
+				c.log.Warn("failed to commit offsets", zap.Error(commitErr))
+			}
 		}
 
 		if closeErr := c.consumer.Close(); closeErr != nil {

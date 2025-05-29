@@ -2,6 +2,7 @@ package logging
 
 import (
 	"context"
+	"os"
 
 	"github.com/Sokol111/ecommerce-commons/pkg/config"
 	"go.uber.org/fx"
@@ -35,7 +36,14 @@ func newLogger(lc fx.Lifecycle, env config.Environment) (*zap.Logger, error) {
 
 	lc.Append(fx.Hook{
 		OnStop: func(ctx context.Context) error {
-			return logger.Sync()
+			err := logger.Sync()
+			if err != nil {
+				if pathErr, ok := err.(*os.PathError); ok && pathErr.Err.Error() == "invalid argument" {
+					return nil
+				}
+				return err
+			}
+			return nil
 		},
 	})
 

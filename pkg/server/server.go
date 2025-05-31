@@ -19,7 +19,7 @@ type server struct {
 	log     *zap.Logger
 }
 
-func NewServer(log *zap.Logger, conf Config, handler http.Handler) Server {
+func newServer(log *zap.Logger, conf Config, handler http.Handler) Server {
 	srv := &http.Server{
 		Addr:    ":" + strconv.Itoa(conf.Port),
 		Handler: handler,

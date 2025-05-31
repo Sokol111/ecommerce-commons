@@ -17,10 +17,10 @@ var errEntityNotFound = errors.New("entity not found in database")
 
 type Store interface {
 
-	// can return EntityNotFoundError
-	FetchAndLock(ctx context.Context) (OutboxEntity, error)
+	// can return errEntityNotFound
+	FetchAndLock(ctx context.Context) (*outboxEntity, error)
 
-	Create(ctx context.Context, payload string, key string, topic string) (OutboxEntity, error)
+	Create(ctx context.Context, payload string, key string, topic string) (*outboxEntity, error)
 
 	UpdateLockExpiresAt(ctx context.Context, id primitive.ObjectID, lockExpiresAt time.Time) error
 
@@ -31,14 +31,17 @@ type store struct {
 	wrapper *mongo.CollectionWrapper[collection]
 }
 
-func NewStore(wrapper *mongo.CollectionWrapper[collection]) Store {
+func newStore(wrapper *mongo.CollectionWrapper[collection]) Store {
 	return &store{wrapper}
 }
 
-func (r *store) FetchAndLock(ctx context.Context) (OutboxEntity, error) {
-	var message OutboxEntity
+func (r *store) FetchAndLock(ctx context.Context) (*outboxEntity, error) {
+	var entity outboxEntity
 
-	opts := options.FindOneAndUpdate().SetSort(bson.D{{"lockExpiresAt", 1}, {"createdAt", 1}}).SetReturnDocument(options.After)
+	opts := options.FindOneAndUpdate().SetSort(bson.D{
+		{Key: "lockExpiresAt", Value: 1},
+		{Key: "createdAt", Value: 1},
+	}).SetReturnDocument(options.After)
 
 	filter := bson.M{
 		"$and": []bson.M{
@@ -55,20 +58,20 @@ func (r *store) FetchAndLock(ctx context.Context) (OutboxEntity, error) {
 		},
 	}
 
-	err := r.wrapper.Coll.FindOneAndUpdate(ctx, filter, update, opts).Decode(&message)
+	err := r.wrapper.Coll.FindOneAndUpdate(ctx, filter, update, opts).Decode(&entity)
 
 	if err != nil {
 		if errors.Is(err, mongodriver.ErrNoDocuments) {
-			return OutboxEntity{}, fmt.Errorf("failed to fetch outbox entity: %w", errEntityNotFound)
+			return nil, fmt.Errorf("failed to fetch outbox entity: %w", errEntityNotFound)
 		}
-		return OutboxEntity{}, fmt.Errorf("failed to fetch outbox entity: %w", err)
+		return nil, fmt.Errorf("failed to fetch outbox entity: %w", err)
 	}
 
-	return message, nil
+	return &entity, nil
 }
 
-func (r *store) Create(ctx context.Context, payload string, key string, topic string) (OutboxEntity, error) {
-	entity := OutboxEntity{
+func (r *store) Create(ctx context.Context, payload string, key string, topic string) (*outboxEntity, error) {
+	entity := outboxEntity{
 		Payload:        payload,
 		Key:            key,
 		Topic:          topic,
@@ -79,14 +82,14 @@ func (r *store) Create(ctx context.Context, payload string, key string, topic st
 	}
 	result, err := r.wrapper.Coll.InsertOne(ctx, entity)
 	if err != nil {
-		return OutboxEntity{}, fmt.Errorf("failed to insert outbox entity: %w", err)
+		return nil, fmt.Errorf("failed to insert outbox entity: %w", err)
 	}
 	id, ok := result.InsertedID.(primitive.ObjectID)
 	if !ok {
-		return OutboxEntity{}, fmt.Errorf("failed to cast inserted ID %v to ObjectID: %w", result.InsertedID, err)
+		return nil, fmt.Errorf("failed to cast inserted ID to ObjectID")
 	}
 	entity.ID = id
-	return entity, nil
+	return &entity, nil
 }
 
 func (r *store) UpdateLockExpiresAt(ctx context.Context, id primitive.ObjectID, lockExpiresAt time.Time) error {

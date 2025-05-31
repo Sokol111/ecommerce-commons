@@ -4,6 +4,7 @@ import (
 	"fmt"
 
 	"github.com/spf13/viper"
+	"go.uber.org/fx"
 )
 
 type Config struct {
@@ -18,7 +19,14 @@ type ConsumerConfig struct {
 	AutoOffsetReset string `mapstructure:"auto-offset-reset"`
 }
 
-func NewConfig(v *viper.Viper) (Config, error) {
+func NewKafkaConfigModule() fx.Option {
+	return fx.Provide(
+		newConfig,
+	)
+
+}
+
+func newConfig(v *viper.Viper) (Config, error) {
 	var cfg Config
 	if err := v.Sub("kafka").Unmarshal(&cfg); err != nil {
 		return cfg, fmt.Errorf("failed to load mongo config: %w", err)

@@ -6,7 +6,7 @@ import (
 	"go.mongodb.org/mongo-driver/bson/primitive"
 )
 
-type OutboxEntity struct {
+type outboxEntity struct {
 	ID             primitive.ObjectID `bson:"_id,omitempty"`
 	Payload        string
 	Key            string

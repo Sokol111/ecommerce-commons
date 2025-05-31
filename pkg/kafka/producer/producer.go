@@ -18,7 +18,7 @@ type producer struct {
 	log      *zap.Logger
 }
 
-func NewProducer(conf config.Config, log *zap.Logger) (Producer, error) {
+func newProducer(conf config.Config, log *zap.Logger) (Producer, error) {
 	p, err := kafka.NewProducer(&kafka.ConfigMap{"bootstrap.servers": conf.Brokers})
 	if err != nil {
 		return nil, fmt.Errorf("failed to create producer: %w", err)

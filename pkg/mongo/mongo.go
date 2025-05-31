@@ -26,7 +26,7 @@ type mongo struct {
 	log      *zap.Logger
 }
 
-func NewMongo(log *zap.Logger, conf Config) (Mongo, error) {
+func newMongo(log *zap.Logger, conf Config) (Mongo, error) {
 	if err := validateConfig(conf); err != nil {
 		return nil, err
 	}

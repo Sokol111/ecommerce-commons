@@ -18,7 +18,7 @@ type txManager struct {
 	mongo Mongo
 }
 
-func NewTxManager(mongo Mongo) TxManager {
+func newTxManager(mongo Mongo) TxManager {
 	return &txManager{mongo: mongo}
 }
 

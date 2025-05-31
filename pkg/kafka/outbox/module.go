@@ -11,16 +11,16 @@ import (
 	"go.uber.org/zap"
 )
 
-var OutboxModule = fx.Options(
-	fx.Provide(
-		initCollection,
-		NewStore,
-		provideNewOutbox,
-	),
-)
+func NewOutboxModule() fx.Option {
+	return fx.Provide(
+		provideCollection,
+		newStore,
+		provideOutbox,
+	)
+}
 
-func provideNewOutbox(lc fx.Lifecycle, log *zap.Logger, producer producer.Producer, store Store) Outbox {
-	o := NewOutbox(log, producer, store)
+func provideOutbox(lc fx.Lifecycle, log *zap.Logger, producer producer.Producer, store Store) Outbox {
+	o := newOutbox(log, producer, store)
 
 	lc.Append(fx.Hook{
 		OnStart: func(ctx context.Context) error {
@@ -35,7 +35,7 @@ func provideNewOutbox(lc fx.Lifecycle, log *zap.Logger, producer producer.Produc
 	return o
 }
 
-func initCollection(lc fx.Lifecycle, m mongo.Mongo) (*mongo.CollectionWrapper[collection], error) {
+func provideCollection(lc fx.Lifecycle, m mongo.Mongo) (*mongo.CollectionWrapper[collection], error) {
 	wrapper := &mongo.CollectionWrapper[collection]{}
 	lc.Append(fx.Hook{
 		OnStart: func(ctx context.Context) error {

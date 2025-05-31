@@ -9,8 +9,8 @@ import (
 )
 
 var KafkaModule = fx.Options(
-	config.KafkaConfigModule,
-	producer.ProducerModule,
-	outbox.OutboxModule,
-	consumer.ConsumerModule,
+	config.NewKafkaConfigModule(),
+	producer.NewProducerModule(),
+	outbox.NewOutboxModule(),
+	consumer.NewConsumerModule(),
 )

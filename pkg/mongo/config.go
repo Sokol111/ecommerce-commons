@@ -15,7 +15,7 @@ type Config struct {
 	Database   string `mapstructure:"database"`
 }
 
-func NewConfig(v *viper.Viper) (Config, error) {
+func newConfig(v *viper.Viper) (Config, error) {
 	var cfg Config
 	if err := v.Sub("mongo").UnmarshalExact(&cfg); err != nil {
 		return cfg, fmt.Errorf("failed to load mongo config: %w", err)

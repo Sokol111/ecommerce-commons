@@ -37,7 +37,7 @@ type consumer[T any] struct {
 	started   atomic.Bool
 }
 
-func NewConsumer[T any](brokers, groupID, topic string, autoOffsetReset string, handler Handler[T], log *zap.Logger) (Consumer, error) {
+func newConsumer[T any](brokers, groupID, topic string, autoOffsetReset string, handler Handler[T], log *zap.Logger) (Consumer, error) {
 	c, err := kafka.NewConsumer(&kafka.ConfigMap{
 		"bootstrap.servers":        brokers,
 		"group.id":                 groupID,

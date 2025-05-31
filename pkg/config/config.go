@@ -24,14 +24,14 @@ func (e Environment) isValid() bool {
 	return false
 }
 
-var ViperModule = fx.Options(
-	fx.Provide(
-		provideAppEnv,
+func NewViperModule() fx.Option {
+	return fx.Provide(
+		provideEnv,
 		newViper,
-	),
-)
+	)
+}
 
-func provideAppEnv() (Environment, error) {
+func provideEnv() (Environment, error) {
 	_ = godotenv.Load()
 	env := Environment(os.Getenv("APP_ENV"))
 	if !env.isValid() {

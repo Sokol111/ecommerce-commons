@@ -8,14 +8,14 @@ import (
 	"go.uber.org/zap"
 )
 
-var ProducerModule = fx.Options(
-	fx.Provide(
-		provideNewProducer,
-	),
-)
+func NewProducerModule() fx.Option {
+	return fx.Provide(
+		provideProducer,
+	)
+}
 
-func provideNewProducer(lc fx.Lifecycle, log *zap.Logger, conf config.Config) (Producer, error) {
-	p, err := NewProducer(conf, log)
+func provideProducer(lc fx.Lifecycle, log *zap.Logger, conf config.Config) (Producer, error) {
+	p, err := newProducer(conf, log)
 
 	if err != nil {
 		return nil, err

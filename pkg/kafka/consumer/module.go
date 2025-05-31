@@ -9,16 +9,16 @@ import (
 	"go.uber.org/zap"
 )
 
-var ConsumerModule = fx.Options(
-	fx.Invoke(
-		fx.Annotate(
-			func(consumers []Consumer, log *zap.Logger) {
-				log.Debug("kafka consumers initialized", zap.Int("len", len(consumers)))
-			},
-			fx.ParamTags(`group:"kafka_consumers"`),
-		),
-	),
-)
+func NewConsumerModule() fx.Option {
+	return fx.Invoke(func(in kafkaConsumersGroup, log *zap.Logger) {
+		log.Info("kafka consumers initialized", zap.Int("len", len(in.Consumers)))
+	})
+}
+
+type kafkaConsumersGroup struct {
+	fx.In
+	Consumers []Consumer `group:"kafka_consumers"`
+}
 
 type handlerDef[T any] struct {
 	Name    string

@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/Sokol111/ecommerce-commons/pkg/kafka/producer"
+	"github.com/Sokol111/ecommerce-commons/pkg/logger"
 	"github.com/confluentinc/confluent-kafka-go/v2/kafka"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.uber.org/zap"
@@ -25,9 +26,9 @@ type outbox struct {
 	producer producer.Producer
 	store    Store
 
-	log *zap.Logger
+	logger *zap.Logger
 
-	entitiesChan chan OutboxEntity
+	entitiesChan chan *outboxEntity
 	deliveryChan chan kafka.Event
 
 	wg         sync.WaitGroup
@@ -39,39 +40,39 @@ type outbox struct {
 	started   atomic.Bool
 }
 
-func NewOutbox(log *zap.Logger, producer producer.Producer, store Store) Outbox {
+func newOutbox(logger *zap.Logger, producer producer.Producer, store Store) Outbox {
 	return &outbox{
 		producer:     producer,
 		store:        store,
-		entitiesChan: make(chan OutboxEntity, 100),
+		entitiesChan: make(chan *outboxEntity, 100),
 		deliveryChan: make(chan kafka.Event, 1000),
-		log:          log.With(zap.String("component", "outbox")),
+		logger:       logger.With(zap.String("component", "outbox")),
 	}
 }
 
 func (o *outbox) Start() {
 	o.startOnce.Do(func() {
-		o.log.Info("starting outbox workers")
+		o.logger.Info("starting outbox workers")
 		o.ctx, o.cancelFunc = context.WithCancel(context.Background())
 		go o.startFetchingWorker()
 		go o.startSendingWorker()
 		o.wg.Add(1)
 		go o.startConfirmationWorker()
 		o.started.Store(true)
-		o.log.Info("outbox started")
+		o.logger.Info("outbox started")
 	})
 }
 
 func (o *outbox) Stop(ctx context.Context) error {
 	if !o.started.Load() {
-		o.log.Warn("outbox not started, skipping stop")
+		o.logger.Warn("outbox not started, skipping stop")
 		return nil
 	}
 
 	var err error
 
 	o.stopOnce.Do(func() {
-		o.log.Info("stopping outbox")
+		o.logger.Info("stopping outbox")
 		o.cancelFunc()
 
 		done := make(chan struct{})
@@ -86,7 +87,7 @@ func (o *outbox) Stop(ctx context.Context) error {
 			err = fmt.Errorf("shutdown timed out")
 		}
 
-		o.log.Info("outbox stopped")
+		o.logger.Info("outbox stopped")
 	})
 	return err
 }
@@ -100,20 +101,21 @@ func (o *outbox) Create(ctx context.Context, event any, key string, topic string
 	if err != nil {
 		return fmt.Errorf("failed to create outbox message: %w", err)
 	}
+	o.log(ctx).Debug("outbox created", zap.String("id", entity.ID.Hex()))
 	select {
 	case o.entitiesChan <- entity:
 		return nil
 	default:
-		o.log.Warn("entitiesChan is full, dropping message", zap.String("id", entity.ID.Hex()))
+		o.log(ctx).Warn("entitiesChan is full, dropping message", zap.String("id", entity.ID.Hex()))
 		err = o.store.UpdateLockExpiresAt(ctx, entity.ID, time.Now().UTC())
 		if err != nil {
-			o.log.Warn("failed to update lockExpiresAt", zap.Error(err))
+			o.log(ctx).Warn("failed to update lockExpiresAt", zap.Error(err))
 		}
 		return nil
 	}
 }
 
-func (o *outbox) send(entity OutboxEntity) error {
+func (o *outbox) send(entity *outboxEntity) error {
 	err := o.producer.Produce(&kafka.Message{
 		TopicPartition: kafka.TopicPartition{Topic: &entity.Topic, Partition: kafka.PartitionAny},
 		Opaque:         entity.ID,
@@ -127,8 +129,8 @@ func (o *outbox) send(entity OutboxEntity) error {
 }
 
 func (o *outbox) startFetchingWorker() {
-	o.log.Info("starting fetching worker")
-	defer o.log.Info("fetching worker stopped")
+	o.logger.Info("starting fetching worker")
+	defer o.logger.Info("fetching worker stopped")
 	for {
 		select {
 		case <-o.ctx.Done():
@@ -140,7 +142,7 @@ func (o *outbox) startFetchingWorker() {
 					time.Sleep(2 * time.Second)
 					continue
 				}
-				o.log.Error("failed to get outbox entity", zap.Error(err))
+				o.logger.Error("failed to get outbox entity", zap.Error(err))
 				time.Sleep(5 * time.Second)
 				continue
 			}
@@ -150,8 +152,8 @@ func (o *outbox) startFetchingWorker() {
 }
 
 func (o *outbox) startSendingWorker() {
-	o.log.Info("starting sending worker")
-	defer o.log.Info("sending worker stopped")
+	o.logger.Info("starting sending worker")
+	defer o.logger.Info("sending worker stopped")
 	for {
 		select {
 		case <-o.ctx.Done():
@@ -162,16 +164,17 @@ func (o *outbox) startSendingWorker() {
 			}
 			err := o.send(entity)
 			if err != nil {
-				o.log.Error("failed to send outbox message", zap.String("id", entity.ID.Hex()), zap.Error(err))
+				o.logger.Error("failed to send outbox message", zap.String("id", entity.ID.Hex()), zap.Error(err))
 			}
+			o.logger.Debug("outbox sent to kafka", zap.String("id", entity.ID.Hex()))
 		}
 	}
 }
 
 func (o *outbox) startConfirmationWorker() {
-	o.log.Info("starting confirmation worker")
+	o.logger.Info("starting confirmation worker")
 	defer func() {
-		o.log.Info("confirmation worker stopped")
+		o.logger.Info("confirmation worker stopped")
 		o.wg.Done()
 	}()
 	events := make([]kafka.Event, 0, 100)
@@ -216,27 +219,27 @@ func (o *outbox) handleConfirmation(events []kafka.Event) {
 	for _, event := range events {
 		msg, ok := event.(*kafka.Message)
 		if !ok {
-			o.log.Warn("skipping confirmation",
+			o.logger.Warn("skipping confirmation",
 				zap.String("reason", "unexpected event type"),
 				zap.String("got", fmt.Sprintf("%T", event)),
 				zap.String("expected", "*kafka.Message"))
 			continue
 		}
 		if msg.TopicPartition.Error != nil {
-			o.log.Warn("skipping confirmation",
+			o.logger.Warn("skipping confirmation",
 				zap.String("reason", "topic partition error"),
-				zap.String("opaque", fmt.Sprintf("%#v", msg.Opaque)),
+				zap.Any("opaque", msg.Opaque),
 				zap.Error(msg.TopicPartition.Error),
-				zap.String("topic", *msg.TopicPartition.Topic),
+				zap.Any("topic", msg.TopicPartition.Topic),
 				zap.Int32("partition", msg.TopicPartition.Partition),
 				zap.Any("offset", msg.TopicPartition.Offset))
 			continue
 		}
 		id, ok := msg.Opaque.(primitive.ObjectID)
 		if !ok {
-			o.log.Warn("skipping confirmation",
+			o.logger.Warn("skipping confirmation",
 				zap.String("reason", "failed to cast Opaque to ObjectID"),
-				zap.String("opaque", fmt.Sprintf("%#v", msg.Opaque)))
+				zap.Any("opaque", msg.Opaque))
 			continue
 		}
 		ids = append(ids, id)
@@ -248,6 +251,12 @@ func (o *outbox) handleConfirmation(events []kafka.Event) {
 
 	err := o.store.UpdateAsSentByIds(o.ctx, ids)
 	if err != nil {
-		o.log.Error("failed to update confirmation", zap.Error(err))
+		o.logger.Error("failed to update confirmation", zap.Error(err))
 	}
+
+	o.logger.Debug("outbox sending confirmed", zap.Any("ids", ids))
+}
+
+func (o *outbox) log(ctx context.Context) *zap.Logger {
+	return logger.CombineLogger(o.logger, ctx)
 }

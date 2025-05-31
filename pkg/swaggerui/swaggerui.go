@@ -6,6 +6,7 @@ import (
 	"net/http"
 
 	"github.com/gin-gonic/gin"
+	"go.uber.org/fx"
 )
 
 //go:embed swagger-ui/*
@@ -19,4 +20,8 @@ func registerSwaggerUI(r *gin.Engine) error {
 	r.StaticFS("/swagger", http.FS(subFS))
 	r.StaticFile("/openapi.yaml", "./api/openapi.yaml")
 	return nil
+}
+
+func NewSwaggerModule() fx.Option {
+	return fx.Invoke(registerSwaggerUI)
 }

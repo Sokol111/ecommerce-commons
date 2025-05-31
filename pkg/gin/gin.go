@@ -1,13 +1,26 @@
 package gin
 
 import (
+	"net/http"
 	"time"
 
 	"github.com/gin-gonic/gin"
+	"go.uber.org/fx"
 	"go.uber.org/zap"
 )
 
-func NewEngine(log *zap.Logger) *gin.Engine {
+func NewGinModule() fx.Option {
+	return fx.Provide(
+		provideGinAndHandler,
+	)
+}
+
+func provideGinAndHandler(log *zap.Logger) (*gin.Engine, http.Handler) {
+	e := newEngine(log)
+	return e, e
+}
+
+func newEngine(log *zap.Logger) *gin.Engine {
 	engine := gin.New()
 	engine.Use(gin.Logger())
 	engine.Use(gin.Recovery())

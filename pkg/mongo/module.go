@@ -7,20 +7,20 @@ import (
 	"go.uber.org/zap"
 )
 
-var MongoModule = fx.Options(
-	fx.Provide(
-		ProvideNewMongo,
-		NewConfig,
-		NewTxManager,
-	),
-)
+func NewMongoModule() fx.Option {
+	return fx.Provide(
+		provideMongo,
+		newConfig,
+		newTxManager,
+	)
+}
 
-func ProvideNewMongo(lc fx.Lifecycle, log *zap.Logger, conf Config) (Mongo, error) {
+func provideMongo(lc fx.Lifecycle, log *zap.Logger, conf Config) (Mongo, error) {
 	if err := validateConfig(conf); err != nil {
 		return nil, err
 	}
 
-	m, err := NewMongo(log, conf)
+	m, err := newMongo(log, conf)
 
 	if err != nil {
 		return nil, err

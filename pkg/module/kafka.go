@@ -8,9 +8,11 @@ import (
 	"go.uber.org/fx"
 )
 
-var KafkaModule = fx.Options(
-	config.NewKafkaConfigModule(),
-	producer.NewProducerModule(),
-	outbox.NewOutboxModule(),
-	consumer.NewConsumerModule(),
-)
+func NewKafkaModule() fx.Option {
+	return fx.Options(
+		config.NewKafkaConfigModule(),
+		producer.NewProducerModule(),
+		outbox.NewOutboxModule(),
+		consumer.NewConsumerModule(),
+	)
+}

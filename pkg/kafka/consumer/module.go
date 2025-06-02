@@ -56,7 +56,7 @@ func provideNewConsumer[T any](lc fx.Lifecycle, log *zap.Logger, conf config.Con
 	if consumerConf == nil {
 		return nil, fmt.Errorf("no consumer config found for handler: %s", handlerDef.Name)
 	}
-	c, err := NewConsumer(conf.Brokers, consumerConf.GroupID, consumerConf.Topic, consumerConf.AutoOffsetReset, handlerDef.Handler, log)
+	c, err := newConsumer(conf.Brokers, consumerConf.GroupID, consumerConf.Topic, consumerConf.AutoOffsetReset, handlerDef.Handler, log)
 	if err != nil {
 		return nil, err
 	}

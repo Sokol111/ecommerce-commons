@@ -13,9 +13,6 @@ start-local-mongo: stop-mongo
 stop-mongo:
 	docker compose -f ./infrastructure/docker/mongo.yml down
 
-stop-local-mongo:
-	docker compose -f ./infrastructure/docker/mongo.yml down
-
 start-kafka:
 	docker compose -f ./infrastructure/docker/kafka.yml up -d
 

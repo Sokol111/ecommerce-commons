@@ -77,7 +77,7 @@ func (r *store) Create(ctx context.Context, payload string, key string, topic st
 		Topic:          topic,
 		CreatedAt:      time.Now().UTC(),
 		Status:         "PROCESSING",
-		LockExpiresAt:  time.Now().Add(30 * time.Second),
+		LockExpiresAt:  time.Now().Add(10 * time.Second),
 		AttemptsToSend: 0,
 	}
 	result, err := r.wrapper.Coll.InsertOne(ctx, entity)

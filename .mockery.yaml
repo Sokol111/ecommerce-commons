@@ -1,12 +1,10 @@
-with-expecter: true
-filename: "mock_{{.InterfaceName | snakecase}}.go"
+filename: "mock_{{.SrcPackageName | snakecase}}_{{.InterfaceName | snakecase}}.go"
 dir: "test/mocks"
-outpkg: "mocks"
+pkgname: "mocks"
 packages:
-#  github.com/Sokol111/ecommerce-commons/pkg/mongo:
-#    interfaces:
-#      MongoClient:
-#      MongoDatabase:
-#      MongoCollection:
-#      MongoIndexView:
-#      MongoConnect:
+  github.com/Sokol111/ecommerce-commons/pkg/kafka/outbox:
+    interfaces:
+      Outbox:
+  github.com/Sokol111/ecommerce-commons/pkg/mongo:
+    interfaces:
+      TxManager:

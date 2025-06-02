@@ -7,6 +7,7 @@ type BaseEvent struct {
 	CreatedAt     time.Time `json:"created_at"`
 	Type          string    `json:"type"`
 	Source        string    `json:"source"`
+	Topic         string    `json:"topic"`
 	Version       int       `json:"version"`
 	TraceId       string    `json:"trace_id,omitempty"`
 	CorrelationID string    `json:"correlation_id,omitempty"`

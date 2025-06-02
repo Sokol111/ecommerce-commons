@@ -17,7 +17,7 @@ import (
 )
 
 type Outbox interface {
-	Create(ctx context.Context, event any, key string, topic string) error
+	Create(ctx context.Context, event any, key string, topic string) (SendFunc, error)
 	Start()
 	Stop(ctx context.Context) error
 }
@@ -92,27 +92,32 @@ func (o *outbox) Stop(ctx context.Context) error {
 	return err
 }
 
-func (o *outbox) Create(ctx context.Context, event any, key string, topic string) error {
+type SendFunc func(ctx context.Context) error
+
+func (o *outbox) Create(ctx context.Context, event any, key string, topic string) (SendFunc, error) {
 	eventStr, err := json.Marshal(event)
 	if err != nil {
-		return fmt.Errorf("failed to marshal event: %w", err)
+		return nil, fmt.Errorf("failed to marshal event: %w", err)
 	}
 	entity, err := o.store.Create(ctx, string(eventStr), key, topic)
 	if err != nil {
-		return fmt.Errorf("failed to create outbox message: %w", err)
+		return nil, fmt.Errorf("failed to create outbox message: %w", err)
 	}
 	o.log(ctx).Debug("outbox created", zap.String("id", entity.ID.Hex()))
-	select {
-	case o.entitiesChan <- entity:
-		return nil
-	default:
-		o.log(ctx).Warn("entitiesChan is full, dropping message", zap.String("id", entity.ID.Hex()))
-		err = o.store.UpdateLockExpiresAt(ctx, entity.ID, time.Now().UTC())
-		if err != nil {
-			o.log(ctx).Warn("failed to update lockExpiresAt", zap.Error(err))
+
+	return SendFunc(func(ctx context.Context) error {
+		timer := time.NewTimer(1 * time.Second)
+		defer timer.Stop()
+		select {
+		case <-ctx.Done():
+			return fmt.Errorf("outbox didn't sent: %w", ctx.Err())
+		case o.entitiesChan <- entity:
+			return nil
+		case <-timer.C:
+			o.log(ctx).Warn("entitiesChan is full, dropping message", zap.String("id", entity.ID.Hex()))
+			return fmt.Errorf("entitiesChan is full")
 		}
-		return nil
-	}
+	}), nil
 }
 
 func (o *outbox) send(entity *outboxEntity) error {

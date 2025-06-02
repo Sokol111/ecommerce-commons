@@ -8,7 +8,7 @@ import (
 )
 
 type TxManager interface {
-	WithTransaction(ctx context.Context, fn func(sessCtx mongodriver.SessionContext) (any, error)) (any, error)
+	WithTransaction(ctx context.Context, fn func(sessCtx context.Context) (any, error)) (any, error)
 	BeginTx(ctx context.Context) (mongodriver.SessionContext, error)
 	Commit(sessionCtx mongodriver.SessionContext) error
 	Rollback(sessionCtx mongodriver.SessionContext) error
@@ -22,14 +22,16 @@ func newTxManager(mongo Mongo) TxManager {
 	return &txManager{mongo: mongo}
 }
 
-func (t *txManager) WithTransaction(ctx context.Context, fn func(sessCtx mongodriver.SessionContext) (any, error)) (any, error) {
+func (t *txManager) WithTransaction(ctx context.Context, fn func(sessCtx context.Context) (any, error)) (any, error) {
 	session, err := t.mongo.StartSession(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("failed to start session: %w", err)
 	}
 	defer session.EndSession(ctx)
 
-	result, err := session.WithTransaction(ctx, fn)
+	result, err := session.WithTransaction(ctx, func(sessCtx mongodriver.SessionContext) (any, error) {
+		return fn(sessCtx)
+	})
 	if err != nil {
 		return result, fmt.Errorf("transaction failed: %w", err)
 	}

@@ -10,7 +10,7 @@ import (
 	"go.uber.org/fx"
 )
 
-var InfraModules = fx.Options(
+var InfraModule = fx.Options(
 	logger.NewZapLoggingModule(),
 	config.NewViperModule(),
 	mongo.NewMongoModule(),

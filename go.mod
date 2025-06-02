@@ -6,9 +6,16 @@ require (
 	github.com/confluentinc/confluent-kafka-go/v2 v2.10.0
 	github.com/gin-gonic/gin v1.10.0
 	github.com/spf13/viper v1.19.0
+	github.com/stretchr/testify v1.10.0
 	go.mongodb.org/mongo-driver v1.17.2
 	go.uber.org/fx v1.24.0
 	go.uber.org/zap v1.26.0
+)
+
+require (
+	github.com/davecgh/go-spew v1.1.2-0.20180830191138-d8f796af33cc // indirect
+	github.com/pmezard/go-difflib v1.0.1-0.20181226105442-5d4384ee4fb2 // indirect
+	github.com/stretchr/objx v0.5.2 // indirect
 )
 
 require (

@@ -1,6 +1,11 @@
 {
     "go.toolsEnvVars": {
         "CGO_ENABLED": "1",
+        "PATH": "/usr/local/go/bin:/home/ihsokolo/go/bin:/usr/bin:/bin",
+        "GOROOT": "/usr/local/go"
+    },
+    "go.delveConfig": {
+        "dlvToolPath": "/home/ihsokolo/go/bin/dlv"
     },
     "go.useLanguageServer": true
 }

@@ -37,7 +37,8 @@ func (s *server) Serve() error {
 		return err
 	}
 	s.log.Info("starting HTTP server at", zap.String("addr", s.httpSrv.Addr))
-	return s.httpSrv.Serve(ln)
+	go s.httpSrv.Serve(ln)
+	return nil
 }
 
 func (s *server) Shutdown(ctx context.Context) error {

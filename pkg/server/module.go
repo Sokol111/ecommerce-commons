@@ -24,8 +24,7 @@ func provideServer(lc fx.Lifecycle, log *zap.Logger, conf Config, handler http.H
 	srv := newServer(log, conf, handler)
 	lc.Append(fx.Hook{
 		OnStart: func(ctx context.Context) error {
-			go srv.Serve()
-			return nil
+			return srv.Serve()
 		},
 		OnStop: func(ctx context.Context) error {
 			return srv.Shutdown(ctx)

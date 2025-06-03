@@ -7,6 +7,7 @@ import (
 	"github.com/Sokol111/ecommerce-commons/pkg/mongo"
 	"go.mongodb.org/mongo-driver/bson"
 	mongodriver "go.mongodb.org/mongo-driver/mongo"
+	"go.mongodb.org/mongo-driver/mongo/options"
 	"go.uber.org/fx"
 	"go.uber.org/zap"
 )
@@ -41,7 +42,10 @@ func provideCollection(lc fx.Lifecycle, m mongo.Mongo) (*mongo.CollectionWrapper
 		OnStart: func(ctx context.Context) error {
 			wrapper.Coll = m.GetCollection("outbox")
 			err := m.CreateIndexes(ctx, "outbox", []mongodriver.IndexModel{
-				{Keys: bson.D{{Key: "createdAt", Value: 1}}},
+				{
+					Keys:    bson.D{{Key: "createdAt", Value: 1}},
+					Options: options.Index().SetExpireAfterSeconds(60 * 60 * 24 * 30),
+				},
 				{Keys: bson.D{{Key: "lockExpiresAt", Value: 1}}},
 			})
 			if err != nil {

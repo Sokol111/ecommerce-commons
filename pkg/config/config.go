@@ -3,6 +3,7 @@ package config
 import (
 	"fmt"
 	"os"
+	"strings"
 
 	"github.com/joho/godotenv"
 	"github.com/spf13/viper"
@@ -50,6 +51,7 @@ func newViper(env Environment) (*viper.Viper, error) {
 	v.SetConfigType("yaml")
 	v.AddConfigPath(configPath)
 	v.AutomaticEnv()
+	v.SetEnvKeyReplacer(strings.NewReplacer(".", "_"))
 
 	fullConfigPath := fmt.Sprintf("%s/%s.yaml", configPath, configName)
 	if _, err := os.Stat(fullConfigPath); os.IsNotExist(err) {

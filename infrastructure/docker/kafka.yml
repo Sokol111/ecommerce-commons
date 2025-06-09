@@ -21,6 +21,8 @@ services:
       KAFKA_CONTROLLER_LISTENER_NAMES: CONTROLLER
       KAFKA_LOG_DIRS: /tmp/kraft-combined-logs
       CLUSTER_ID: MkU3OEVBNTcwNTJENDM2Qk
+    networks:
+      - shared-network
   kafka-ui:
     image: provectuslabs/kafka-ui:latest
     container_name: kafka-ui
@@ -32,3 +34,9 @@ services:
       KAFKA_CLUSTERS_0_ZOOKEEPER: ""
     depends_on:
       - kafka
+    networks:
+      - shared-network
+
+networks:
+  shared-network:
+    external: true

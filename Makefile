@@ -1,4 +1,4 @@
-.PHONY: generate generate-mocks start-docker-mongo start-local-mongo stop-mongo stop-local-mongo start-kafka stop-kafka update-dependencies test init-git
+.PHONY: generate-mocks start-docker-mongo start-local-mongo stop-mongo start-kafka stop-kafka update-dependencies test init-git
 
 generate-mocks:
 	mockery

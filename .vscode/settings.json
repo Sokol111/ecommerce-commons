@@ -6,6 +6,5 @@
     },
     "go.delveConfig": {
         "dlvToolPath": "/home/ihsokolo/go/bin/dlv"
-    },
-    "go.useLanguageServer": true
+    }
 }

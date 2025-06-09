@@ -5,6 +5,7 @@ import (
 
 	"github.com/spf13/viper"
 	"go.uber.org/fx"
+	"go.uber.org/zap"
 )
 
 type Config struct {
@@ -26,10 +27,11 @@ func NewKafkaConfigModule() fx.Option {
 
 }
 
-func newConfig(v *viper.Viper) (Config, error) {
+func newConfig(v *viper.Viper, logger *zap.Logger) (Config, error) {
 	var cfg Config
 	if err := v.Sub("kafka").Unmarshal(&cfg); err != nil {
 		return cfg, fmt.Errorf("failed to load mongo config: %w", err)
 	}
+	logger.Info("loaded kafka config", zap.Any("config", cfg))
 	return cfg, nil
 }

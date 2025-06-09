@@ -81,5 +81,7 @@ func newLogger(env config.Environment) (*zap.Logger, error) {
 
 	zap.ReplaceGlobals(logger)
 
+	logger.Info("logger initialized", zap.String("env", string(env)))
+
 	return logger, nil
 }

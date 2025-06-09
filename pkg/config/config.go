@@ -38,6 +38,7 @@ func provideEnv() (Environment, error) {
 	if !env.isValid() {
 		return "", fmt.Errorf("invalid APP_ENV: %s", env)
 	}
+	fmt.Printf("Loaded environment: %s\n", env)
 	return Environment(env), nil
 }
 

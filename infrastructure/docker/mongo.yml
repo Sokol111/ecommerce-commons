@@ -13,13 +13,13 @@ services:
       test: echo "try { rs.status() } catch (err) { rs.initiate({_id:'rs0',members:[{_id:0,host:'${MONGO_HOST:-localhost}:27017'}]}) }" | mongosh --port 27017 --quiet
       interval: 5s
       retries: 3
-#    volumes:
-#      - "mongo1_data:/data/db"
-#      - "mongo1_config:/data/configdb"
+    volumes:
+      - "mongo1_data:/data/db"
+      - "mongo1_config:/data/configdb"
 
-#volumes:
-#  mongo1_data:
-#  mongo1_config:
+volumes:
+  mongo1_data:
+  mongo1_config:
 
 networks:
   shared-network:

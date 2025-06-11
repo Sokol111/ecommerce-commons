@@ -35,8 +35,3 @@ update-dependencies:
 
 test:
 	go test ./... -v -cover
-
-init-git:
-	git config user.name "Sokol111"
-	git config user.email "igorsokol111@gmail.com"
-	git config commit.gpgSign false

@@ -1,0 +1,35 @@
+name: Release
+
+on:
+  push:
+    branches:
+      - master
+    paths:
+      - VERSION
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  prepare:
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - id: version
+        run: |
+          VERSION_INPUT=$(cat VERSION | tr -d '\n' | tr -d '\r')
+          VERSION_INPUT="v$VERSION_INPUT"
+
+          echo "version=$VERSION_INPUT" >> $GITHUB_OUTPUT
+
+          echo "Extracted version: $VERSION_INPUT"
+
+  release-tag:
+    needs: prepare
+    uses: Sokol111/ecommerce-infrastructure/.github/workflows/release-tag.yml@master
+    with:
+      version: ${{ needs.prepare.outputs.version }}

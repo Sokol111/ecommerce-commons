@@ -3,6 +3,7 @@ package module
 import (
 	"github.com/Sokol111/ecommerce-commons/pkg/config"
 	"github.com/Sokol111/ecommerce-commons/pkg/gin"
+	"github.com/Sokol111/ecommerce-commons/pkg/health"
 	"github.com/Sokol111/ecommerce-commons/pkg/logger"
 	"github.com/Sokol111/ecommerce-commons/pkg/mongo"
 	"github.com/Sokol111/ecommerce-commons/pkg/server"
@@ -18,5 +19,6 @@ func NewInfraModule() fx.Option {
 		gin.NewGinModule(),
 		server.NewHttpServerModule(),
 		swaggerui.NewSwaggerModule(),
+		health.NewHealthModule(),
 	)
 }

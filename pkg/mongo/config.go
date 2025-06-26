@@ -8,12 +8,14 @@ import (
 )
 
 type Config struct {
-	Host       string `mapstructure:"host"`
-	Port       int    `mapstructure:"port"`
-	ReplicaSet string `mapstructure:"replica-set"`
-	Username   string `mapstructure:"username"`
-	Password   string `mapstructure:"password"`
-	Database   string `mapstructure:"database"`
+	ConnectionString string `mapstructure:"connection-string"`
+	Host             string `mapstructure:"host"`
+	Port             int    `mapstructure:"port"`
+	ReplicaSet       string `mapstructure:"replica-set"`
+	Username         string `mapstructure:"username"`
+	Password         string `mapstructure:"password"`
+	Database         string `mapstructure:"database"`
+	DirectConnection bool   `mapstructure:"direct-connection`
 }
 
 func newConfig(v *viper.Viper, logger *zap.Logger) (Config, error) {

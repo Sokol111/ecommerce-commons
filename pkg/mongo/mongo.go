@@ -3,6 +3,7 @@ package mongo
 import (
 	"context"
 	"fmt"
+	"strings"
 	"time"
 
 	mongodriver "go.mongodb.org/mongo-driver/mongo"
@@ -34,6 +35,9 @@ func newMongo(log *zap.Logger, conf Config) (Mongo, error) {
 }
 
 func validateConfig(conf Config) error {
+	if conf.ConnectionString != "" {
+		return nil
+	}
 	if conf.Host == "" || conf.Port == 0 || conf.Database == "" {
 		return fmt.Errorf("invalid Mongo configuration")
 	}
@@ -64,10 +68,30 @@ func (m *mongo) StartSession(ctx context.Context) (mongodriver.Session, error) {
 }
 
 func buildURI(conf Config) string {
-	if conf.Username != "" {
-		return fmt.Sprintf("mongodb://%s:%s@%s:%d/%s?replicaSet=%s", conf.Username, conf.Password, conf.Host, conf.Port, conf.Database, conf.ReplicaSet)
+	if conf.ConnectionString != "" {
+		return conf.ConnectionString
 	}
-	return fmt.Sprintf("mongodb://%s:%d/%s?replicaSet=%s", conf.Host, conf.Port, conf.Database, conf.ReplicaSet)
+
+	auth := ""
+	if conf.Username != "" {
+		auth = fmt.Sprintf("%s:%s@", conf.Username, conf.Password)
+	}
+
+	uri := fmt.Sprintf("mongodb://%s%s:%d/%s", auth, conf.Host, conf.Port, conf.Database)
+
+	params := []string{}
+	if conf.ReplicaSet != "" {
+		params = append(params, "replicaSet="+conf.ReplicaSet)
+	}
+	if conf.DirectConnection {
+		params = append(params, "directConnection=true")
+	}
+
+	if len(params) > 0 {
+		uri += "?" + strings.Join(params, "&")
+	}
+
+	return uri
 }
 
 func (m *mongo) GetCollection(collection string) *mongodriver.Collection {

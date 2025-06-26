@@ -15,7 +15,7 @@ type Config struct {
 	Username         string `mapstructure:"username"`
 	Password         string `mapstructure:"password"`
 	Database         string `mapstructure:"database"`
-	DirectConnection bool   `mapstructure:"direct-connection`
+	DirectConnection bool   `mapstructure:"direct-connection"`
 }
 
 func newConfig(v *viper.Viper, logger *zap.Logger) (Config, error) {

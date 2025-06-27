@@ -23,6 +23,5 @@ func newConfig(v *viper.Viper, logger *zap.Logger) (Config, error) {
 	if err := v.Sub("mongo").UnmarshalExact(&cfg); err != nil {
 		return cfg, fmt.Errorf("failed to load mongo config: %w", err)
 	}
-	logger.Info("loaded mongo config", zap.Any("config", cfg))
 	return cfg, nil
 }

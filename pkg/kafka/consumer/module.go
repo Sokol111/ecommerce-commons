@@ -47,7 +47,8 @@ func RegisterHandlerAndConsumer[T any](
 
 func provideNewConsumer[T any](lc fx.Lifecycle, log *zap.Logger, conf config.Config, handlerDef handlerDef[T]) (Consumer, error) {
 	var consumerConf *config.ConsumerConfig
-	for _, c := range conf.Consumers {
+
+	for _, c := range conf.ConsumersConfig.ConsumerConfig {
 		if c.Handler == handlerDef.Name {
 			consumerConf = &c
 			break
@@ -56,7 +57,15 @@ func provideNewConsumer[T any](lc fx.Lifecycle, log *zap.Logger, conf config.Con
 	if consumerConf == nil {
 		return nil, fmt.Errorf("no consumer config found for handler: %s", handlerDef.Name)
 	}
-	c, err := newConsumer(conf.Brokers, consumerConf.GroupID, consumerConf.Topic, consumerConf.AutoOffsetReset, handlerDef.Handler, log)
+	groupId := consumerConf.GroupID
+	if groupId == "" {
+		groupId = conf.ConsumersConfig.GroupID
+	}
+	autoOffsetReset := consumerConf.AutoOffsetReset
+	if autoOffsetReset == "" {
+		autoOffsetReset = conf.ConsumersConfig.AutoOffsetReset
+	}
+	c, err := newConsumer(conf.Brokers, groupId, consumerConf.Topic, autoOffsetReset, handlerDef.Handler, log)
 	if err != nil {
 		return nil, err
 	}

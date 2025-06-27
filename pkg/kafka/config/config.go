@@ -9,8 +9,14 @@ import (
 )
 
 type Config struct {
-	Brokers   string           `mapstructure:"brokers"`
-	Consumers []ConsumerConfig `mapstructure:"consumers"`
+	Brokers         string          `mapstructure:"brokers"`
+	ConsumersConfig ConsumersConfig `mapstructure:"consumers-config"`
+}
+
+type ConsumersConfig struct {
+	GroupID         string           `mapstructure:"group-id"`
+	AutoOffsetReset string           `mapstructure:"auto-offset-reset"`
+	ConsumerConfig  []ConsumerConfig `mapstructure:"consumers"`
 }
 
 type ConsumerConfig struct {

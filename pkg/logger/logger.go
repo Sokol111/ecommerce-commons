@@ -2,12 +2,7 @@ package logger
 
 import (
 	"context"
-	"fmt"
-	"os"
 
-	"github.com/Sokol111/ecommerce-commons/pkg/config"
-	"go.uber.org/fx"
-	"go.uber.org/fx/fxevent"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
 )
@@ -30,50 +25,13 @@ func FromContext(ctx context.Context) *zap.Logger {
 	return zap.L()
 }
 
-func NewZapLoggingModule() fx.Option {
-	return fx.Options(
-		fx.Provide(provideLogger),
-		fx.WithLogger(func(log *zap.Logger) fxevent.Logger {
-			return &fxevent.ZapLogger{Logger: log}
-		}),
-	)
-}
+func newLogger(logLevel string) (*zap.Logger, error) {
+	cfg := zap.NewProductionConfig()
 
-func provideLogger(lc fx.Lifecycle, env config.Environment) (*zap.Logger, error) {
-	logger, err := newLogger(env)
+	cfg.Level = zap.NewAtomicLevelAt(parseLogLevel(logLevel))
+	cfg.EncoderConfig.EncodeTime = zapcore.ISO8601TimeEncoder
 
-	if err != nil {
-		return nil, fmt.Errorf("failed to create logger: %w", err)
-	}
-
-	lc.Append(fx.Hook{
-		OnStop: func(ctx context.Context) error {
-			err := logger.Sync()
-			if err != nil {
-				if pathErr, ok := err.(*os.PathError); ok && pathErr.Err.Error() == "invalid argument" {
-					return nil
-				}
-				return err
-			}
-			return nil
-		},
-	})
-
-	return logger, nil
-}
-
-func newLogger(env config.Environment) (*zap.Logger, error) {
-	var logger *zap.Logger
-	var err error
-
-	switch env {
-	case config.EnvProduction:
-		logger, err = zap.NewProduction()
-	case config.EnvDevelopment:
-		logger, err = zap.NewDevelopment()
-	default:
-		logger = zap.NewExample()
-	}
+	logger, err := cfg.Build()
 
 	if err != nil {
 		return nil, err
@@ -81,7 +39,22 @@ func newLogger(env config.Environment) (*zap.Logger, error) {
 
 	zap.ReplaceGlobals(logger)
 
-	logger.Info("logger initialized", zap.String("env", string(env)))
+	logger.Info("logger initialized", zap.String("level", logLevel))
 
 	return logger, nil
+}
+
+func parseLogLevel(level string) zapcore.Level {
+	switch level {
+	case "debug":
+		return zapcore.DebugLevel
+	case "info":
+		return zapcore.InfoLevel
+	case "warn":
+		return zapcore.WarnLevel
+	case "error":
+		return zapcore.ErrorLevel
+	default:
+		return zapcore.InfoLevel
+	}
 }

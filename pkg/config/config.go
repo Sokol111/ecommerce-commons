@@ -8,6 +8,7 @@ import (
 	"github.com/joho/godotenv"
 	"github.com/spf13/viper"
 	"go.uber.org/fx"
+	"go.uber.org/zap"
 )
 
 type Environment string
@@ -32,13 +33,13 @@ func NewViperModule() fx.Option {
 	)
 }
 
-func provideEnv() (Environment, error) {
+func provideEnv(logger *zap.Logger) (Environment, error) {
 	_ = godotenv.Load()
 	env := Environment(os.Getenv("APP_ENV"))
 	if !env.isValid() {
 		return "", fmt.Errorf("invalid APP_ENV: %s", env)
 	}
-	fmt.Printf("Loaded environment: %s\n", env)
+	logger.Info("Loaded environment", zap.Any("env", env))
 	return Environment(env), nil
 }
 

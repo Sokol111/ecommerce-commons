@@ -27,19 +27,23 @@ func (e Environment) isValid() bool {
 }
 
 func NewViperModule() fx.Option {
-	return fx.Provide(
-		provideEnv,
-		newViper,
+	return fx.Options(
+		fx.Provide(
+			provideEnv,
+			newViper,
+		),
+		fx.Invoke(func(logger *zap.Logger, env Environment) {
+			logger.Info("Loaded environment", zap.Any("env", env))
+		}),
 	)
 }
 
-func provideEnv(logger *zap.Logger) (Environment, error) {
+func provideEnv() (Environment, error) {
 	_ = godotenv.Load()
 	env := Environment(os.Getenv("APP_ENV"))
 	if !env.isValid() {
 		return "", fmt.Errorf("invalid APP_ENV: %s", env)
 	}
-	logger.Info("Loaded environment", zap.Any("env", env))
 	return Environment(env), nil
 }
 

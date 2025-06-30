@@ -12,16 +12,27 @@ import (
 //go:embed swagger-ui/*
 var swaggerFS embed.FS
 
-func registerSwaggerUI(r *gin.Engine) error {
+type SwaggerConfig struct {
+	OpenAPIContent []byte
+}
+
+func registerSwaggerUI(router *gin.Engine, cfg SwaggerConfig) error {
 	subFS, err := fs.Sub(swaggerFS, "swagger-ui")
 	if err != nil {
 		return err
 	}
-	r.StaticFS("/swagger", http.FS(subFS))
-	r.StaticFile("/openapi.yaml", "./api/openapi.yaml")
+
+	router.StaticFS("/swagger", http.FS(subFS))
+
+	router.GET("/openapi.yaml", func(c *gin.Context) {
+		c.Data(http.StatusOK, "application/yaml", cfg.OpenAPIContent)
+	})
+
 	return nil
 }
 
-func NewSwaggerModule() fx.Option {
-	return fx.Invoke(registerSwaggerUI)
+func NewSwaggerModule(cfg SwaggerConfig) fx.Option {
+	return fx.Invoke(func(r *gin.Engine) error {
+		return registerSwaggerUI(r, cfg)
+	})
 }

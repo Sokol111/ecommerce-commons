@@ -7,8 +7,8 @@ import (
 	"time"
 
 	"github.com/Sokol111/ecommerce-commons/pkg/mongo"
+	"github.com/google/uuid"
 	"go.mongodb.org/mongo-driver/bson"
-	"go.mongodb.org/mongo-driver/bson/primitive"
 	mongodriver "go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
 )
@@ -22,9 +22,7 @@ type Store interface {
 
 	Create(ctx context.Context, payload string, key string, topic string) (*outboxEntity, error)
 
-	UpdateLockExpiresAt(ctx context.Context, id primitive.ObjectID, lockExpiresAt time.Time) error
-
-	UpdateAsSentByIds(ctx context.Context, ids []primitive.ObjectID) error
+	UpdateAsSentByIds(ctx context.Context, ids []string) error
 }
 
 type store struct {
@@ -72,6 +70,7 @@ func (r *store) FetchAndLock(ctx context.Context) (*outboxEntity, error) {
 
 func (r *store) Create(ctx context.Context, payload string, key string, topic string) (*outboxEntity, error) {
 	entity := outboxEntity{
+		ID:             uuid.NewString(),
 		Payload:        payload,
 		Key:            key,
 		Topic:          topic,
@@ -80,29 +79,14 @@ func (r *store) Create(ctx context.Context, payload string, key string, topic st
 		LockExpiresAt:  time.Now().Add(10 * time.Second),
 		AttemptsToSend: 0,
 	}
-	result, err := r.wrapper.Coll.InsertOne(ctx, entity)
+	_, err := r.wrapper.Coll.InsertOne(ctx, entity)
 	if err != nil {
 		return nil, fmt.Errorf("failed to insert outbox entity: %w", err)
 	}
-	id, ok := result.InsertedID.(primitive.ObjectID)
-	if !ok {
-		return nil, fmt.Errorf("failed to cast inserted ID to ObjectID")
-	}
-	entity.ID = id
 	return &entity, nil
 }
 
-func (r *store) UpdateLockExpiresAt(ctx context.Context, id primitive.ObjectID, lockExpiresAt time.Time) error {
-	_, err := r.wrapper.Coll.UpdateOne(ctx,
-		bson.M{"_id": id},
-		bson.M{"$set": bson.M{"lockExpiresAt": lockExpiresAt}})
-	if err != nil {
-		return fmt.Errorf("failed to update outbox message: %w", err)
-	}
-	return nil
-}
-
-func (r *store) UpdateAsSentByIds(ctx context.Context, ids []primitive.ObjectID) error {
+func (r *store) UpdateAsSentByIds(ctx context.Context, ids []string) error {
 	_, err := r.wrapper.Coll.UpdateMany(ctx,
 		bson.M{"_id": bson.M{"$in": ids}},
 		bson.M{

@@ -31,8 +31,13 @@ func newEngine(log *zap.Logger) *gin.Engine {
 
 func loggerMiddleware(log *zap.Logger) gin.HandlerFunc {
 	return func(c *gin.Context) {
-		start := time.Now()
 		path := c.Request.URL.Path
+		if path == "/health/live" || path == "/health/ready" {
+			c.Next()
+			return
+		}
+
+		start := time.Now()
 		raw := c.Request.URL.RawQuery
 
 		c.Next()
@@ -40,7 +45,7 @@ func loggerMiddleware(log *zap.Logger) gin.HandlerFunc {
 		latency := time.Since(start)
 		status := c.Writer.Status()
 
-		log.Info("Incoming request",
+		log.Debug("Incoming request",
 			zap.String("method", c.Request.Method),
 			zap.String("path", path),
 			zap.String("query", raw),

@@ -12,7 +12,6 @@ import (
 	"github.com/Sokol111/ecommerce-commons/pkg/kafka/producer"
 	"github.com/Sokol111/ecommerce-commons/pkg/logger"
 	"github.com/confluentinc/confluent-kafka-go/v2/kafka"
-	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.uber.org/zap"
 )
 
@@ -103,7 +102,7 @@ func (o *outbox) Create(ctx context.Context, event any, key string, topic string
 	if err != nil {
 		return nil, fmt.Errorf("failed to create outbox message: %w", err)
 	}
-	o.log(ctx).Debug("outbox created", zap.String("id", entity.ID.Hex()))
+	o.log(ctx).Debug("outbox created", zap.String("id", entity.ID))
 
 	return SendFunc(func(ctx context.Context) error {
 		timer := time.NewTimer(1 * time.Second)
@@ -114,7 +113,7 @@ func (o *outbox) Create(ctx context.Context, event any, key string, topic string
 		case o.entitiesChan <- entity:
 			return nil
 		case <-timer.C:
-			o.log(ctx).Warn("entitiesChan is full, dropping message", zap.String("id", entity.ID.Hex()))
+			o.log(ctx).Warn("entitiesChan is full, dropping message", zap.String("id", entity.ID))
 			return fmt.Errorf("entitiesChan is full")
 		}
 	}), nil
@@ -169,9 +168,9 @@ func (o *outbox) startSendingWorker() {
 			}
 			err := o.send(entity)
 			if err != nil {
-				o.logger.Error("failed to send outbox message", zap.String("id", entity.ID.Hex()), zap.Error(err))
+				o.logger.Error("failed to send outbox message", zap.String("id", entity.ID), zap.Error(err))
 			}
-			o.logger.Debug("outbox sent to kafka", zap.String("id", entity.ID.Hex()))
+			o.logger.Debug("outbox sent to kafka", zap.String("id", entity.ID))
 		}
 	}
 }
@@ -220,18 +219,18 @@ func (o *outbox) startConfirmationWorker() {
 
 func (o *outbox) handleConfirmation(events []kafka.Event) {
 	defer o.wg.Done()
-	ids := make([]primitive.ObjectID, 0, len(events))
+	ids := make([]string, 0, len(events))
 	for _, event := range events {
 		msg, ok := event.(*kafka.Message)
 		if !ok {
-			o.logger.Warn("skipping confirmation",
+			o.logger.Error("skipping confirmation",
 				zap.String("reason", "unexpected event type"),
 				zap.String("got", fmt.Sprintf("%T", event)),
 				zap.String("expected", "*kafka.Message"))
 			continue
 		}
 		if msg.TopicPartition.Error != nil {
-			o.logger.Warn("skipping confirmation",
+			o.logger.Error("skipping confirmation",
 				zap.String("reason", "topic partition error"),
 				zap.Any("opaque", msg.Opaque),
 				zap.Error(msg.TopicPartition.Error),
@@ -240,10 +239,10 @@ func (o *outbox) handleConfirmation(events []kafka.Event) {
 				zap.Any("offset", msg.TopicPartition.Offset))
 			continue
 		}
-		id, ok := msg.Opaque.(primitive.ObjectID)
+		id, ok := msg.Opaque.(string)
 		if !ok {
-			o.logger.Warn("skipping confirmation",
-				zap.String("reason", "failed to cast Opaque to ObjectID"),
+			o.logger.Error("skipping confirmation",
+				zap.String("reason", "failed to cast Opaque to string"),
 				zap.Any("opaque", msg.Opaque))
 			continue
 		}

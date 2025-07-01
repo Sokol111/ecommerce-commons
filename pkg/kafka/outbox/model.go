@@ -2,12 +2,10 @@ package outbox
 
 import (
 	"time"
-
-	"go.mongodb.org/mongo-driver/bson/primitive"
 )
 
 type outboxEntity struct {
-	ID             primitive.ObjectID `bson:"_id,omitempty"`
+	ID             string `bson:"_id"`
 	Payload        string
 	Key            string
 	Topic          string

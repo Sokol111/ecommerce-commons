@@ -44,7 +44,7 @@ func provideCollection(lc fx.Lifecycle, m mongo.Mongo) (*mongo.CollectionWrapper
 			err := m.CreateIndexes(ctx, "outbox", []mongodriver.IndexModel{
 				{
 					Keys:    bson.D{{Key: "createdAt", Value: 1}},
-					Options: options.Index().SetExpireAfterSeconds(60 * 60 * 24 * 30),
+					Options: options.Index().SetExpireAfterSeconds(60 * 60 * 24 * 5),
 				},
 				{Keys: bson.D{{Key: "lockExpiresAt", Value: 1}}},
 			})

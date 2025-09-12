@@ -262,5 +262,5 @@ func (o *outbox) handleConfirmation(events []kafka.Event) {
 }
 
 func (o *outbox) log(ctx context.Context) *zap.Logger {
-	return logger.CombineLogger(o.logger, ctx)
+	return logger.FromContext(ctx).With(zap.String("component", "outbox"))
 }

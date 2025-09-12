@@ -4,7 +4,6 @@ import (
 	"fmt"
 
 	"github.com/spf13/viper"
-	"go.uber.org/zap"
 )
 
 type Config struct {
@@ -18,7 +17,7 @@ type Config struct {
 	DirectConnection bool   `mapstructure:"direct-connection"`
 }
 
-func newConfig(v *viper.Viper, logger *zap.Logger) (Config, error) {
+func newConfig(v *viper.Viper) (Config, error) {
 	var cfg Config
 	if err := v.Sub("mongo").UnmarshalExact(&cfg); err != nil {
 		return cfg, fmt.Errorf("failed to load mongo config: %w", err)

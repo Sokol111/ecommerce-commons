@@ -9,17 +9,10 @@ import (
 
 type ctxKey struct{}
 
-func CombineLogger(base *zap.Logger, ctx context.Context) *zap.Logger {
-	if ctxLogger, ok := ctx.Value(ctxKey{}).(*zap.Logger); ok {
-		return ctxLogger.WithOptions(zap.WrapCore(func(core zapcore.Core) zapcore.Core {
-			return zapcore.NewTee(core, base.Core())
-		}))
-	}
-	return base
-}
+var CtxKey ctxKey = ctxKey{}
 
 func FromContext(ctx context.Context) *zap.Logger {
-	if ctxLogger, ok := ctx.Value(ctxKey{}).(*zap.Logger); ok {
+	if ctxLogger, ok := ctx.Value(CtxKey).(*zap.Logger); ok {
 		return ctxLogger
 	}
 	return zap.L()

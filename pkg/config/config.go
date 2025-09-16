@@ -20,13 +20,14 @@ type Config struct {
 type Environment string
 
 const (
+	EnvStandalone  Environment = "standalone"
 	EnvDevelopment Environment = "dev"
 	EnvProduction  Environment = "pro"
 )
 
 func (e Environment) isValid() bool {
 	switch e {
-	case EnvDevelopment, EnvProduction:
+	case EnvStandalone, EnvDevelopment, EnvProduction:
 		return true
 	}
 	return false

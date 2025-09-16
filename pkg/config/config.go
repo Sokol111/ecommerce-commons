@@ -21,7 +21,7 @@ type Environment string
 
 const (
 	EnvDevelopment Environment = "dev"
-	EnvProduction  Environment = "prod"
+	EnvProduction  Environment = "pro"
 )
 
 func (e Environment) isValid() bool {

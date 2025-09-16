@@ -30,7 +30,7 @@ func newLogger(logLevel string, appConfig config.Config) (*zap.Logger, error) {
 	logger = logger.With(
 		zap.String("service.name", appConfig.ServiceName),
 		zap.String("service.version", appConfig.ServiceVersion),
-		zap.String("service.environment", string(appConfig.Environment)),
+		zap.String("env", string(appConfig.Environment)),
 	)
 
 	if err != nil {

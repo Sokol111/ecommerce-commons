@@ -7,13 +7,13 @@ import (
 )
 
 type Config struct {
-	Enabled  bool   `mapstructure:"enabled"`
-	Endpoint string `mapstructure:"endpoint"`
+	TracingEnabled        bool   `mapstructure:"tracing-enabled"`
+	OtelCollectorEndpoint string `mapstructure:"otel-collector-endpoint"`
 }
 
 func newConfig(v *viper.Viper) (Config, error) {
 	var cfg Config
-	if err := v.Sub("otel").UnmarshalExact(&cfg); err != nil {
+	if err := v.Sub("observability").UnmarshalExact(&cfg); err != nil {
 		return cfg, fmt.Errorf("failed to load otel config: %w", err)
 	}
 	return cfg, nil

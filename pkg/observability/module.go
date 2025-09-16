@@ -30,19 +30,15 @@ func NewTracingModule() fx.Option {
 		),
 		fx.Options(
 			fx.Provide(func(lc fx.Lifecycle, log *zap.Logger, conf Config, appConf config.Config) (*sdktrace.TracerProvider, error) {
-				if !conf.Enabled {
+				if !conf.TracingEnabled {
 					log.Info("tracing disabled")
 					return nil, nil
 				}
 				return provideTracerProvider(lc, log, conf, appConf)
 			}),
-			fx.Invoke(func(conf Config, engine *gin.Engine, appConf config.Config) {
-				if conf.Enabled {
+			fx.Invoke(func(conf Config, engine *gin.Engine, appConf config.Config, log *zap.Logger) {
+				if conf.TracingEnabled {
 					addGinMiddleware(engine, appConf)
-				}
-			}),
-			fx.Invoke(func(conf Config, engine *gin.Engine, log *zap.Logger) {
-				if conf.Enabled {
 					addTraceLoggerToContext(engine, log)
 				}
 			}),
@@ -52,14 +48,6 @@ func NewTracingModule() fx.Option {
 
 func provideTracerProvider(lc fx.Lifecycle, log *zap.Logger, conf Config, appConf config.Config) (*sdktrace.TracerProvider, error) {
 	ctx := context.Background()
-
-	exp, err := otlptracegrpc.New(ctx,
-		otlptracegrpc.WithEndpoint(conf.Endpoint),
-		otlptracegrpc.WithInsecure(),
-	)
-	if err != nil {
-		return nil, err
-	}
 
 	attrs := []attribute.KeyValue{
 		semconv.ServiceNameKey.String(appConf.ServiceName),
@@ -78,20 +66,36 @@ func provideTracerProvider(lc fx.Lifecycle, log *zap.Logger, conf Config, appCon
 		return nil, err
 	}
 
-	tp := sdktrace.NewTracerProvider(
-		sdktrace.WithBatcher(exp),
-		sdktrace.WithResource(res),
-	)
+	var tp *sdktrace.TracerProvider
 
-	otel.SetTextMapPropagator(propagation.NewCompositeTextMapPropagator(
-		propagation.TraceContext{},
-		propagation.Baggage{},
-	))
+	if conf.OtelCollectorEndpoint != "" {
+		exp, err := otlptracegrpc.New(ctx,
+			otlptracegrpc.WithEndpoint(conf.OtelCollectorEndpoint),
+			otlptracegrpc.WithInsecure(),
+		)
+		if err != nil {
+			return nil, err
+		}
+		tp = sdktrace.NewTracerProvider(
+			sdktrace.WithBatcher(exp),
+			sdktrace.WithResource(res),
+		)
+	} else {
+		log.Info("otel tracing: no collector endpoint provided; running in local in-process mode (no export)")
+		tp = sdktrace.NewTracerProvider(
+			sdktrace.WithSampler(sdktrace.ParentBased(sdktrace.AlwaysSample())),
+			sdktrace.WithResource(res),
+		)
+	}
 
 	lc.Append(fx.Hook{
 		OnStart: func(context.Context) error {
 			otel.SetTracerProvider(tp)
-			log.Info("otel tracing initialized", zap.String("endpoint", conf.Endpoint))
+			otel.SetTextMapPropagator(propagation.NewCompositeTextMapPropagator(
+				propagation.TraceContext{},
+				propagation.Baggage{},
+			))
+			log.Info("otel tracing initialized", zap.String("endpoint", conf.OtelCollectorEndpoint))
 			return nil
 		},
 		OnStop: func(ctx context.Context) error {

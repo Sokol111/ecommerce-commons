@@ -27,10 +27,26 @@ func NewTracingModule() fx.Option {
 	return fx.Options(
 		fx.Provide(
 			newConfig,
-			provideTracerProvider,
 		),
-		fx.Invoke(addGinMiddleware),
-		fx.Invoke(addTraceLoggerToContext),
+		fx.Options(
+			fx.Provide(func(lc fx.Lifecycle, log *zap.Logger, conf Config, appConf config.Config) (*sdktrace.TracerProvider, error) {
+				if !conf.Enabled {
+					log.Info("tracing disabled")
+					return nil, nil
+				}
+				return provideTracerProvider(lc, log, conf, appConf)
+			}),
+			fx.Invoke(func(conf Config, engine *gin.Engine, appConf config.Config) {
+				if conf.Enabled {
+					addGinMiddleware(engine, appConf)
+				}
+			}),
+			fx.Invoke(func(conf Config, engine *gin.Engine, log *zap.Logger) {
+				if conf.Enabled {
+					addTraceLoggerToContext(engine, log)
+				}
+			}),
+		),
 	)
 }
 

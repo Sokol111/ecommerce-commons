@@ -7,6 +7,7 @@ import (
 )
 
 type Config struct {
+	Enabled  bool   `mapstructure:"enabled"`
 	Endpoint string `mapstructure:"endpoint"`
 }
 

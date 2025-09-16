@@ -5,6 +5,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/Sokol111/ecommerce-commons/pkg/config"
 	"github.com/Sokol111/ecommerce-commons/pkg/logger"
 	"github.com/gin-gonic/gin"
 	"go.opentelemetry.io/contrib/instrumentation/github.com/gin-gonic/gin/otelgin"
@@ -14,6 +15,7 @@ import (
 	"go.opentelemetry.io/otel/propagation"
 	"go.opentelemetry.io/otel/sdk/resource"
 	sdktrace "go.opentelemetry.io/otel/sdk/trace"
+	semconv "go.opentelemetry.io/otel/semconv/v1.4.0"
 
 	"go.opentelemetry.io/otel/trace"
 
@@ -32,7 +34,7 @@ func NewTracingModule() fx.Option {
 	)
 }
 
-func provideTracerProvider(lc fx.Lifecycle, log *zap.Logger, conf Config) (*sdktrace.TracerProvider, error) {
+func provideTracerProvider(lc fx.Lifecycle, log *zap.Logger, conf Config, appConf config.Config) (*sdktrace.TracerProvider, error) {
 	ctx := context.Background()
 
 	exp, err := otlptracegrpc.New(ctx,
@@ -44,10 +46,9 @@ func provideTracerProvider(lc fx.Lifecycle, log *zap.Logger, conf Config) (*sdkt
 	}
 
 	attrs := []attribute.KeyValue{
-		attribute.String("service.name", conf.ServiceName),
-	}
-	if conf.ServiceVersion != "" {
-		attrs = append(attrs, attribute.String("service.version", conf.ServiceVersion))
+		semconv.ServiceNameKey.String(appConf.ServiceName),
+		semconv.ServiceVersionKey.String(appConf.ServiceVersion),
+		semconv.DeploymentEnvironmentKey.String(string(appConf.Environment)),
 	}
 
 	res, err := resource.New(ctx,
@@ -74,11 +75,7 @@ func provideTracerProvider(lc fx.Lifecycle, log *zap.Logger, conf Config) (*sdkt
 	lc.Append(fx.Hook{
 		OnStart: func(context.Context) error {
 			otel.SetTracerProvider(tp)
-			log.Info("otel tracing initialized",
-				zap.String("endpoint", conf.Endpoint),
-				zap.String("service", conf.ServiceName),
-				zap.String("version", conf.ServiceVersion),
-			)
+			log.Info("otel tracing initialized", zap.String("endpoint", conf.Endpoint))
 			return nil
 		},
 		OnStop: func(ctx context.Context) error {
@@ -91,8 +88,8 @@ func provideTracerProvider(lc fx.Lifecycle, log *zap.Logger, conf Config) (*sdkt
 	return tp, nil
 }
 
-func addGinMiddleware(engine *gin.Engine, conf Config) {
-	engine.Use(otelgin.Middleware(conf.ServiceName,
+func addGinMiddleware(engine *gin.Engine, appConf config.Config) {
+	engine.Use(otelgin.Middleware(appConf.ServiceName,
 		otelgin.WithGinFilter(func(c *gin.Context) bool {
 			route := c.FullPath()
 			if route == "" {

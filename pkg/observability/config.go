@@ -7,9 +7,7 @@ import (
 )
 
 type Config struct {
-	ServiceName    string `mapstructure:"service-name"`
-	ServiceVersion string `mapstructure:"service-version"`
-	Endpoint       string `mapstructure:"endpoint"`
+	Endpoint string `mapstructure:"endpoint"`
 }
 
 func newConfig(v *viper.Viper) (Config, error) {

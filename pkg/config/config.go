@@ -11,11 +11,17 @@ import (
 	"go.uber.org/zap"
 )
 
+type Config struct {
+	ServiceName    string
+	ServiceVersion string
+	Environment    Environment
+}
+
 type Environment string
 
 const (
-	EnvDevelopment Environment = "development"
-	EnvProduction  Environment = "production"
+	EnvDevelopment Environment = "dev"
+	EnvProduction  Environment = "prod"
 )
 
 func (e Environment) isValid() bool {
@@ -29,28 +35,36 @@ func (e Environment) isValid() bool {
 func NewViperModule() fx.Option {
 	return fx.Options(
 		fx.Provide(
-			provideEnv,
+			provideAppConf,
 			newViper,
 		),
-		fx.Invoke(func(logger *zap.Logger, env Environment) {
-			logger.Info("Loaded environment", zap.Any("env", env))
+		fx.Invoke(func(logger *zap.Logger, conf Config) {
+			logger.Info("Loaded environment", zap.Any("env", conf.Environment))
 		}),
 	)
 }
 
-func provideEnv() (Environment, error) {
+func provideAppConf() (Config, error) {
 	_ = godotenv.Load()
 	env := Environment(os.Getenv("APP_ENV"))
 	if !env.isValid() {
-		return "", fmt.Errorf("invalid APP_ENV: %s", env)
+		return Config{}, fmt.Errorf("invalid APP_ENV: %s", env)
 	}
-	return Environment(env), nil
+	serviceName := os.Getenv("APP_SERVICE_NAME")
+	if serviceName == "" {
+		return Config{}, fmt.Errorf("APP_SERVICE_NAME is not set")
+	}
+	serviceVersion := os.Getenv("APP_SERVICE_VERSION")
+	if serviceVersion == "" {
+		return Config{}, fmt.Errorf("APP_SERVICE_VERSION is not set")
+	}
+	return Config{ServiceName: serviceName, ServiceVersion: serviceVersion, Environment: env}, nil
 }
 
-func newViper(env Environment) (*viper.Viper, error) {
+func newViper(conf Config) (*viper.Viper, error) {
 	v := viper.New()
 
-	configName := "config." + string(env)
+	configName := "config." + string(conf.Environment)
 	configPath := "./configs"
 
 	v.SetConfigName(configName)

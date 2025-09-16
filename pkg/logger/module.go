@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 
+	"github.com/Sokol111/ecommerce-commons/pkg/config"
 	"go.uber.org/fx"
 	"go.uber.org/fx/fxevent"
 	"go.uber.org/zap"
@@ -22,8 +23,8 @@ func NewZapLoggingModule() fx.Option {
 	)
 }
 
-func provideLogger(lc fx.Lifecycle, conf Config) (*zap.Logger, error) {
-	logger, err := newLogger(conf.Level)
+func provideLogger(lc fx.Lifecycle, conf Config, appConf config.Config) (*zap.Logger, error) {
+	logger, err := newLogger(conf.Level, appConf)
 
 	if err != nil {
 		return nil, fmt.Errorf("failed to create logger: %w", err)

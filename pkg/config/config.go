@@ -61,9 +61,6 @@ func provideAppConf() (Config, error) {
 		return Config{}, fmt.Errorf("APP_SERVICE_VERSION is not set")
 	}
 	configFile := os.Getenv("CONFIG_FILE")
-	if configFile == "" {
-		return Config{}, fmt.Errorf("CONFIG_FILE is not set")
-	}
 	return Config{ConfigFile: configFile, ServiceName: serviceName, ServiceVersion: serviceVersion, Environment: env}, nil
 }
 

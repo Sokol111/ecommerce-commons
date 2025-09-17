@@ -12,6 +12,7 @@ import (
 )
 
 type Config struct {
+	ConfigFile     string
 	ServiceName    string
 	ServiceVersion string
 	Environment    Environment
@@ -59,22 +60,35 @@ func provideAppConf() (Config, error) {
 	if serviceVersion == "" {
 		return Config{}, fmt.Errorf("APP_SERVICE_VERSION is not set")
 	}
-	return Config{ServiceName: serviceName, ServiceVersion: serviceVersion, Environment: env}, nil
+	configFile := os.Getenv("CONFIG_FILE")
+	if configFile == "" {
+		return Config{}, fmt.Errorf("CONFIG_FILE is not set")
+	}
+	return Config{ConfigFile: configFile, ServiceName: serviceName, ServiceVersion: serviceVersion, Environment: env}, nil
 }
 
 func newViper(conf Config) (*viper.Viper, error) {
 	v := viper.New()
 
-	configName := "config." + string(conf.Environment)
-	configPath := "./configs"
+	var fullConfigPath string
 
-	v.SetConfigName(configName)
-	v.SetConfigType("yaml")
-	v.AddConfigPath(configPath)
+	if conf.ConfigFile == "" {
+		configName := "config." + string(conf.Environment)
+		configPath := "./configs"
+
+		v.SetConfigName(configName)
+		v.SetConfigType("yaml")
+		v.AddConfigPath(configPath)
+
+		fullConfigPath = fmt.Sprintf("%s/%s.yaml", configPath, configName)
+	} else {
+		v.SetConfigFile(conf.ConfigFile)
+		fullConfigPath = conf.ConfigFile
+	}
+
 	v.AutomaticEnv()
-	v.SetEnvKeyReplacer(strings.NewReplacer(".", "_"))
+	v.SetEnvKeyReplacer(strings.NewReplacer(".", "_", "-", "_"))
 
-	fullConfigPath := fmt.Sprintf("%s/%s.yaml", configPath, configName)
 	if _, err := os.Stat(fullConfigPath); os.IsNotExist(err) {
 		return nil, fmt.Errorf("config file [%s] does not exist: %w", fullConfigPath, err)
 	}

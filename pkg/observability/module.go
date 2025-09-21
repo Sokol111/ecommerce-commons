@@ -39,25 +39,23 @@ func NewTracingModule() fx.Option {
 			},
 		),
 		fx.Provide(
-			fx.Provide(
-				fx.Annotate(
-					func(conf Config, appConf config.Config) commongin.Middleware {
-						if !conf.TracingEnabled {
-							return commongin.Middleware{}
-						}
-						return commongin.Middleware{Priority: 0, Handler: tracingGinMiddleware(appConf.ServiceName)}
-					},
-					fx.ResultTags(`group:"gin_mw"`),
-				),
-				fx.Annotate(
-					func(conf Config, log *zap.Logger) commongin.Middleware {
-						if !conf.TracingEnabled {
-							return commongin.Middleware{}
-						}
-						return commongin.Middleware{Priority: 50, Handler: tracingLoggerMiddleware(log)}
-					},
-					fx.ResultTags(`group:"gin_mw"`),
-				),
+			fx.Annotate(
+				func(conf Config, appConf config.Config) commongin.Middleware {
+					if !conf.TracingEnabled {
+						return commongin.Middleware{}
+					}
+					return commongin.Middleware{Priority: 0, Handler: tracingGinMiddleware(appConf.ServiceName)}
+				},
+				fx.ResultTags(`group:"gin_mw"`),
+			),
+			fx.Annotate(
+				func(conf Config, log *zap.Logger) commongin.Middleware {
+					if !conf.TracingEnabled {
+						return commongin.Middleware{}
+					}
+					return commongin.Middleware{Priority: 50, Handler: tracingLoggerMiddleware(log)}
+				},
+				fx.ResultTags(`group:"gin_mw"`),
 			),
 		),
 	)

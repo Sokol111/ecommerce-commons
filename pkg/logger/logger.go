@@ -3,7 +3,6 @@ package logger
 import (
 	"context"
 
-	"github.com/Sokol111/ecommerce-commons/pkg/config"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
 )
@@ -19,19 +18,13 @@ func FromContext(ctx context.Context) *zap.Logger {
 	return zap.L()
 }
 
-func newLogger(logLevel string, appConfig config.Config) (*zap.Logger, error) {
+func newLogger(logLevel string) (*zap.Logger, error) {
 	cfg := zap.NewProductionConfig()
 
 	cfg.Level = zap.NewAtomicLevelAt(parseLogLevel(logLevel))
 	cfg.EncoderConfig.EncodeTime = zapcore.ISO8601TimeEncoder
 
 	logger, err := cfg.Build()
-
-	logger = logger.With(
-		zap.String("service.name", appConfig.ServiceName),
-		zap.String("service.version", appConfig.ServiceVersion),
-		zap.String("env", string(appConfig.Environment)),
-	)
 
 	if err != nil {
 		return nil, err

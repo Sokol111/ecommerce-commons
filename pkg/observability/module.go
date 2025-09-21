@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/Sokol111/ecommerce-commons/pkg/config"
+	commongin "github.com/Sokol111/ecommerce-commons/pkg/gin"
 	"github.com/Sokol111/ecommerce-commons/pkg/logger"
 	"github.com/gin-gonic/gin"
 	"go.opentelemetry.io/contrib/instrumentation/github.com/gin-gonic/gin/otelgin"
@@ -28,20 +29,36 @@ func NewTracingModule() fx.Option {
 		fx.Provide(
 			newConfig,
 		),
-		fx.Options(
-			fx.Provide(func(lc fx.Lifecycle, log *zap.Logger, conf Config, appConf config.Config) (*sdktrace.TracerProvider, error) {
+		fx.Provide(
+			func(lc fx.Lifecycle, log *zap.Logger, conf Config, appConf config.Config) (*sdktrace.TracerProvider, error) {
 				if !conf.TracingEnabled {
 					log.Info("tracing disabled")
 					return nil, nil
 				}
 				return provideTracerProvider(lc, log, conf, appConf)
-			}),
-			fx.Invoke(func(conf Config, engine *gin.Engine, appConf config.Config, log *zap.Logger) {
-				if conf.TracingEnabled {
-					addGinMiddleware(engine, appConf)
-					addTraceLoggerToContext(engine, log)
-				}
-			}),
+			},
+		),
+		fx.Provide(
+			fx.Provide(
+				fx.Annotate(
+					func(conf Config, appConf config.Config) commongin.Middleware {
+						if !conf.TracingEnabled {
+							return commongin.Middleware{}
+						}
+						return commongin.Middleware{Priority: 0, Handler: tracingGinMiddleware(appConf.ServiceName)}
+					},
+					fx.ResultTags(`group:"gin_mw"`),
+				),
+				fx.Annotate(
+					func(conf Config, log *zap.Logger) commongin.Middleware {
+						if !conf.TracingEnabled {
+							return commongin.Middleware{}
+						}
+						return commongin.Middleware{Priority: 50, Handler: tracingLoggerMiddleware(log)}
+					},
+					fx.ResultTags(`group:"gin_mw"`),
+				),
+			),
 		),
 	)
 }
@@ -108,8 +125,8 @@ func provideTracerProvider(lc fx.Lifecycle, log *zap.Logger, conf Config, appCon
 	return tp, nil
 }
 
-func addGinMiddleware(engine *gin.Engine, appConf config.Config) {
-	engine.Use(otelgin.Middleware(appConf.ServiceName,
+func tracingGinMiddleware(serviceName string) gin.HandlerFunc {
+	return otelgin.Middleware(serviceName,
 		otelgin.WithGinFilter(func(c *gin.Context) bool {
 			route := c.FullPath()
 			if route == "" {
@@ -120,16 +137,16 @@ func addGinMiddleware(engine *gin.Engine, appConf config.Config) {
 			}
 			return true
 		}),
-	))
+	)
 }
 
-func addTraceLoggerToContext(engine *gin.Engine, log *zap.Logger) {
-	engine.Use(func(c *gin.Context) {
+func tracingLoggerMiddleware(log *zap.Logger) gin.HandlerFunc {
+	return func(c *gin.Context) {
 		l := withTrace(c.Request.Context(), log)
 		ctx := context.WithValue(c.Request.Context(), logger.CtxKey, l)
 		c.Request = c.Request.WithContext(ctx)
 		c.Next()
-	})
+	}
 }
 
 func withTrace(ctx context.Context, log *zap.Logger) *zap.Logger {

@@ -30,7 +30,7 @@ func NewTracingModule() fx.Option {
 			newConfig,
 		),
 		fx.Provide(
-			func(lc fx.Lifecycle, log *zap.Logger, conf Config, appConf config.Config) (*sdktrace.TracerProvider, error) {
+			func(lc fx.Lifecycle, log *zap.Logger, conf Config, appConf config.Config) (trace.TracerProvider, error) {
 				if !conf.TracingEnabled {
 					log.Info("tracing disabled")
 					return nil, nil
@@ -58,10 +58,11 @@ func NewTracingModule() fx.Option {
 				fx.ResultTags(`group:"gin_mw"`),
 			),
 		),
+		fx.Invoke(func(trace.TracerProvider) {}),
 	)
 }
 
-func provideTracerProvider(lc fx.Lifecycle, log *zap.Logger, conf Config, appConf config.Config) (*sdktrace.TracerProvider, error) {
+func provideTracerProvider(lc fx.Lifecycle, log *zap.Logger, conf Config, appConf config.Config) (trace.TracerProvider, error) {
 	ctx := context.Background()
 
 	attrs := []attribute.KeyValue{

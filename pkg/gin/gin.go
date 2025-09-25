@@ -52,7 +52,9 @@ func provideGinAndHandler(in mwIn) (*gin.Engine, http.Handler) {
 }
 
 func newEngine(mws []Middleware) *gin.Engine {
-	engine := gin.New()
+	engine := gin.New(func(e *gin.Engine) {
+		e.ContextWithFallback = true
+	})
 
 	sort.Slice(mws, func(i, j int) bool { return mws[i].Priority < mws[j].Priority })
 	for _, m := range mws {

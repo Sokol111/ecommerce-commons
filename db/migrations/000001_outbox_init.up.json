@@ -1,0 +1,24 @@
+[
+    {
+        "createIndexes": "outbox",
+        "indexes": [
+            {
+                "name": "outbox_createdAt_v1",
+                "key": {
+                    "createdAt": 1
+                },
+                "expireAfterSeconds": 432000
+            },
+            {
+                "name": "outbox_lockExpiresAt_v1",
+                "key": {
+                    "lockExpiresAt": 1
+                }
+            }
+        ],
+        "commitQuorum": "majority",
+        "writeConcern": {
+            "w": "majority"
+        }
+    }
+]

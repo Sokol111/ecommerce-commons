@@ -5,9 +5,6 @@ import (
 
 	"github.com/Sokol111/ecommerce-commons/pkg/kafka/producer"
 	"github.com/Sokol111/ecommerce-commons/pkg/mongo"
-	"go.mongodb.org/mongo-driver/bson"
-	mongodriver "go.mongodb.org/mongo-driver/mongo"
-	"go.mongodb.org/mongo-driver/mongo/options"
 	"go.uber.org/fx"
 	"go.uber.org/zap"
 )
@@ -40,17 +37,8 @@ func provideCollection(lc fx.Lifecycle, m mongo.Mongo) (*mongo.CollectionWrapper
 	wrapper := &mongo.CollectionWrapper[collection]{}
 	lc.Append(fx.Hook{
 		OnStart: func(ctx context.Context) error {
+			// Indexes are now managed via migrations (see db/migrations/000001_outbox_init.*). Just obtain the collection.
 			wrapper.Coll = m.GetCollection("outbox")
-			err := m.CreateIndexes(ctx, "outbox", []mongodriver.IndexModel{
-				{
-					Keys:    bson.D{{Key: "createdAt", Value: 1}},
-					Options: options.Index().SetExpireAfterSeconds(60 * 60 * 24 * 5),
-				},
-				{Keys: bson.D{{Key: "lockExpiresAt", Value: 1}}},
-			})
-			if err != nil {
-				return err
-			}
 			return nil
 		},
 	})

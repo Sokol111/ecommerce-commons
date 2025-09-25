@@ -1,0 +1,12 @@
+[
+    {
+        "dropIndexes": "outbox",
+        "index": "outbox_createdAt_v1",
+        "writeConcern": {"w": "majority"}
+    },
+    {
+        "dropIndexes": "outbox",
+        "index": "outbox_lockExpiresAt_v1",
+        "writeConcern": {"w": "majority"}
+    }
+]

@@ -7,6 +7,7 @@ import (
 
 	"github.com/Sokol111/ecommerce-commons/pkg/config"
 	commongin "github.com/Sokol111/ecommerce-commons/pkg/gin"
+	"github.com/Sokol111/ecommerce-commons/pkg/health"
 	"github.com/Sokol111/ecommerce-commons/pkg/logger"
 	"github.com/gin-gonic/gin"
 	"go.opentelemetry.io/contrib/instrumentation/github.com/gin-gonic/gin/otelgin"
@@ -30,12 +31,12 @@ func NewTracingModule() fx.Option {
 			newConfig,
 		),
 		fx.Provide(
-			func(lc fx.Lifecycle, log *zap.Logger, conf Config, appConf config.Config) (trace.TracerProvider, error) {
+			func(lc fx.Lifecycle, log *zap.Logger, conf Config, appConf config.Config, readiness health.Readiness) (trace.TracerProvider, error) {
 				if !conf.TracingEnabled {
 					log.Info("tracing disabled")
 					return nil, nil
 				}
-				return provideTracerProvider(lc, log, conf, appConf)
+				return provideTracerProvider(lc, log, conf, appConf, readiness)
 			},
 		),
 		fx.Provide(
@@ -62,7 +63,9 @@ func NewTracingModule() fx.Option {
 	)
 }
 
-func provideTracerProvider(lc fx.Lifecycle, log *zap.Logger, conf Config, appConf config.Config) (trace.TracerProvider, error) {
+func provideTracerProvider(lc fx.Lifecycle, log *zap.Logger, conf Config, appConf config.Config, readiness health.Readiness) (trace.TracerProvider, error) {
+	readiness.AddOne()
+
 	ctx := context.Background()
 
 	attrs := []attribute.KeyValue{
@@ -112,6 +115,7 @@ func provideTracerProvider(lc fx.Lifecycle, log *zap.Logger, conf Config, appCon
 				propagation.Baggage{},
 			))
 			log.Info("otel tracing initialized", zap.String("endpoint", conf.OtelCollectorEndpoint))
+			readiness.Done()
 			return nil
 		},
 		OnStop: func(ctx context.Context) error {

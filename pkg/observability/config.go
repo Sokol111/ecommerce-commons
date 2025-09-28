@@ -2,13 +2,16 @@ package observability
 
 import (
 	"fmt"
+	"time"
 
 	"github.com/spf13/viper"
 )
 
 type Config struct {
-	TracingEnabled        bool   `mapstructure:"tracing-enabled"`
-	OtelCollectorEndpoint string `mapstructure:"otel-collector-endpoint"`
+	TracingEnabled        bool          `mapstructure:"tracing-enabled"`
+	MetricsEnabled        bool          `mapstructure:"metrics-enabled"`
+	MetricsInterval       time.Duration `mapstructure:"metrics-interval"`
+	OtelCollectorEndpoint string        `mapstructure:"otel-collector-endpoint"`
 }
 
 func newConfig(v *viper.Viper) (Config, error) {

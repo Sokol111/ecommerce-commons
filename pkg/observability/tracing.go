@@ -2,7 +2,6 @@ package observability
 
 import (
 	"context"
-	"strings"
 	"time"
 
 	"github.com/Sokol111/ecommerce-commons/pkg/config"
@@ -10,7 +9,6 @@ import (
 	"github.com/Sokol111/ecommerce-commons/pkg/health"
 	"github.com/Sokol111/ecommerce-commons/pkg/logger"
 	"github.com/gin-gonic/gin"
-	"go.opentelemetry.io/contrib/instrumentation/github.com/gin-gonic/gin/otelgin"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracegrpc"
@@ -40,15 +38,6 @@ func NewTracingModule() fx.Option {
 			},
 		),
 		fx.Provide(
-			fx.Annotate(
-				func(conf Config, appConf config.Config) commongin.Middleware {
-					if !conf.TracingEnabled {
-						return commongin.Middleware{}
-					}
-					return commongin.Middleware{Priority: 0, Handler: tracingGinMiddleware(appConf.ServiceName)}
-				},
-				fx.ResultTags(`group:"gin_mw"`),
-			),
 			fx.Annotate(
 				func(conf Config, log *zap.Logger) commongin.Middleware {
 					if !conf.TracingEnabled {
@@ -126,21 +115,6 @@ func provideTracerProvider(lc fx.Lifecycle, log *zap.Logger, conf Config, appCon
 	})
 
 	return tp, nil
-}
-
-func tracingGinMiddleware(serviceName string) gin.HandlerFunc {
-	return otelgin.Middleware(serviceName,
-		otelgin.WithGinFilter(func(c *gin.Context) bool {
-			route := c.FullPath()
-			if route == "" {
-				route = c.Request.URL.Path
-			}
-			if strings.HasPrefix(route, "/health") || strings.HasPrefix(route, "/metrics") {
-				return false
-			}
-			return true
-		}),
-	)
 }
 
 func tracingLoggerMiddleware(log *zap.Logger) gin.HandlerFunc {

@@ -2,6 +2,7 @@ package observability
 
 import (
 	"context"
+	"fmt"
 	"time"
 
 	otelruntime "go.opentelemetry.io/contrib/instrumentation/runtime"
@@ -34,6 +35,10 @@ func NewMetricsModule() fx.Option {
 }
 
 func provideMeterProvider(lc fx.Lifecycle, log *zap.Logger, conf Config, appConf config.Config, readiness health.Readiness) (metric.MeterProvider, error) {
+	if conf.MetricsEnabled && conf.OtelCollectorEndpoint == "" {
+		return nil, fmt.Errorf("metrics enabled but otel-collector-endpoint is empty")
+	}
+
 	readiness.AddOne()
 	ctx := context.Background()
 

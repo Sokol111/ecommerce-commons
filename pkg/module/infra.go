@@ -20,5 +20,7 @@ func NewInfraModule() fx.Option {
 		server.NewHttpServerModule(),
 		health.NewHealthModule(),
 		observability.NewTracingModule(),
+		observability.NewMetricsModule(),
+		observability.NewHTTPTelemetryModule(),
 	)
 }

@@ -12,6 +12,7 @@ type Config struct {
 	MetricsEnabled        bool          `mapstructure:"metrics-enabled"`
 	MetricsInterval       time.Duration `mapstructure:"metrics-interval"`
 	OtelCollectorEndpoint string        `mapstructure:"otel-collector-endpoint"`
+	PrometheusEndpoint    string        `mapstructure:"prometheus-endpoint"`
 }
 
 func newConfig(v *viper.Viper) (Config, error) {

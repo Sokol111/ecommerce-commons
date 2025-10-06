@@ -10,7 +10,7 @@ import (
 	"github.com/Sokol111/ecommerce-commons/pkg/config"
 	"github.com/Sokol111/ecommerce-commons/pkg/health"
 	"go.opentelemetry.io/otel"
-	"go.opentelemetry.io/otel/exporters/otlp/otlpmetric/otlpmetricgrpc"
+	"go.opentelemetry.io/otel/exporters/otlp/otlpmetric/otlpmetrichttp"
 	"go.opentelemetry.io/otel/metric"
 	sdkmetric "go.opentelemetry.io/otel/sdk/metric"
 	"go.opentelemetry.io/otel/sdk/resource"
@@ -35,8 +35,8 @@ func NewMetricsModule() fx.Option {
 }
 
 func provideMeterProvider(lc fx.Lifecycle, log *zap.Logger, conf Config, appConf config.Config, readiness health.Readiness) (metric.MeterProvider, error) {
-	if conf.MetricsEnabled && conf.OtelCollectorEndpoint == "" {
-		return nil, fmt.Errorf("metrics enabled but otel-collector-endpoint is empty")
+	if conf.MetricsEnabled && conf.PrometheusEndpoint == "" {
+		return nil, fmt.Errorf("metrics enabled but prometheus-endpoint is empty")
 	}
 
 	readiness.AddOne()
@@ -57,10 +57,12 @@ func provideMeterProvider(lc fx.Lifecycle, log *zap.Logger, conf Config, appConf
 		return nil, err
 	}
 
-	exp, err := otlpmetricgrpc.New(ctx,
-		otlpmetricgrpc.WithEndpoint(conf.OtelCollectorEndpoint),
-		otlpmetricgrpc.WithInsecure(),
+	exp, err := otlpmetrichttp.New(ctx,
+		otlpmetrichttp.WithEndpoint(conf.PrometheusEndpoint),
+		otlpmetrichttp.WithURLPath("/api/v1/otlp/v1/metrics"),
+		otlpmetrichttp.WithInsecure(),
 	)
+
 	if err != nil {
 		return nil, err
 	}

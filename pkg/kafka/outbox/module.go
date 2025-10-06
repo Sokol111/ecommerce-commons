@@ -37,7 +37,6 @@ func provideCollection(lc fx.Lifecycle, m mongo.Mongo) (*mongo.CollectionWrapper
 	wrapper := &mongo.CollectionWrapper[collection]{}
 	lc.Append(fx.Hook{
 		OnStart: func(ctx context.Context) error {
-			// Indexes are now managed via migrations (see db/migrations/000001_outbox_init.*). Just obtain the collection.
 			wrapper.Coll = m.GetCollection("outbox")
 			return nil
 		},

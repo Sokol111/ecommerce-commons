@@ -117,6 +117,14 @@ func provideTracerProvider(lc fx.Lifecycle, log *zap.Logger, conf Config, appCon
 	return tp, nil
 }
 
+func GetTraceId(ctx context.Context) string {
+	sc := trace.SpanContextFromContext(ctx)
+	if !sc.IsValid() {
+		return ""
+	}
+	return sc.TraceID().String()
+}
+
 func tracingLoggerMiddleware(log *zap.Logger) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		l := withTrace(c.Request.Context(), log)

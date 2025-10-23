@@ -11,6 +11,7 @@ type ProductCreated struct {
 	CreatedAt   time.Time `json:"created_at"`
 	ModifiedAt  time.Time `json:"modified_at"`
 	Quantity    int       `json:"quantity"`
+	ImageId     *string   `json:"image_id,omitempty"`
 	Enabled     bool      `json:"enabled"`
 }
 
@@ -23,5 +24,6 @@ type ProductUpdated struct {
 	CreatedAt   time.Time `json:"created_at"`
 	ModifiedAt  time.Time `json:"modified_at"`
 	Quantity    int       `json:"quantity"`
+	ImageId     *string   `json:"image_id,omitempty"`
 	Enabled     bool      `json:"enabled"`
 }

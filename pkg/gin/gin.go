@@ -17,6 +17,22 @@ type Middleware struct {
 	Handler  gin.HandlerFunc
 }
 
+// Problem represents RFC7807 Problem Details for HTTP APIs
+type Problem struct {
+	Type     string       `json:"type,omitempty"`
+	Title    string       `json:"title"`
+	Status   int          `json:"status"`
+	Detail   string       `json:"detail,omitempty"`
+	Instance string       `json:"instance,omitempty"`
+	TraceID  string       `json:"traceId,omitempty"`
+	Errors   []FieldError `json:"errors,omitempty"`
+}
+
+type FieldError struct {
+	Field   string `json:"field,omitempty"`
+	Message string `json:"message"`
+}
+
 type mwIn struct {
 	fx.In
 	Middlewares []Middleware `group:"gin_mw"`
@@ -40,6 +56,12 @@ func NewGinModule() fx.Option {
 		fx.Annotate(
 			func() Middleware {
 				return Middleware{Priority: 300, Handler: errorLoggerMiddleware()}
+			},
+			fx.ResultTags(`group:"gin_mw"`),
+		),
+		fx.Annotate(
+			func() Middleware {
+				return Middleware{Priority: 400, Handler: problemMiddleware()}
 			},
 			fx.ResultTags(`group:"gin_mw"`),
 		),
@@ -131,5 +153,56 @@ func errorLoggerMiddleware() gin.HandlerFunc {
 				)
 			}
 		}
+	}
+}
+
+func problemMiddleware() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		c.Next()
+
+		// Only handle if there are errors and response hasn't been written yet
+		if len(c.Errors) == 0 || c.Writer.Written() {
+			return
+		}
+
+		// Get status code, default to 500 if not set
+		status := c.Writer.Status()
+		if status == 0 || status == http.StatusOK {
+			status = http.StatusInternalServerError
+		}
+
+		// Build Problem Details from the first error
+		firstErr := c.Errors[0]
+		problem := Problem{
+			Type:     "about:blank",
+			Title:    http.StatusText(status),
+			Status:   status,
+			Detail:   firstErr.Error(),
+			Instance: c.Request.URL.Path,
+		}
+
+		// Try to extract trace ID from context if available
+		if traceID, exists := c.Get(string(logger.LoggerCtxKey)); exists {
+			if tid, ok := traceID.(string); ok {
+				problem.TraceID = tid
+			}
+		}
+
+		// If meta contains field errors, add them
+		if meta, ok := firstErr.Meta.(map[string]string); ok {
+			for field, msg := range meta {
+				problem.Errors = append(problem.Errors, FieldError{
+					Field:   field,
+					Message: msg,
+				})
+			}
+		}
+
+		// If meta is already a Problem, use it
+		if existingProblem, ok := firstErr.Meta.(*Problem); ok {
+			problem = *existingProblem
+		}
+
+		c.JSON(status, problem)
 	}
 }

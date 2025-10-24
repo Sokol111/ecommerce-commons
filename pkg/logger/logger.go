@@ -7,12 +7,12 @@ import (
 	"go.uber.org/zap/zapcore"
 )
 
-type ctxKey struct{}
+type contextKey string
 
-var CtxKey ctxKey = ctxKey{}
+const LoggerCtxKey contextKey = "logger_ctx_key"
 
 func FromContext(ctx context.Context) *zap.Logger {
-	if ctxLogger, ok := ctx.Value(CtxKey).(*zap.Logger); ok {
+	if ctxLogger, ok := ctx.Value(LoggerCtxKey).(*zap.Logger); ok {
 		return ctxLogger
 	}
 	return zap.L()

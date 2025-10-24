@@ -128,8 +128,9 @@ func GetTraceId(ctx context.Context) string {
 func tracingLoggerMiddleware(log *zap.Logger) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		l := withTrace(c.Request.Context(), log)
-		ctx := context.WithValue(c.Request.Context(), logger.CtxKey, l)
+		ctx := context.WithValue(c.Request.Context(), logger.LoggerCtxKey, l)
 		c.Request = c.Request.WithContext(ctx)
+		c.Set(string(logger.LoggerCtxKey), l)
 		c.Next()
 	}
 }

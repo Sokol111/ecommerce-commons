@@ -11,10 +11,10 @@ import (
 )
 
 type Mongo interface {
-	Connect(ctx context.Context) error
-	Disconnect(ctx context.Context) error
-	GetCollection(collection string) *mongodriver.Collection
-	GetCollectionWithTimeout(collection string) Collection // Повертає інтерфейс для мокування
+	connect(ctx context.Context) error
+	disconnect(ctx context.Context) error
+	GetCollection(collection string) Collection
+	GetCollectionWithTimeout(collection string) Collection
 	CreateIndexes(ctx context.Context, collection string, indexes []mongodriver.IndexModel) error
 	CreateSimpleIndex(ctx context.Context, collection string, keys interface{}) error
 	StartSession(ctx context.Context) (mongodriver.Session, error)
@@ -44,7 +44,7 @@ func validateConfig(conf Config) error {
 	return nil
 }
 
-func (m *mongo) Connect(ctx context.Context) error {
+func (m *mongo) connect(ctx context.Context) error {
 	c, cancel := context.WithTimeout(ctx, m.conf.ConnectTimeout)
 	defer cancel()
 
@@ -108,7 +108,7 @@ func buildURI(conf Config) string {
 	return uri
 }
 
-func (m *mongo) GetCollection(collection string) *mongodriver.Collection {
+func (m *mongo) GetCollection(collection string) Collection {
 	return m.database.Collection(collection)
 }
 
@@ -118,7 +118,7 @@ func (m *mongo) GetCollectionWithTimeout(collection string) Collection {
 	return NewCollectionWrapper(coll, m.conf.QueryTimeout)
 }
 
-func (m *mongo) Disconnect(ctx context.Context) error {
+func (m *mongo) disconnect(ctx context.Context) error {
 	if m.client == nil {
 		return nil
 	}

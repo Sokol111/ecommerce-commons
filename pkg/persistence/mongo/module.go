@@ -28,10 +28,10 @@ func provideMongo(lc fx.Lifecycle, log *zap.Logger, conf Config) (Mongo, error) 
 
 	lc.Append(fx.Hook{
 		OnStart: func(ctx context.Context) error {
-			return m.Connect(ctx)
+			return m.connect(ctx)
 		},
 		OnStop: func(ctx context.Context) error {
-			return m.Disconnect(ctx)
+			return m.disconnect(ctx)
 		},
 	})
 

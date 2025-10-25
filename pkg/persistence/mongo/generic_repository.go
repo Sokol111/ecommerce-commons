@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 
+	"github.com/Sokol111/ecommerce-commons/pkg/persistence"
 	"go.mongodb.org/mongo-driver/bson"
 	mongodriver "go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
@@ -31,24 +32,18 @@ type EntityMapper[Domain any, Entity any] interface {
 
 // GenericRepository provides common CRUD operations for MongoDB
 type GenericRepository[Domain any, Entity any] struct {
-	coll              Collection
-	mapper            EntityMapper[Domain, Entity]
-	notFoundErr       error // Domain-specific "not found" error
-	optimisticLockErr error // Domain-specific "optimistic locking" error
+	coll   Collection
+	mapper EntityMapper[Domain, Entity]
 }
 
 // NewGenericRepository creates a new generic repository
 func NewGenericRepository[Domain any, Entity any](
 	coll Collection,
 	mapper EntityMapper[Domain, Entity],
-	notFoundErr error,
-	optimisticLockErr error,
 ) *GenericRepository[Domain, Entity] {
 	return &GenericRepository[Domain, Entity]{
-		coll:              coll,
-		mapper:            mapper,
-		notFoundErr:       notFoundErr,
-		optimisticLockErr: optimisticLockErr,
+		coll:   coll,
+		mapper: mapper,
 	}
 }
 
@@ -72,7 +67,7 @@ func (r *GenericRepository[Domain, Entity]) FindByID(ctx context.Context, id str
 	err := result.Decode(&entity)
 	if err != nil {
 		if errors.Is(err, mongodriver.ErrNoDocuments) {
-			return nil, r.notFoundErr
+			return nil, persistence.ErrEntityNotFound
 		}
 		return nil, fmt.Errorf("failed to decode entity: %w", err)
 	}
@@ -126,8 +121,8 @@ func (r *GenericRepository[Domain, Entity]) Update(ctx context.Context, domain *
 	if result.Err() != nil {
 		if errors.Is(result.Err(), mongodriver.ErrNoDocuments) {
 			// This could be either not found or version mismatch
-			// Return domain-specific optimistic locking error
-			return nil, r.optimisticLockErr
+			// Return optimistic locking error
+			return nil, persistence.ErrOptimisticLocking
 		}
 		return nil, fmt.Errorf("failed to update entity: %w", result.Err())
 	}

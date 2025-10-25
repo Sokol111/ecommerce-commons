@@ -3,8 +3,8 @@ package observability
 import (
 	"strings"
 
-	"github.com/Sokol111/ecommerce-commons/pkg/config"
-	commongin "github.com/Sokol111/ecommerce-commons/pkg/gin"
+	"github.com/Sokol111/ecommerce-commons/pkg/core/config"
+	commongin "github.com/Sokol111/ecommerce-commons/pkg/http/middleware"
 	"github.com/gin-gonic/gin"
 	"go.opentelemetry.io/contrib/instrumentation/github.com/gin-gonic/gin/otelgin"
 	"go.opentelemetry.io/otel/metric"

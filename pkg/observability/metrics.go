@@ -7,8 +7,8 @@ import (
 
 	otelruntime "go.opentelemetry.io/contrib/instrumentation/runtime"
 
-	"github.com/Sokol111/ecommerce-commons/pkg/config"
-	"github.com/Sokol111/ecommerce-commons/pkg/health"
+	"github.com/Sokol111/ecommerce-commons/pkg/core/config"
+	"github.com/Sokol111/ecommerce-commons/pkg/http/health"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/exporters/otlp/otlpmetric/otlpmetrichttp"
 	"go.opentelemetry.io/otel/metric"

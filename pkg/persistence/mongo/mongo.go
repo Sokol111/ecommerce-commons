@@ -14,7 +14,7 @@ type Mongo interface {
 	connect(ctx context.Context) error
 	disconnect(ctx context.Context) error
 	GetCollection(collection string) Collection
-	GetCollectionWithTimeout(collection string) Collection
+	GetCollectionWrapper(collection string) *CollectionWrapper
 	CreateIndexes(ctx context.Context, collection string, indexes []mongodriver.IndexModel) error
 	CreateSimpleIndex(ctx context.Context, collection string, keys interface{}) error
 	StartSession(ctx context.Context) (mongodriver.Session, error)
@@ -112,8 +112,8 @@ func (m *mongo) GetCollection(collection string) Collection {
 	return m.database.Collection(collection)
 }
 
-// GetCollectionWithTimeout returns a wrapped collection with automatic query timeout
-func (m *mongo) GetCollectionWithTimeout(collection string) Collection {
+// GetCollectionWrapper returns a wrapped collection with automatic query timeout
+func (m *mongo) GetCollectionWrapper(collection string) *CollectionWrapper {
 	coll := m.database.Collection(collection)
 	return NewCollectionWrapper(coll, m.conf.QueryTimeout)
 }

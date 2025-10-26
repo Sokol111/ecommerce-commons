@@ -134,3 +134,12 @@ func (r *GenericRepository[Domain, Entity]) Update(ctx context.Context, domain *
 
 	return r.mapper.ToDomain(&updated), nil
 }
+
+// Delete hard deletes an entity by ID
+func (r *GenericRepository[Domain, Entity]) Delete(ctx context.Context, id string) error {
+	_, err := r.coll.DeleteOne(ctx, bson.D{{Key: "_id", Value: id}})
+	if err != nil {
+		return fmt.Errorf("failed to delete entity: %w", err)
+	}
+	return nil
+}

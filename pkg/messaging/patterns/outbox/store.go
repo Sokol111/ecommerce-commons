@@ -31,7 +31,7 @@ type store struct {
 
 func newStore(m mongo.Mongo) Store {
 	return &store{
-		coll: m.GetCollectionWithTimeout("outbox"),
+		coll: m.GetCollectionWrapper("outbox"),
 	}
 }
 

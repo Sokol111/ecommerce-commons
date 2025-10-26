@@ -21,17 +21,44 @@ type Mongo interface {
 }
 
 type mongo struct {
-	client   *mongodriver.Client
-	database *mongodriver.Database
-	conf     Config
-	log      *zap.Logger
+	client        *mongodriver.Client
+	database      *mongodriver.Database
+	clientOptions *options.ClientOptions
+	databaseName  string
+	conf          Config
+	log           *zap.Logger
 }
 
 func newMongo(log *zap.Logger, conf Config) (Mongo, error) {
 	if err := validateConfig(conf); err != nil {
 		return nil, err
 	}
-	return &mongo{conf: conf, log: log}, nil
+
+	// Build URI and create client options
+	uri := buildURI(conf)
+	clientOptions := options.Client().
+		ApplyURI(uri).
+		SetMaxPoolSize(conf.MaxPoolSize).
+		SetMinPoolSize(conf.MinPoolSize).
+		SetMaxConnIdleTime(conf.MaxConnIdleTime).
+		SetServerSelectionTimeout(conf.ServerSelectTimeout)
+
+	// Create client and database reference
+	// Client is initialized here to avoid nil pointer errors in GetCollection* methods
+	// Actual connection validation happens in connect() via Ping
+	client, err := mongodriver.Connect(context.Background(), clientOptions)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create mongo client: %w", err)
+	}
+
+	return &mongo{
+		client:        client,
+		database:      client.Database(conf.Database),
+		clientOptions: clientOptions,
+		databaseName:  conf.Database,
+		conf:          conf,
+		log:           log,
+	}, nil
 }
 
 func validateConfig(conf Config) error {
@@ -48,25 +75,11 @@ func (m *mongo) connect(ctx context.Context) error {
 	c, cancel := context.WithTimeout(ctx, m.conf.ConnectTimeout)
 	defer cancel()
 
-	uri := buildURI(m.conf)
-	clientOptions := options.Client().
-		ApplyURI(uri).
-		SetMaxPoolSize(m.conf.MaxPoolSize).
-		SetMinPoolSize(m.conf.MinPoolSize).
-		SetMaxConnIdleTime(m.conf.MaxConnIdleTime).
-		SetServerSelectionTimeout(m.conf.ServerSelectTimeout)
-
-	client, err := mongodriver.Connect(c, clientOptions)
-	if err != nil {
-		return fmt.Errorf("failed to connect to mongo: %w", err)
-	}
-	m.client = client
-
-	if err := client.Ping(c, nil); err != nil {
+	// Ping to establish actual connection (Connect was already called in newMongo)
+	if err := m.client.Ping(c, nil); err != nil {
 		return fmt.Errorf("failed to ping mongo: %w", err)
 	}
 
-	m.database = client.Database(m.conf.Database)
 	m.log.Info("connected to mongo",
 		zap.String("host", m.conf.Host),
 		zap.Int("port", m.conf.Port),

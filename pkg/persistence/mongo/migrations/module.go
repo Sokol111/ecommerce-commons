@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/Sokol111/ecommerce-commons/pkg/http/health"
 	"github.com/Sokol111/ecommerce-commons/pkg/persistence/mongo"
 	"go.uber.org/fx"
 	"go.uber.org/zap"
@@ -19,15 +20,17 @@ func NewMigrationsModule() fx.Option {
 	)
 }
 
-func provideMigrator(lc fx.Lifecycle, log *zap.Logger, conf Config, m mongo.Mongo) (Migrator, error) {
+func provideMigrator(lc fx.Lifecycle, log *zap.Logger, conf Config, m mongo.Mongo, readiness health.Readiness) (Migrator, error) {
 	migrator, err := newMigrator(m.GetDatabase(), log, conf.LockingTimeout)
 	if err != nil {
 		return nil, err
 	}
 
 	if conf.AutoMigrate {
+		readiness.AddOne()
 		lc.Append(fx.Hook{
 			OnStart: func(ctx context.Context) error {
+				defer readiness.Done()
 				log.Info("auto-running migrations on startup",
 					zap.String("collection", conf.CollectionName),
 					zap.String("path", conf.MigrationsPath),

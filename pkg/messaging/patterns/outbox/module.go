@@ -4,6 +4,7 @@ import (
 	"context"
 	"embed"
 
+	"github.com/Sokol111/ecommerce-commons/pkg/http/health"
 	"github.com/Sokol111/ecommerce-commons/pkg/messaging/kafka/producer"
 	"github.com/Sokol111/ecommerce-commons/pkg/persistence/mongo/migrations"
 	"go.uber.org/fx"
@@ -23,14 +24,16 @@ func NewOutboxModule() fx.Option {
 	)
 }
 
-func runMigrations(lc fx.Lifecycle, log *zap.Logger, migrator migrations.Migrator) {
+func runMigrations(lc fx.Lifecycle, log *zap.Logger, migrator migrations.Migrator, readiness health.Readiness) {
 	if migrator == nil {
 		log.Warn("migrator not available, skipping outbox migrations")
 		return
 	}
 
+	readiness.AddOne()
 	lc.Append(fx.Hook{
 		OnStart: func(ctx context.Context) error {
+			defer readiness.Done()
 			log.Info("running outbox migrations")
 			if err := migrator.UpFromFS("outbox_migrations", migrationsFS, "migrations"); err != nil {
 				return err
@@ -41,11 +44,13 @@ func runMigrations(lc fx.Lifecycle, log *zap.Logger, migrator migrations.Migrato
 	})
 }
 
-func provideOutbox(lc fx.Lifecycle, log *zap.Logger, producer producer.Producer, store Store) Outbox {
+func provideOutbox(lc fx.Lifecycle, log *zap.Logger, producer producer.Producer, store Store, readiness health.Readiness) Outbox {
 	o := newOutbox(log, producer, store)
 
+	readiness.AddOne()
 	lc.Append(fx.Hook{
 		OnStart: func(ctx context.Context) error {
+			defer readiness.Done()
 			o.Start()
 			return nil
 		},

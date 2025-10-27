@@ -3,6 +3,7 @@ package mongo
 import (
 	"context"
 
+	"github.com/Sokol111/ecommerce-commons/pkg/http/health"
 	"go.uber.org/fx"
 	"go.uber.org/zap"
 )
@@ -15,7 +16,7 @@ func NewMongoModule() fx.Option {
 	)
 }
 
-func provideMongo(lc fx.Lifecycle, log *zap.Logger, conf Config) (Mongo, error) {
+func provideMongo(lc fx.Lifecycle, log *zap.Logger, conf Config, readiness health.Readiness) (Mongo, error) {
 	if err := validateConfig(conf); err != nil {
 		return nil, err
 	}
@@ -26,8 +27,10 @@ func provideMongo(lc fx.Lifecycle, log *zap.Logger, conf Config) (Mongo, error) 
 		return nil, err
 	}
 
+	readiness.AddOne()
 	lc.Append(fx.Hook{
 		OnStart: func(ctx context.Context) error {
+			defer readiness.Done()
 			return m.connect(ctx)
 		},
 		OnStop: func(ctx context.Context) error {

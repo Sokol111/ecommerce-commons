@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/Sokol111/ecommerce-commons/pkg/http/health"
 	"github.com/Sokol111/ecommerce-commons/pkg/messaging/kafka/config"
 	"go.uber.org/fx"
 	"go.uber.org/zap"
@@ -45,7 +46,7 @@ func RegisterHandlerAndConsumer[T any](
 	)
 }
 
-func provideNewConsumer[T any](lc fx.Lifecycle, log *zap.Logger, conf config.Config, handlerDef handlerDef[T]) (Consumer, error) {
+func provideNewConsumer[T any](lc fx.Lifecycle, log *zap.Logger, conf config.Config, handlerDef handlerDef[T], readiness health.Readiness) (Consumer, error) {
 	var consumerConf *config.ConsumerConfig
 
 	for _, c := range conf.ConsumersConfig.ConsumerConfig {
@@ -70,8 +71,10 @@ func provideNewConsumer[T any](lc fx.Lifecycle, log *zap.Logger, conf config.Con
 		return nil, err
 	}
 
+	readiness.AddOne()
 	lc.Append(fx.Hook{
 		OnStart: func(ctx context.Context) error {
+			defer readiness.Done()
 			return c.Start()
 		},
 		OnStop: func(ctx context.Context) error {

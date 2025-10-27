@@ -13,6 +13,16 @@ type contextKey string
 // LoggerCtxKey is the context key used to store and retrieve logger instances from context.
 const LoggerCtxKey contextKey = "logger_ctx_key"
 
+// Log level constants
+const (
+	LevelDebug = "debug"
+	LevelInfo  = "info"
+	LevelWarn  = "warn"
+	LevelError = "error"
+	LevelFatal = "fatal"
+	LevelPanic = "panic"
+)
+
 // FromContext extracts a logger from the context.
 // If no logger is found in the context, it returns the global logger.
 // This function is safe to call with a nil context.
@@ -87,17 +97,17 @@ func newLogger(conf Config) (*zap.Logger, error) {
 
 func parseLogLevel(level string) zapcore.Level {
 	switch level {
-	case "debug":
+	case LevelDebug:
 		return zapcore.DebugLevel
-	case "info":
+	case LevelInfo:
 		return zapcore.InfoLevel
-	case "warn":
+	case LevelWarn:
 		return zapcore.WarnLevel
-	case "error":
+	case LevelError:
 		return zapcore.ErrorLevel
-	case "fatal":
+	case LevelFatal:
 		return zapcore.FatalLevel
-	case "panic":
+	case LevelPanic:
 		return zapcore.PanicLevel
 	default:
 		return zapcore.InfoLevel

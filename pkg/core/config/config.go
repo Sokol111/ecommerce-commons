@@ -14,6 +14,8 @@ import (
 // Config represents the core application configuration.
 type Config struct {
 	ConfigFile     string
+	ConfigDir      string
+	ConfigName     string
 	ServiceName    string
 	ServiceVersion string
 	Environment    Environment
@@ -86,8 +88,29 @@ func provideAppConf() (Config, error) {
 	if serviceVersion == "" {
 		return Config{}, fmt.Errorf("APP_SERVICE_VERSION is not set")
 	}
+
 	configFile := os.Getenv("CONFIG_FILE")
-	return Config{ConfigFile: configFile, ServiceName: serviceName, ServiceVersion: serviceVersion, Environment: env}, nil
+
+	// Get config directory from environment or use default
+	configDir := os.Getenv("CONFIG_DIR")
+	if configDir == "" {
+		configDir = "./configs"
+	}
+
+	// Get config name from environment or build from environment type
+	configName := os.Getenv("CONFIG_NAME")
+	if configName == "" {
+		configName = "config." + string(env)
+	}
+
+	return Config{
+		ConfigFile:     configFile,
+		ConfigDir:      configDir,
+		ConfigName:     configName,
+		ServiceName:    serviceName,
+		ServiceVersion: serviceVersion,
+		Environment:    env,
+	}, nil
 }
 
 func newViper(conf Config) (*viper.Viper, error) {
@@ -96,23 +119,11 @@ func newViper(conf Config) (*viper.Viper, error) {
 	var fullConfigPath string
 
 	if conf.ConfigFile == "" {
-		// Get config directory from environment or use default
-		configPath := os.Getenv("CONFIG_DIR")
-		if configPath == "" {
-			configPath = "./configs"
-		}
-
-		// Get config name from environment or build from environment type
-		configName := os.Getenv("CONFIG_NAME")
-		if configName == "" {
-			configName = "config." + string(conf.Environment)
-		}
-
-		v.SetConfigName(configName)
+		v.SetConfigName(conf.ConfigName)
 		v.SetConfigType("yaml")
-		v.AddConfigPath(configPath)
+		v.AddConfigPath(conf.ConfigDir)
 
-		fullConfigPath = fmt.Sprintf("%s/%s.yaml", configPath, configName)
+		fullConfigPath = fmt.Sprintf("%s/%s.yaml", conf.ConfigDir, conf.ConfigName)
 	} else {
 		v.SetConfigFile(conf.ConfigFile)
 		fullConfigPath = conf.ConfigFile

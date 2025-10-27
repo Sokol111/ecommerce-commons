@@ -25,15 +25,15 @@ type Config struct {
 	ErrorOutputPaths []string `mapstructure:"errorOutputPaths"`
 }
 
+// ValidLevels contains all valid log levels
+var ValidLevels = []string{LevelDebug, LevelInfo, LevelWarn, LevelError, LevelFatal, LevelPanic}
+
 // Validate checks if the logger configuration is valid.
 // Returns an error if any configuration parameter is invalid.
 func (c Config) Validate() error {
 	// Validate log level
-	if c.Level != "" {
-		validLevels := []string{"debug", "info", "warn", "error", "fatal", "panic"}
-		if !contains(validLevels, c.Level) {
-			return fmt.Errorf("invalid log level '%s': must be one of %v", c.Level, validLevels)
-		}
+	if c.Level != "" && !contains(ValidLevels, c.Level) {
+		return fmt.Errorf("invalid log level '%s': must be one of %v", c.Level, ValidLevels)
 	}
 
 	// Validate output paths
@@ -70,19 +70,19 @@ func contains(slice []string, value string) bool {
 }
 
 func newConfig(v *viper.Viper) (Config, error) {
-	var cfg Config
 	sub := v.Sub("logger")
 	if sub == nil {
-		return cfg, nil
+		return Config{}, nil
 	}
 
+	var cfg Config
 	if err := sub.Unmarshal(&cfg); err != nil {
-		return cfg, fmt.Errorf("failed to load logger config: %w", err)
+		return Config{}, fmt.Errorf("failed to load logger config: %w", err)
 	}
 
 	// Validate configuration
 	if err := cfg.Validate(); err != nil {
-		return cfg, fmt.Errorf("invalid logger configuration: %w", err)
+		return Config{}, fmt.Errorf("invalid logger configuration: %w", err)
 	}
 
 	return cfg, nil

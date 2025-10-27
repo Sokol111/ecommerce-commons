@@ -15,6 +15,7 @@ type Mongo interface {
 	disconnect(ctx context.Context) error
 	GetCollection(collection string) Collection
 	GetCollectionWrapper(collection string) *CollectionWrapper
+	GetDatabase() *mongodriver.Database
 	CreateIndexes(ctx context.Context, collection string, indexes []mongodriver.IndexModel) error
 	CreateSimpleIndex(ctx context.Context, collection string, keys interface{}) error
 	StartSession(ctx context.Context) (mongodriver.Session, error)
@@ -129,6 +130,10 @@ func (m *mongo) GetCollection(collection string) Collection {
 func (m *mongo) GetCollectionWrapper(collection string) *CollectionWrapper {
 	coll := m.database.Collection(collection)
 	return NewCollectionWrapper(coll, m.conf.QueryTimeout)
+}
+
+func (m *mongo) GetDatabase() *mongodriver.Database {
+	return m.database
 }
 
 func (m *mongo) disconnect(ctx context.Context) error {

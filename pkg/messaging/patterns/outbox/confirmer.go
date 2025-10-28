@@ -29,7 +29,7 @@ func newConfirmer(
 	return &confirmer{
 		store:        store,
 		deliveryChan: deliveryChan,
-		logger:       logger.With(zap.String("component", "outbox.confirmer")),
+		logger:       logger.With(zap.String("component", "outbox")),
 	}
 }
 

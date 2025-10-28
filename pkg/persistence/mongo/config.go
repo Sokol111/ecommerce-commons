@@ -35,7 +35,7 @@ type Config struct {
 
 func newConfig(v *viper.Viper) (Config, error) {
 	var cfg Config
-	if err := v.Sub("mongo").UnmarshalExact(&cfg); err != nil {
+	if err := v.Sub("mongo").Unmarshal(&cfg); err != nil {
 		return cfg, fmt.Errorf("failed to load mongo config: %w", err)
 	}
 

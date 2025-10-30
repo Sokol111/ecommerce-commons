@@ -10,9 +10,11 @@
                 "expireAfterSeconds": 432000
             },
             {
-                "name": "outbox_lockExpiresAt_v1",
+                "name": "outbox_status_lockExpiresAt_createdAt_v1",
                 "key": {
-                    "lockExpiresAt": 1
+                    "status": 1,
+                    "lockExpiresAt": 1,
+                    "createdAt": 1
                 }
             }
         ],

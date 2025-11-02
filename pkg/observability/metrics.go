@@ -50,7 +50,7 @@ func provideMeterProvider(lc fx.Lifecycle, log *zap.Logger, conf Config, appConf
 		resource.WithAttributes(
 			semconv.ServiceNameKey.String(appConf.ServiceName),
 			semconv.ServiceVersionKey.String(appConf.ServiceVersion),
-			semconv.DeploymentEnvironmentNameKey.String(string(appConf.Environment)),
+			semconv.DeploymentEnvironmentNameKey.String(appConf.Environment),
 		),
 	)
 	if err != nil {

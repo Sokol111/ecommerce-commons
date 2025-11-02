@@ -18,38 +18,14 @@ type Config struct {
 	ConfigName     string
 	ServiceName    string
 	ServiceVersion string
-	Environment    Environment
-}
-
-// Environment represents the deployment environment.
-type Environment string
-
-const (
-	EnvStandalone  Environment = "standalone"
-	EnvDevelopment Environment = "dev"
-	EnvProduction  Environment = "pro"
-)
-
-// IsValid checks if the environment value is valid.
-// Returns true for standalone, dev, or pro.
-func (e Environment) IsValid() bool {
-	switch e {
-	case EnvStandalone, EnvDevelopment, EnvProduction:
-		return true
-	}
-	return false
-}
-
-// String returns the string representation of the environment.
-func (e Environment) String() string {
-	return string(e)
+	Environment    string
 }
 
 // NewViperModule creates a new fx module for configuration management.
 // It provides Config and *viper.Viper instances for dependency injection.
 //
 // The module uses the following environment variables:
-//   - APP_ENV: Environment type (standalone, dev, pro) - REQUIRED
+//   - APP_ENV: Environment name (e.g., "local", "staging", "pro") - REQUIRED
 //   - APP_SERVICE_NAME: Service name - REQUIRED
 //   - APP_SERVICE_VERSION: Service version - REQUIRED
 //   - CONFIG_FILE: Explicit path to config file - OPTIONAL
@@ -76,9 +52,9 @@ func provideAppConf() (Config, error) {
 		}
 	}
 
-	env := Environment(os.Getenv("APP_ENV"))
-	if !env.IsValid() {
-		return Config{}, fmt.Errorf("invalid APP_ENV: %s", env)
+	env := os.Getenv("APP_ENV")
+	if env == "" {
+		return Config{}, fmt.Errorf("APP_ENV is required")
 	}
 	serviceName := os.Getenv("APP_SERVICE_NAME")
 	if serviceName == "" {

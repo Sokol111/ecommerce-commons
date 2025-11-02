@@ -60,7 +60,7 @@ func provideTracerProvider(lc fx.Lifecycle, log *zap.Logger, conf Config, appCon
 	attrs := []attribute.KeyValue{
 		semconv.ServiceNameKey.String(appConf.ServiceName),
 		semconv.ServiceVersionKey.String(appConf.ServiceVersion),
-		semconv.DeploymentEnvironmentNameKey.String(string(appConf.Environment)),
+		semconv.DeploymentEnvironmentNameKey.String(appConf.Environment),
 	}
 
 	res, err := resource.New(ctx,

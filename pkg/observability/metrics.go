@@ -35,8 +35,8 @@ func NewMetricsModule() fx.Option {
 }
 
 func provideMeterProvider(lc fx.Lifecycle, log *zap.Logger, conf Config, appConf config.Config, readiness health.Readiness) (metric.MeterProvider, error) {
-	if conf.MetricsEnabled && conf.PrometheusEndpoint == "" {
-		return nil, fmt.Errorf("metrics enabled but prometheus-endpoint is empty")
+	if conf.MetricsEnabled && conf.OtelCollectorEndpoint == "" {
+		return nil, fmt.Errorf("metrics enabled but otel-collector-endpoint is empty")
 	}
 
 	readiness.AddOne()
@@ -58,7 +58,7 @@ func provideMeterProvider(lc fx.Lifecycle, log *zap.Logger, conf Config, appConf
 	}
 
 	exp, err := otlpmetrichttp.New(ctx,
-		otlpmetrichttp.WithEndpoint(conf.PrometheusEndpoint),
+		otlpmetrichttp.WithEndpoint(conf.OtelCollectorEndpoint),
 		otlpmetrichttp.WithURLPath("/api/v1/otlp/v1/metrics"),
 		otlpmetrichttp.WithInsecure(),
 	)

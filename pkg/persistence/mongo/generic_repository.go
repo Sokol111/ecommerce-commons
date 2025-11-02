@@ -11,6 +11,33 @@ import (
 	"go.mongodb.org/mongo-driver/mongo/options"
 )
 
+// QueryOptions defines options for querying entities with filtering, pagination and sorting
+type QueryOptions struct {
+	// Filter is the MongoDB filter criteria (BSON)
+	Filter bson.D
+	// Page is the page number (1-based)
+	Page int
+	// Size is the number of items per page
+	Size int
+	// Sort is the MongoDB sort criteria (BSON)
+	// Example: bson.D{{"createdAt", -1}} for descending order
+	Sort bson.D
+}
+
+// PageResult represents a paginated result
+type PageResult[Domain any] struct {
+	// Items is the list of domain objects for the current page
+	Items []*Domain
+	// Total is the total number of items matching the filter
+	Total int64
+	// Page is the current page number (1-based)
+	Page int
+	// Size is the number of items per page
+	Size int
+	// TotalPages is the total number of pages
+	TotalPages int
+}
+
 // EntityMapper defines the contract for converting between domain models and MongoDB entities
 // Each repository implementation must provide this mapper
 type EntityMapper[Domain any, Entity any] interface {
@@ -94,6 +121,75 @@ func (r *GenericRepository[Domain, Entity]) FindAll(ctx context.Context) ([]*Dom
 	}
 
 	return domains, nil
+}
+
+// FindWithOptions retrieves entities with filtering, pagination and sorting
+func (r *GenericRepository[Domain, Entity]) FindWithOptions(
+	ctx context.Context,
+	opts QueryOptions,
+) (*PageResult[Domain], error) {
+	// Set default values
+	if opts.Page < 1 {
+		opts.Page = 1
+	}
+	if opts.Size < 1 {
+		opts.Size = 10
+	}
+	if opts.Filter == nil {
+		opts.Filter = bson.D{}
+	}
+
+	// Count total documents matching the filter
+	total, err := r.coll.CountDocuments(ctx, opts.Filter)
+	if err != nil {
+		return nil, fmt.Errorf("failed to count entities: %w", err)
+	}
+
+	// Calculate pagination
+	skip := int64((opts.Page - 1) * opts.Size)
+	limit := int64(opts.Size)
+
+	// Build find options
+	findOpts := options.Find().
+		SetSkip(skip).
+		SetLimit(limit)
+
+	if opts.Sort != nil {
+		findOpts.SetSort(opts.Sort)
+	}
+
+	// Execute query
+	cursor, err := r.coll.Find(ctx, opts.Filter, findOpts)
+	if err != nil {
+		return nil, fmt.Errorf("failed to query entities: %w", err)
+	}
+	defer cursor.Close(ctx)
+
+	// Decode results
+	var entities []Entity
+	if err = cursor.All(ctx, &entities); err != nil {
+		return nil, fmt.Errorf("failed to decode entities: %w", err)
+	}
+
+	// Convert to domain objects
+	domains := make([]*Domain, 0, len(entities))
+	for i := range entities {
+		domains = append(domains, r.mapper.ToDomain(&entities[i]))
+	}
+
+	// Calculate total pages
+	totalPages := int(total) / opts.Size
+	if int(total)%opts.Size != 0 {
+		totalPages++
+	}
+
+	return &PageResult[Domain]{
+		Items:      domains,
+		Total:      total,
+		Page:       opts.Page,
+		Size:       opts.Size,
+		TotalPages: totalPages,
+	}, nil
 }
 
 // Update updates an existing entity with optimistic locking and returns the updated domain object

@@ -23,6 +23,7 @@ func NewOutboxModule() fx.Option {
 			provideConfirmer,
 			provideOutbox,
 		),
+		fx.Invoke(func(*fetcher, *sender, *confirmer) {}),
 	)
 }
 

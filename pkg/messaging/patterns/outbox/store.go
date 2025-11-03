@@ -46,7 +46,7 @@ func (r *store) FetchAndLock(ctx context.Context) (*outboxEntity, error) {
 	filter := bson.M{
 		"$and": []bson.M{
 			{"lockExpiresAt": bson.M{"$lt": time.Now().UTC()}},
-			{"status": bson.M{"$ne": "SENT"}},
+			{"status": StatusProcessing},
 		},
 	}
 	update := bson.M{
@@ -77,7 +77,7 @@ func (r *store) Create(ctx context.Context, payload string, key string, topic st
 		Key:            key,
 		Topic:          topic,
 		CreatedAt:      time.Now().UTC(),
-		Status:         "PROCESSING",
+		Status:         StatusProcessing,
 		LockExpiresAt:  time.Now().Add(10 * time.Second),
 		AttemptsToSend: 0,
 	}
@@ -92,7 +92,10 @@ func (r *store) UpdateAsSentByIds(ctx context.Context, ids []string) error {
 	_, err := r.coll.UpdateMany(ctx,
 		bson.M{"_id": bson.M{"$in": ids}},
 		bson.M{
-			"$set":   bson.M{"status": "SENT"},
+			"$set": bson.M{
+				"status": StatusSent,
+				"sentAt": time.Now().UTC(),
+			},
 			"$unset": bson.M{"lockExpiresAt": ""},
 			"$inc":   bson.M{"confirmations": 1},
 		})

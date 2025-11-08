@@ -2,7 +2,6 @@ package outbox
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"time"
 
@@ -10,8 +9,16 @@ import (
 	"go.uber.org/zap"
 )
 
+type OutboxMessage struct {
+	Payload   []byte
+	EventID   string // Unique event identifier - used as outbox record ID for idempotency (prevents duplicate messages)
+	Key       string // Kafka partition key for ordering guarantees
+	Topic     string // Kafka topic name
+	EventType string // Event type for consumer routing (e.g., "ProductCreatedEvent")
+}
+
 type Outbox interface {
-	Create(ctx context.Context, event any, key string, topic string) (SendFunc, error)
+	Create(ctx context.Context, msg OutboxMessage) (SendFunc, error)
 }
 
 type outbox struct {
@@ -30,12 +37,8 @@ func newOutbox(logger *zap.Logger, store Store, entitiesChan chan<- *outboxEntit
 
 type SendFunc func(ctx context.Context) error
 
-func (o *outbox) Create(ctx context.Context, event any, key string, topic string) (SendFunc, error) {
-	eventStr, err := json.Marshal(event)
-	if err != nil {
-		return nil, fmt.Errorf("failed to marshal event: %w", err)
-	}
-	entity, err := o.store.Create(ctx, string(eventStr), key, topic)
+func (o *outbox) Create(ctx context.Context, msg OutboxMessage) (SendFunc, error) {
+	entity, err := o.store.Create(ctx, msg.Payload, msg.EventID, msg.Key, msg.Topic, msg.EventType)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create outbox message: %w", err)
 	}

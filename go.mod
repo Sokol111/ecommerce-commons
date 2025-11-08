@@ -6,7 +6,6 @@ require (
 	github.com/confluentinc/confluent-kafka-go/v2 v2.11.1
 	github.com/gin-gonic/gin v1.10.1
 	github.com/golang-migrate/migrate/v4 v4.19.0
-	github.com/google/uuid v1.6.0
 	github.com/spf13/viper v1.21.0
 	go.mongodb.org/mongo-driver v1.17.4
 	go.opentelemetry.io/contrib/instrumentation/github.com/gin-gonic/gin/otelgin v0.63.0
@@ -23,6 +22,7 @@ require (
 )
 
 require (
+	github.com/actgardner/gogen-avro/v10 v10.2.1 // indirect
 	github.com/bytedance/gopkg v0.1.3 // indirect
 	github.com/cenkalti/backoff/v4 v4.3.0 // indirect
 	github.com/cenkalti/backoff/v5 v5.0.3 // indirect
@@ -30,9 +30,11 @@ require (
 	github.com/go-logr/logr v1.4.3 // indirect
 	github.com/go-logr/stdr v1.2.2 // indirect
 	github.com/go-viper/mapstructure/v2 v2.4.0 // indirect
+	github.com/google/uuid v1.6.0 // indirect
 	github.com/grpc-ecosystem/grpc-gateway/v2 v2.27.2 // indirect
 	github.com/hashicorp/errwrap v1.1.0 // indirect
 	github.com/hashicorp/go-multierror v1.1.1 // indirect
+	github.com/heetch/avro v0.4.5 // indirect
 	github.com/moby/go-archive v0.1.0 // indirect
 	github.com/moby/sys/atomicwriter v0.1.0 // indirect
 	github.com/moby/sys/user v0.4.0 // indirect
@@ -45,6 +47,7 @@ require (
 	go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracehttp v1.38.0 // indirect
 	go.opentelemetry.io/proto/otlp v1.8.0 // indirect
 	go.yaml.in/yaml/v3 v3.0.4 // indirect
+	golang.org/x/oauth2 v0.30.0 // indirect
 	google.golang.org/genproto/googleapis/api v0.0.0-20250908214217-97024824d090 // indirect
 	google.golang.org/genproto/googleapis/rpc v0.0.0-20250908214217-97024824d090 // indirect
 	google.golang.org/grpc v1.75.1 // indirect

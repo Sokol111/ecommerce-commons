@@ -7,7 +7,6 @@ import (
 	"time"
 
 	"github.com/Sokol111/ecommerce-commons/pkg/persistence/mongo"
-	"github.com/google/uuid"
 	"go.mongodb.org/mongo-driver/bson"
 	mongodriver "go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
@@ -20,7 +19,7 @@ type Store interface {
 	// can return errEntityNotFound
 	FetchAndLock(ctx context.Context) (*outboxEntity, error)
 
-	Create(ctx context.Context, payload string, key string, topic string) (*outboxEntity, error)
+	Create(ctx context.Context, payload []byte, id string, key string, topic string, eventType string) (*outboxEntity, error)
 
 	UpdateAsSentByIds(ctx context.Context, ids []string) error
 }
@@ -70,12 +69,13 @@ func (r *store) FetchAndLock(ctx context.Context) (*outboxEntity, error) {
 	return &entity, nil
 }
 
-func (r *store) Create(ctx context.Context, payload string, key string, topic string) (*outboxEntity, error) {
+func (r *store) Create(ctx context.Context, payload []byte, id string, key string, topic string, eventType string) (*outboxEntity, error) {
 	entity := outboxEntity{
-		ID:             uuid.NewString(),
+		ID:             id,
 		Payload:        payload,
 		Key:            key,
 		Topic:          topic,
+		EventType:      eventType,
 		CreatedAt:      time.Now().UTC(),
 		Status:         StatusProcessing,
 		LockExpiresAt:  time.Now().Add(10 * time.Second),

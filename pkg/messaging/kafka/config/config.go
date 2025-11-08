@@ -20,7 +20,7 @@ type ConsumersConfig struct {
 }
 
 type ConsumerConfig struct {
-	Handler         string `mapstructure:"handler"`
+	Name            string `mapstructure:"name"`
 	Topic           string `mapstructure:"topic"`
 	GroupID         string `mapstructure:"group-id"`
 	AutoOffsetReset string `mapstructure:"auto-offset-reset"`

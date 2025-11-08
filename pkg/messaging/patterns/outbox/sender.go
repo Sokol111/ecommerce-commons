@@ -90,11 +90,16 @@ func (s *sender) run() {
 }
 
 func (s *sender) send(entity *outboxEntity) error {
+	headers := []kafka.Header{
+		{Key: "event-type", Value: []byte(entity.EventType)},
+	}
+
 	err := s.producer.Produce(&kafka.Message{
 		TopicPartition: kafka.TopicPartition{Topic: &entity.Topic, Partition: kafka.PartitionAny},
 		Opaque:         entity.ID,
-		Value:          []byte(entity.Payload),
+		Value:          entity.Payload,
 		Key:            []byte(entity.Key),
+		Headers:        headers,
 	}, s.deliveryChan)
 	if err != nil {
 		return fmt.Errorf("failed to send outbox message with id %v: %w", entity.ID, err)

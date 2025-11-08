@@ -12,7 +12,6 @@ import (
 
 type sender struct {
 	producer     producer.Producer
-	serializer   producer.Serializer
 	entitiesChan <-chan *outboxEntity
 	deliveryChan chan kafka.Event
 	logger       *zap.Logger
@@ -23,22 +22,20 @@ type sender struct {
 
 func newSender(
 	producer producer.Producer,
-	serializer producer.Serializer,
 	entitiesChan <-chan *outboxEntity,
 	deliveryChan chan kafka.Event,
 	logger *zap.Logger,
 ) *sender {
 	return &sender{
 		producer:     producer,
-		serializer:   serializer,
 		entitiesChan: entitiesChan,
 		deliveryChan: deliveryChan,
 		logger:       logger.With(zap.String("component", "outbox")),
 	}
 }
 
-func provideSender(lc fx.Lifecycle, producer producer.Producer, serializer producer.Serializer, channels *channels, logger *zap.Logger) *sender {
-	s := newSender(producer, serializer, channels.entities, channels.delivery, logger)
+func provideSender(lc fx.Lifecycle, producer producer.Producer, channels *channels, logger *zap.Logger) *sender {
+	s := newSender(producer, channels.entities, channels.delivery, logger)
 
 	lc.Append(fx.Hook{
 		OnStart: func(ctx context.Context) error {
@@ -93,18 +90,12 @@ func (s *sender) run() {
 }
 
 func (s *sender) send(entity *outboxEntity) error {
-	valueBytes, err := s.serializer.Serialize(
-		entity.Topic+"-value", // Subject naming: {topic}-value
-		entity.Payload,        // Must be a Go struct implementing Avro schema
-	)
-	if err != nil {
-		return fmt.Errorf("failed to serialize outbox message with id %v: %w", entity.ID, err)
-	}
-
-	err = s.producer.Produce(&kafka.Message{
+	// entity.Payload already contains Avro-serialized bytes from Schema Registry
+	// Serialization happens in outbox.Create() before MongoDB storage
+	err := s.producer.Produce(&kafka.Message{
 		TopicPartition: kafka.TopicPartition{Topic: &entity.Topic, Partition: kafka.PartitionAny},
 		Opaque:         entity.ID,
-		Value:          valueBytes, // [0x00][schema_id][avro_data]
+		Value:          entity.Payload, // Already serialized: [0x00][schema_id][avro_data]
 		Key:            []byte(entity.Key),
 	}, s.deliveryChan)
 	if err != nil {

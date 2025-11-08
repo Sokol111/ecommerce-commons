@@ -19,7 +19,7 @@ type Store interface {
 	// can return errEntityNotFound
 	FetchAndLock(ctx context.Context) (*outboxEntity, error)
 
-	Create(ctx context.Context, payload []byte, id string, key string, topic string, eventType string) (*outboxEntity, error)
+	Create(ctx context.Context, payload []byte, id string, key string, topic string) (*outboxEntity, error)
 
 	UpdateAsSentByIds(ctx context.Context, ids []string) error
 }
@@ -69,13 +69,12 @@ func (r *store) FetchAndLock(ctx context.Context) (*outboxEntity, error) {
 	return &entity, nil
 }
 
-func (r *store) Create(ctx context.Context, payload []byte, id string, key string, topic string, eventType string) (*outboxEntity, error) {
+func (r *store) Create(ctx context.Context, payload []byte, id string, key string, topic string) (*outboxEntity, error) {
 	entity := outboxEntity{
 		ID:             id,
 		Payload:        payload,
 		Key:            key,
 		Topic:          topic,
-		EventType:      eventType,
 		CreatedAt:      time.Now().UTC(),
 		Status:         StatusProcessing,
 		LockExpiresAt:  time.Now().Add(10 * time.Second),

@@ -14,7 +14,6 @@ type outboxEntity struct {
 	Payload        []byte    `bson:"payload"`
 	Key            string    `bson:"key"`
 	Topic          string    `bson:"topic"`
-	EventType      string    `bson:"eventType"`
 	Status         string    `bson:"status"`
 	CreatedAt      time.Time `bson:"createdAt"`
 	SentAt         time.Time `bson:"sentAt,omitempty"`

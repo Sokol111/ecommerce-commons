@@ -12,10 +12,12 @@ import (
 // or when the message is intentionally ignored.
 var ErrSkipMessage = errors.New("skip message processing")
 
-// Deserializer is a function that deserializes raw bytes into a typed event
+// DeserializerFunc is a legacy function that deserializes raw bytes into a typed event
 // based on the message headers (e.g., event-type header).
 // It should return ErrSkipMessage if the event type should be ignored.
-type Deserializer func(data []byte, headers []kafka.Header) (any, error)
+//
+// Deprecated: Use Deserializer interface with Schema Registry instead.
+type DeserializerFunc func(data []byte, headers []kafka.Header) (any, error)
 
 type Handler interface {
 	Process(ctx context.Context, event any) error

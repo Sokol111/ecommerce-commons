@@ -1,0 +1,58 @@
+package producer
+
+import (
+	"fmt"
+
+	"github.com/Sokol111/ecommerce-commons/pkg/messaging/kafka/config"
+	"github.com/confluentinc/confluent-kafka-go/v2/schemaregistry"
+	"github.com/confluentinc/confluent-kafka-go/v2/schemaregistry/serde"
+	"github.com/confluentinc/confluent-kafka-go/v2/schemaregistry/serde/avro"
+)
+
+// Serializer serializes Go structs to Avro bytes with Schema Registry integration
+type Serializer interface {
+	// Serialize serializes a Go struct to Avro bytes with Schema Registry integration
+	//
+	// The subject parameter determines the schema subject in Schema Registry.
+	// Convention: "{topic}-value" for message values, "{topic}-key" for keys.
+	//
+	// Returns bytes in format: [0x00][schema_id (4 bytes)][avro_data]
+	Serialize(subject string, msg interface{}) ([]byte, error)
+
+	// Close releases resources used by the serializer
+	Close() error
+}
+
+type avroSerializer struct {
+	serializer *avro.SpecificSerializer
+}
+
+// NewAvroSerializer creates a new Avro serializer with Schema Registry integration
+func NewAvroSerializer(conf config.SchemaRegistryConfig) (Serializer, error) {
+	client, err := schemaregistry.NewClient(schemaregistry.NewConfig(conf.URL))
+	if err != nil {
+		return nil, fmt.Errorf("failed to create schema registry client: %w", err)
+	}
+
+	serConfig := avro.NewSerializerConfig()
+	serConfig.AutoRegisterSchemas = conf.AutoRegisterSchemas
+	serConfig.UseLatestVersion = true // Always use latest compatible version
+
+	ser, err := avro.NewSpecificSerializer(client, serde.ValueSerde, serConfig)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create avro serializer: %w", err)
+	}
+
+	return &avroSerializer{serializer: ser}, nil
+}
+
+func (s *avroSerializer) Serialize(subject string, msg interface{}) ([]byte, error) {
+	return s.serializer.Serialize(subject, msg)
+}
+
+func (s *avroSerializer) Close() error {
+	if s.serializer != nil {
+		s.serializer.Close()
+	}
+	return nil
+}

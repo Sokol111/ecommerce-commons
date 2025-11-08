@@ -2,7 +2,6 @@ package consumer
 
 import (
 	"context"
-	"errors"
 	"math"
 	"sync"
 	"time"
@@ -16,6 +15,7 @@ type processor struct {
 	messagesChan <-chan *kafka.Message
 	handler      Handler
 	deserializer Deserializer
+	subject      string // Topic subject for Schema Registry
 	log          *zap.Logger
 
 	ctx        context.Context
@@ -28,6 +28,7 @@ func newProcessor(
 	messagesChan <-chan *kafka.Message,
 	handler Handler,
 	deserializer Deserializer,
+	subject string,
 	log *zap.Logger,
 ) *processor {
 	return &processor{
@@ -35,6 +36,7 @@ func newProcessor(
 		messagesChan: messagesChan,
 		handler:      handler,
 		deserializer: deserializer,
+		subject:      subject,
 		log:          log,
 	}
 }
@@ -87,21 +89,9 @@ func (p *processor) run() {
 
 func (p *processor) handleMessage(message *kafka.Message) {
 	for attempt := 1; p.ctx.Err() == nil; attempt++ {
-		// First, deserialize the message using the provided deserializer
-		event, err := p.deserializer(message.Value, message.Headers)
+		event, err := p.deserializer.Deserialize(p.subject, message.Value)
 
 		if err != nil {
-			// If deserializer wants to skip this message, commit offset and return
-			if errors.Is(err, ErrSkipMessage) {
-				p.log.Debug("message skipped by deserializer",
-					zap.String("key", string(message.Key)),
-					zap.Int32("partition", message.TopicPartition.Partition),
-					zap.Int32("offset", int32(message.TopicPartition.Offset)))
-				p.storeOffset(message)
-				return
-			}
-
-			// Deserialization error - log and retry
 			p.log.Error("failed to deserialize message",
 				zap.String("key", string(message.Key)),
 				zap.Int32("partition", message.TopicPartition.Partition),

@@ -11,6 +11,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/attribute"
+	"go.opentelemetry.io/otel/codes"
 	"go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracegrpc"
 	"go.opentelemetry.io/otel/propagation"
 	"go.opentelemetry.io/otel/sdk/resource"
@@ -144,4 +145,60 @@ func withTrace(ctx context.Context, log *zap.Logger) *zap.Logger {
 		zap.String("trace_id", sc.TraceID().String()),
 		zap.String("span_id", sc.SpanID().String()),
 	)
+}
+
+// TraceFunc wraps a function with automatic span creation and error handling
+// Usage: TraceFunc(ctx, "operation.name", opts, func(ctx context.Context) error { ... })
+func TraceFunc(ctx context.Context, spanName string, opts []trace.SpanStartOption, fn func(context.Context) error) error {
+	tracer := otel.Tracer("app")
+	ctx, span := tracer.Start(ctx, spanName, opts...)
+	defer span.End()
+
+	err := fn(ctx)
+	if err != nil {
+		span.RecordError(err)
+		span.SetStatus(codes.Error, err.Error())
+		return err
+	}
+
+	span.SetStatus(codes.Ok, "success")
+	return nil
+}
+
+// TraceFuncWithResult wraps a function that returns a value and error
+// Usage: result, err := TraceFuncWithResult(ctx, "operation.name", opts, func(ctx context.Context) (T, error) { ... })
+func TraceFuncWithResult[T any](ctx context.Context, spanName string, opts []trace.SpanStartOption, fn func(context.Context) (T, error)) (T, error) {
+	tracer := otel.Tracer("app")
+	ctx, span := tracer.Start(ctx, spanName, opts...)
+	defer span.End()
+
+	result, err := fn(ctx)
+	if err != nil {
+		span.RecordError(err)
+		span.SetStatus(codes.Error, err.Error())
+		var zero T
+		return zero, err
+	}
+
+	span.SetStatus(codes.Ok, "success")
+	return result, nil
+}
+
+// WithSpan creates a new span and returns updated context
+// Usage: ctx, endSpan := WithSpan(ctx, "operation.name", opts); defer endSpan(nil)
+func WithSpan(ctx context.Context, spanName string, opts ...trace.SpanStartOption) (context.Context, func(error)) {
+	tracer := otel.Tracer("app")
+	ctx, span := tracer.Start(ctx, spanName, opts...)
+
+	endFunc := func(err error) {
+		if err != nil {
+			span.RecordError(err)
+			span.SetStatus(codes.Error, err.Error())
+		} else {
+			span.SetStatus(codes.Ok, "success")
+		}
+		span.End()
+	}
+
+	return ctx, endFunc
 }

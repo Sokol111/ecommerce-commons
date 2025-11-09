@@ -122,13 +122,12 @@ func (c *confirmer) handleConfirmation(events []kafka.Event) {
 			continue
 		}
 		if msg.TopicPartition.Error != nil {
-			c.logger.Error("skipping confirmation",
-				zap.String("reason", "topic partition error"),
-				zap.Any("opaque", msg.Opaque),
+			// Kafka delivery failed - outbox message will be retried by fetcher
+			c.logger.Error("kafka delivery failed - message will be retried",
+				zap.String("message_id", fmt.Sprintf("%v", msg.Opaque)),
 				zap.Error(msg.TopicPartition.Error),
-				zap.Any("topic", msg.TopicPartition.Topic),
-				zap.Int32("partition", msg.TopicPartition.Partition),
-				zap.Any("offset", msg.TopicPartition.Offset))
+				zap.String("topic", fmt.Sprintf("%v", msg.TopicPartition.Topic)),
+				zap.Int32("partition", msg.TopicPartition.Partition))
 			continue
 		}
 		id, ok := msg.Opaque.(string)
@@ -151,5 +150,5 @@ func (c *confirmer) handleConfirmation(events []kafka.Event) {
 		return
 	}
 
-	c.logger.Debug("outbox sending confirmed", zap.Any("ids", ids))
+	c.logger.Debug("outbox sending confirmed", zap.Int("count", len(ids)))
 }

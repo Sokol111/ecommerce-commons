@@ -6,14 +6,17 @@ import (
 	"time"
 
 	"github.com/Sokol111/ecommerce-commons/pkg/core/logger"
+	"go.opentelemetry.io/otel"
+	"go.opentelemetry.io/otel/propagation"
 	"go.uber.org/zap"
 )
 
 type OutboxMessage struct {
-	Payload []byte // Pre-serialized event bytes (e.g., Avro, Protobuf, JSON) - ready to send to Kafka
-	EventID string // Unique event identifier - used as outbox record ID for idempotency (prevents duplicate messages)
-	Key     string // Kafka partition key for ordering guarantees
-	Topic   string // Kafka topic name
+	Payload []byte            // Pre-serialized event bytes (e.g., Avro, Protobuf, JSON) - ready to send to Kafka
+	EventID string            // Unique event identifier - used as outbox record ID for idempotency (prevents duplicate messages)
+	Key     string            // Kafka partition key for ordering guarantees
+	Topic   string            // Kafka topic name
+	Headers map[string]string // Kafka headers for trace propagation, event_type, etc.
 }
 
 type Outbox interface {
@@ -37,7 +40,17 @@ func newOutbox(logger *zap.Logger, store Store, entitiesChan chan<- *outboxEntit
 type SendFunc func(ctx context.Context) error
 
 func (o *outbox) Create(ctx context.Context, msg OutboxMessage) (SendFunc, error) {
-	entity, err := o.store.Create(ctx, msg.Payload, msg.EventID, msg.Key, msg.Topic)
+	// Extract trace context from ctx and inject into headers
+	headers := msg.Headers
+	if headers == nil {
+		headers = make(map[string]string)
+	}
+
+	propagator := otel.GetTextMapPropagator()
+	carrier := propagation.MapCarrier(headers)
+	propagator.Inject(ctx, carrier)
+
+	entity, err := o.store.Create(ctx, msg.Payload, msg.EventID, msg.Key, msg.Topic, headers)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create outbox message: %w", err)
 	}

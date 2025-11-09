@@ -5,7 +5,12 @@ import (
 	"fmt"
 
 	"github.com/Sokol111/ecommerce-commons/pkg/messaging/kafka/producer"
+	"github.com/Sokol111/ecommerce-commons/pkg/observability"
 	"github.com/confluentinc/confluent-kafka-go/v2/kafka"
+	"go.opentelemetry.io/otel"
+	"go.opentelemetry.io/otel/attribute"
+	"go.opentelemetry.io/otel/propagation"
+	"go.opentelemetry.io/otel/trace"
 	"go.uber.org/fx"
 	"go.uber.org/zap"
 )
@@ -90,16 +95,63 @@ func (s *sender) run() {
 }
 
 func (s *sender) send(entity *outboxEntity) error {
-	// entity.Payload already contains Avro-serialized bytes from Schema Registry
-	// Serialization happens in outbox.Create() before MongoDB storage
+	// Extract trace context from headers that were stored in MongoDB
+	ctx := context.Background()
+	if len(entity.Headers) > 0 {
+		propagator := otel.GetTextMapPropagator()
+		carrier := propagation.MapCarrier(entity.Headers)
+		ctx = propagator.Extract(ctx, carrier)
+	}
+
+	// Use declarative tracing wrapper
+	// Note: span represents buffering to Kafka producer, not actual delivery
+	// Delivery confirmation happens asynchronously in confirmer
+	return observability.TraceFunc(ctx, "kafka.produce.buffer",
+		[]trace.SpanStartOption{
+			trace.WithSpanKind(trace.SpanKindProducer),
+			trace.WithAttributes(
+				attribute.String("messaging.system", "kafka"),
+				attribute.String("messaging.destination", entity.Topic),
+				attribute.String("messaging.message.id", entity.ID),
+			),
+		},
+		func(ctx context.Context) error {
+			return s.produceToKafka(ctx, entity)
+		},
+	)
+}
+
+func (s *sender) produceToKafka(ctx context.Context, entity *outboxEntity) error {
+	// Update headers with the current span context (child span)
+	updatedHeaders := make(map[string]string)
+	for k, v := range entity.Headers {
+		updatedHeaders[k] = v
+	}
+	propagator := otel.GetTextMapPropagator()
+	carrier := propagation.MapCarrier(updatedHeaders)
+	propagator.Inject(ctx, carrier)
+
+	// Convert to Kafka headers
+	var kafkaHeaders []kafka.Header
+	for key, value := range updatedHeaders {
+		kafkaHeaders = append(kafkaHeaders, kafka.Header{
+			Key:   key,
+			Value: []byte(value),
+		})
+	}
+
+	// Produce message to Kafka
 	err := s.producer.Produce(&kafka.Message{
 		TopicPartition: kafka.TopicPartition{Topic: &entity.Topic, Partition: kafka.PartitionAny},
 		Opaque:         entity.ID,
 		Value:          entity.Payload, // Already serialized: [0x00][schema_id][avro_data]
 		Key:            []byte(entity.Key),
+		Headers:        kafkaHeaders,
 	}, s.deliveryChan)
+
 	if err != nil {
 		return fmt.Errorf("failed to send outbox message with id %v: %w", entity.ID, err)
 	}
+
 	return nil
 }

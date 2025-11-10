@@ -97,17 +97,7 @@ func (p *processor) handleMessage(message *kafka.Message) {
 	ctx := p.extractTraceContext(message)
 
 	// Create span for message processing
-	tracer := otel.Tracer("kafka-consumer")
-	ctx, span := tracer.Start(ctx, "kafka.consume",
-		trace.WithSpanKind(trace.SpanKindConsumer),
-		trace.WithAttributes(
-			attribute.String("messaging.system", "kafka"),
-			attribute.String("messaging.destination", *message.TopicPartition.Topic),
-			attribute.Int("messaging.partition", int(message.TopicPartition.Partition)),
-			attribute.Int64("messaging.offset", int64(message.TopicPartition.Offset)),
-			attribute.String("messaging.message.key", string(message.Key)),
-		),
-	)
+	ctx, span := p.startConsumerSpan(ctx, message)
 	defer span.End()
 
 	for attempt := 1; ctx.Err() == nil; attempt++ {
@@ -174,6 +164,20 @@ func (p *processor) extractTraceContext(message *kafka.Message) context.Context 
 	ctx = propagator.Extract(ctx, carrier)
 
 	return ctx
+}
+
+func (p *processor) startConsumerSpan(ctx context.Context, message *kafka.Message) (context.Context, trace.Span) {
+	tracer := otel.Tracer("kafka-consumer")
+	return tracer.Start(ctx, "kafka.consume",
+		trace.WithSpanKind(trace.SpanKindConsumer),
+		trace.WithAttributes(
+			attribute.String("messaging.system", "kafka"),
+			attribute.String("messaging.destination", *message.TopicPartition.Topic),
+			attribute.Int("messaging.partition", int(message.TopicPartition.Partition)),
+			attribute.Int64("messaging.offset", int64(message.TopicPartition.Offset)),
+			attribute.String("messaging.message.key", string(message.Key)),
+		),
+	)
 }
 
 func (p *processor) storeOffset(message *kafka.Message) {

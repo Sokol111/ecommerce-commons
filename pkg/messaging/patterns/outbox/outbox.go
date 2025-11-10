@@ -41,14 +41,7 @@ type SendFunc func(ctx context.Context) error
 
 func (o *outbox) Create(ctx context.Context, msg OutboxMessage) (SendFunc, error) {
 	// Extract trace context from ctx and inject into headers
-	headers := msg.Headers
-	if headers == nil {
-		headers = make(map[string]string)
-	}
-
-	propagator := otel.GetTextMapPropagator()
-	carrier := propagation.MapCarrier(headers)
-	propagator.Inject(ctx, carrier)
+	headers := o.injectTraceContext(ctx, msg.Headers)
 
 	entity, err := o.store.Create(ctx, msg.Payload, msg.EventID, msg.Key, msg.Topic, headers)
 	if err != nil {
@@ -70,6 +63,18 @@ func (o *outbox) Create(ctx context.Context, msg OutboxMessage) (SendFunc, error
 			return fmt.Errorf("entitiesChan is full")
 		}
 	}), nil
+}
+
+func (o *outbox) injectTraceContext(ctx context.Context, headers map[string]string) map[string]string {
+	if headers == nil {
+		headers = make(map[string]string)
+	}
+
+	propagator := otel.GetTextMapPropagator()
+	carrier := propagation.MapCarrier(headers)
+	propagator.Inject(ctx, carrier)
+
+	return headers
 }
 
 func (o *outbox) log(ctx context.Context) *zap.Logger {

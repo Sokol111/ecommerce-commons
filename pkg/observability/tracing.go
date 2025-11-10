@@ -43,7 +43,7 @@ func NewTracingModule() fx.Option {
 					if !conf.TracingEnabled {
 						return commongin.Middleware{}
 					}
-					return commongin.Middleware{Priority: 50, Handler: tracingLoggerMiddleware(log)}
+					return commongin.Middleware{Priority: 45, Handler: tracingLoggerMiddleware(log)}
 				},
 				fx.ResultTags(`group:"gin_mw"`),
 			),

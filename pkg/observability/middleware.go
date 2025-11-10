@@ -51,7 +51,7 @@ func NewHTTPTelemetryModule() fx.Option {
 					}
 
 					return commongin.Middleware{
-						Priority: 0,
+						Priority: 5, // First middleware to create tracing span for entire request
 						Handler:  otelgin.Middleware(d.AppConf.ServiceName, opts...),
 					}
 				},

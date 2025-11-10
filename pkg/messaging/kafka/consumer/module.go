@@ -6,6 +6,7 @@ import (
 
 	"github.com/Sokol111/ecommerce-commons/pkg/http/health"
 	"github.com/Sokol111/ecommerce-commons/pkg/messaging/kafka/config"
+	"github.com/Sokol111/ecommerce-commons/pkg/messaging/kafka/producer"
 	"github.com/confluentinc/confluent-kafka-go/v2/kafka"
 	"go.uber.org/fx"
 	"go.uber.org/zap"
@@ -33,8 +34,8 @@ func RegisterHandlerAndConsumer(
 		fx.Provide(handlerConstructor, fx.Private), // Handler is private to this module
 		fx.Provide(
 			fx.Annotate(
-				func(lc fx.Lifecycle, log *zap.Logger, conf config.Config, h Handler, readiness health.Readiness, deserializer Deserializer) (Consumer, error) {
-					return provideConsumer(lc, log, conf, consumerName, h, deserializer, readiness)
+				func(lc fx.Lifecycle, log *zap.Logger, conf config.Config, h Handler, readiness health.Readiness, deserializer Deserializer, p producer.Producer) (Consumer, error) {
+					return provideConsumer(lc, log, conf, consumerName, h, deserializer, readiness, p)
 				},
 				fx.ResultTags(`group:"kafka_consumers"`), // Consumer is exported to group
 			),
@@ -50,6 +51,7 @@ func provideConsumer(
 	handler Handler,
 	deserializer Deserializer,
 	readiness health.Readiness,
+	dlqProducer producer.Producer,
 ) (Consumer, error) {
 	var consumerConf *config.ConsumerConfig
 
@@ -84,8 +86,20 @@ func provideConsumer(
 		zap.String("group_id", consumerConf.GroupID),
 	}
 
+	// Configure DLQ if enabled
+	var dlqTopic string
+	var producerForDLQ producer.Producer
+	if consumerConf.EnableDLQ {
+		dlqTopic = consumerConf.DLQTopic
+		producerForDLQ = dlqProducer
+		log.Info("DLQ enabled",
+			zap.String("consumer_name", consumerConf.Name),
+			zap.String("dlq_topic", dlqTopic))
+		logFields = append(logFields, zap.String("dlq_topic", dlqTopic))
+	}
+
 	reader := newReader(kafkaConsumer, consumerConf.Topic, messagesChan, log.With(logFields...))
-	processor := newProcessor(kafkaConsumer, messagesChan, handler, deserializer, consumerConf.Subject, log.With(logFields...))
+	processor := newProcessor(kafkaConsumer, messagesChan, handler, deserializer, consumerConf.Subject, log.With(logFields...), producerForDLQ, dlqTopic)
 
 	c := newConsumer(reader, processor, log.With(logFields...))
 

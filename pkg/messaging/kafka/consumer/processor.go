@@ -9,6 +9,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/Sokol111/ecommerce-commons/pkg/messaging/kafka/producer"
 	"github.com/confluentinc/confluent-kafka-go/v2/kafka"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/attribute"
@@ -35,6 +36,9 @@ type processor struct {
 	subject      string // Topic subject for Schema Registry
 	log          *zap.Logger
 
+	dlqProducer producer.Producer
+	dlqTopic    string
+
 	ctx        context.Context
 	cancelFunc context.CancelFunc
 	wg         sync.WaitGroup
@@ -47,6 +51,8 @@ func newProcessor(
 	deserializer Deserializer,
 	subject string,
 	log *zap.Logger,
+	dlqProducer producer.Producer,
+	dlqTopic string,
 ) *processor {
 	return &processor{
 		consumer:     consumer,
@@ -55,6 +61,8 @@ func newProcessor(
 		deserializer: deserializer,
 		subject:      subject,
 		log:          log,
+		dlqProducer:  dlqProducer,
+		dlqTopic:     dlqTopic,
 	}
 }
 
@@ -136,28 +144,27 @@ func (p *processor) processMessage(message *kafka.Message) {
 	}
 
 	if errors.Is(err, ErrPermanent) {
-		// Permanent error - send to DLQ (TODO: implement DLQ)
-		span.SetStatus(codes.Error, "permanent error - should send to DLQ")
-		p.log.Error("permanent error - message should be sent to DLQ",
+		// Permanent error - send to DLQ
+		span.SetStatus(codes.Error, "permanent error - sending to DLQ")
+		p.log.Error("permanent error - sending message to DLQ",
 			zap.String("key", string(message.Key)),
 			zap.Int32("partition", message.TopicPartition.Partition),
 			zap.Int32("offset", int32(message.TopicPartition.Offset)),
 			zap.Error(err))
-		// For now, just commit to avoid blocking
-		// TODO: Send to DLQ before committing
+		p.sendToDLQ(ctx, message, err)
 		p.storeOffset(message)
 		return
 	}
 
-	// Context cancelled or retryable error exhausted retries
+	// Context cancelled or retryable error exhausted retries - send to DLQ
 	span.RecordError(err)
-	span.SetStatus(codes.Error, "message processing failed")
-	p.log.Error("message processing failed after retries",
+	span.SetStatus(codes.Error, "message processing failed - sending to DLQ")
+	p.log.Error("message processing failed after retries - sending to DLQ",
 		zap.String("key", string(message.Key)),
 		zap.Int32("partition", message.TopicPartition.Partition),
 		zap.Int32("offset", int32(message.TopicPartition.Offset)),
 		zap.Error(err))
-	// TODO: Send to DLQ before committing
+	p.sendToDLQ(ctx, message, err)
 	p.storeOffset(message)
 }
 
@@ -276,6 +283,44 @@ func (p *processor) startConsumerSpan(ctx context.Context, message *kafka.Messag
 	)
 }
 
+func (p *processor) startDLQSpan(ctx context.Context, message *kafka.Message) (context.Context, trace.Span) {
+	tracer := otel.Tracer("kafka-consumer")
+	return tracer.Start(ctx, "kafka.send_to_dlq",
+		trace.WithSpanKind(trace.SpanKindProducer),
+		trace.WithAttributes(
+			attribute.String("messaging.system", "kafka"),
+			attribute.String("messaging.destination", p.dlqTopic),
+			attribute.String("messaging.source.topic", *message.TopicPartition.Topic),
+			attribute.Int("messaging.source.partition", int(message.TopicPartition.Partition)),
+			attribute.Int64("messaging.source.offset", int64(message.TopicPartition.Offset)),
+			attribute.String("messaging.message.key", string(message.Key)),
+		),
+	)
+}
+
+func (p *processor) injectTraceContext(ctx context.Context, message *kafka.Message) {
+	propagator := otel.GetTextMapPropagator()
+
+	// Convert existing headers to map
+	headersMap := make(map[string]string)
+	for _, header := range message.Headers {
+		headersMap[header.Key] = string(header.Value)
+	}
+
+	// Inject trace context
+	carrier := propagation.MapCarrier(headersMap)
+	propagator.Inject(ctx, carrier)
+
+	// Update message headers
+	message.Headers = nil
+	for key, value := range headersMap {
+		message.Headers = append(message.Headers, kafka.Header{
+			Key:   key,
+			Value: []byte(value),
+		})
+	}
+}
+
 func (p *processor) storeOffset(message *kafka.Message) {
 	_, err := p.consumer.StoreMessage(message)
 	if err != nil {
@@ -285,6 +330,74 @@ func (p *processor) storeOffset(message *kafka.Message) {
 			zap.Int32("offset", int32(message.TopicPartition.Offset)),
 			zap.Error(err))
 	}
+}
+
+// sendToDLQ sends a failed message to the Dead Letter Queue
+func (p *processor) sendToDLQ(ctx context.Context, message *kafka.Message, processingErr error) {
+	if p.dlqProducer == nil {
+		p.log.Warn("DLQ producer not configured, cannot send message to DLQ",
+			zap.String("key", string(message.Key)),
+			zap.Int32("partition", message.TopicPartition.Partition),
+			zap.Int32("offset", int32(message.TopicPartition.Offset)))
+		return
+	}
+
+	// Create span for DLQ send operation
+	ctx, span := p.startDLQSpan(ctx, message)
+	defer span.End()
+
+	// Create DLQ message with original message data
+	dlqMessage := &kafka.Message{
+		TopicPartition: kafka.TopicPartition{
+			Topic:     &p.dlqTopic,
+			Partition: kafka.PartitionAny,
+		},
+		Key:   message.Key,
+		Value: message.Value,
+		Headers: append(message.Headers,
+			kafka.Header{Key: "dlq.original.topic", Value: []byte(*message.TopicPartition.Topic)},
+			kafka.Header{Key: "dlq.original.partition", Value: []byte(fmt.Sprintf("%d", message.TopicPartition.Partition))},
+			kafka.Header{Key: "dlq.original.offset", Value: []byte(fmt.Sprintf("%d", message.TopicPartition.Offset))},
+			kafka.Header{Key: "dlq.error", Value: []byte(processingErr.Error())},
+			kafka.Header{Key: "dlq.timestamp", Value: []byte(time.Now().UTC().Format(time.RFC3339))},
+		),
+	}
+
+	// Inject updated trace context into DLQ message headers
+	p.injectTraceContext(ctx, dlqMessage)
+
+	// Send to DLQ synchronously
+	deliveryChan := make(chan kafka.Event, 1)
+	err := p.dlqProducer.Produce(dlqMessage, deliveryChan)
+	if err != nil {
+		span.RecordError(err)
+		span.SetStatus(codes.Error, "failed to send message to DLQ")
+		p.log.Error("failed to send message to DLQ",
+			zap.String("dlq_topic", p.dlqTopic),
+			zap.String("key", string(message.Key)),
+			zap.Error(err))
+		return
+	}
+
+	// Wait for delivery report
+	e := <-deliveryChan
+	m := e.(*kafka.Message)
+	if m.TopicPartition.Error != nil {
+		span.RecordError(m.TopicPartition.Error)
+		span.SetStatus(codes.Error, "failed to deliver message to DLQ")
+		p.log.Error("failed to deliver message to DLQ",
+			zap.String("dlq_topic", p.dlqTopic),
+			zap.String("key", string(message.Key)),
+			zap.Error(m.TopicPartition.Error))
+	} else {
+		span.SetStatus(codes.Ok, "message sent to DLQ")
+		p.log.Info("message sent to DLQ",
+			zap.String("dlq_topic", p.dlqTopic),
+			zap.String("key", string(message.Key)),
+			zap.Int32("original_partition", message.TopicPartition.Partition),
+			zap.Int32("original_offset", int32(message.TopicPartition.Offset)))
+	}
+	close(deliveryChan)
 }
 
 func backoffDuration(attempt int, max time.Duration) time.Duration {

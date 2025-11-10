@@ -26,6 +26,8 @@ type ConsumerConfig struct {
 	Subject         string `mapstructure:"subject"`
 	GroupID         string `mapstructure:"group-id"`
 	AutoOffsetReset string `mapstructure:"auto-offset-reset"`
+	EnableDLQ       bool   `mapstructure:"enable-dlq"`
+	DLQTopic        string `mapstructure:"dlq-topic"`
 }
 
 type SchemaRegistryConfig struct {
@@ -61,6 +63,10 @@ func newConfig(v *viper.Viper, logger *zap.Logger) (Config, error) {
 		// Apply default subject naming convention: {topic}-value
 		if cfg.ConsumersConfig.ConsumerConfig[i].Subject == "" {
 			cfg.ConsumersConfig.ConsumerConfig[i].Subject = cfg.ConsumersConfig.ConsumerConfig[i].Topic + "-value"
+		}
+		// Apply default DLQ topic naming convention: {topic}.dlq
+		if cfg.ConsumersConfig.ConsumerConfig[i].EnableDLQ && cfg.ConsumersConfig.ConsumerConfig[i].DLQTopic == "" {
+			cfg.ConsumersConfig.ConsumerConfig[i].DLQTopic = cfg.ConsumersConfig.ConsumerConfig[i].Topic + ".dlq"
 		}
 	}
 

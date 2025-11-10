@@ -7,6 +7,11 @@ import (
 	"time"
 
 	"github.com/confluentinc/confluent-kafka-go/v2/kafka"
+	"go.opentelemetry.io/otel"
+	"go.opentelemetry.io/otel/attribute"
+	"go.opentelemetry.io/otel/codes"
+	"go.opentelemetry.io/otel/propagation"
+	"go.opentelemetry.io/otel/trace"
 	"go.uber.org/zap"
 )
 
@@ -88,37 +93,87 @@ func (p *processor) run() {
 }
 
 func (p *processor) handleMessage(message *kafka.Message) {
-	for attempt := 1; p.ctx.Err() == nil; attempt++ {
+	// Extract trace context from Kafka headers
+	ctx := p.extractTraceContext(message)
+
+	// Create span for message processing
+	tracer := otel.Tracer("kafka-consumer")
+	ctx, span := tracer.Start(ctx, "kafka.consume",
+		trace.WithSpanKind(trace.SpanKindConsumer),
+		trace.WithAttributes(
+			attribute.String("messaging.system", "kafka"),
+			attribute.String("messaging.destination", *message.TopicPartition.Topic),
+			attribute.Int("messaging.partition", int(message.TopicPartition.Partition)),
+			attribute.Int64("messaging.offset", int64(message.TopicPartition.Offset)),
+			attribute.String("messaging.message.key", string(message.Key)),
+		),
+	)
+	defer span.End()
+
+	for attempt := 1; ctx.Err() == nil; attempt++ {
 		event, err := p.deserializer.Deserialize(p.subject, message.Value)
 
 		if err != nil {
+			span.RecordError(err)
 			p.log.Error("failed to deserialize message",
 				zap.String("key", string(message.Key)),
 				zap.Int32("partition", message.TopicPartition.Partition),
 				zap.Int32("offset", int32(message.TopicPartition.Offset)),
 				zap.Error(err))
-			sleep(p.ctx, backoffDuration(attempt, 10*time.Second))
+			sleep(ctx, backoffDuration(attempt, 10*time.Second))
 			continue
 		}
 
-		// Now process the deserialized event
-		err = p.handler.Process(p.ctx, event)
+		// Now process the deserialized event with trace context
+		err = p.handler.Process(ctx, event)
 
 		if err != nil {
 			// Handler error - log and retry
+			span.RecordError(err)
 			p.log.Error("failed to process message",
 				zap.String("key", string(message.Key)),
 				zap.Int32("partition", message.TopicPartition.Partition),
 				zap.Int32("offset", int32(message.TopicPartition.Offset)),
 				zap.Error(err))
-			sleep(p.ctx, backoffDuration(attempt, 10*time.Second))
+			sleep(ctx, backoffDuration(attempt, 10*time.Second))
 			continue
 		}
 
 		// Success - store offset
+		span.SetStatus(codes.Ok, "message processed successfully")
+		span.AddEvent("message.processed",
+			trace.WithAttributes(
+				attribute.Int("attempts", attempt),
+			),
+		)
 		p.storeOffset(message)
 		return
 	}
+
+	// Context cancelled during retries
+	span.SetStatus(codes.Error, "context cancelled during message processing")
+}
+
+// extractTraceContext extracts OpenTelemetry trace context from Kafka message headers
+func (p *processor) extractTraceContext(message *kafka.Message) context.Context {
+	ctx := p.ctx
+
+	if len(message.Headers) == 0 {
+		return ctx
+	}
+
+	// Convert Kafka headers to map for propagator
+	headersMap := make(map[string]string)
+	for _, header := range message.Headers {
+		headersMap[header.Key] = string(header.Value)
+	}
+
+	// Extract trace context using OpenTelemetry propagator
+	propagator := otel.GetTextMapPropagator()
+	carrier := propagation.MapCarrier(headersMap)
+	ctx = propagator.Extract(ctx, carrier)
+
+	return ctx
 }
 
 func (p *processor) storeOffset(message *kafka.Message) {

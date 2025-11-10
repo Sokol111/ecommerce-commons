@@ -5,7 +5,6 @@ import (
 	"fmt"
 
 	"github.com/Sokol111/ecommerce-commons/pkg/messaging/kafka/producer"
-	"github.com/Sokol111/ecommerce-commons/pkg/observability"
 	"github.com/confluentinc/confluent-kafka-go/v2/kafka"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/attribute"
@@ -95,41 +94,37 @@ func (s *sender) run() {
 }
 
 func (s *sender) send(entity *outboxEntity) error {
-	// Extract trace context from headers that were stored in MongoDB
+	ctx := s.extractTraceContext(entity)
+	ctx, span := s.startProducerSpan(ctx, entity)
+	defer span.End()
+	return s.produceToKafka(ctx, entity)
+}
+
+func (s *sender) extractTraceContext(entity *outboxEntity) context.Context {
 	ctx := context.Background()
 	if len(entity.Headers) > 0 {
 		propagator := otel.GetTextMapPropagator()
 		carrier := propagation.MapCarrier(entity.Headers)
 		ctx = propagator.Extract(ctx, carrier)
 	}
+	return ctx
+}
 
-	// Use declarative tracing wrapper
-	// Note: span represents buffering to Kafka producer, not actual delivery
-	// Delivery confirmation happens asynchronously in confirmer
-	return observability.TraceFunc(ctx, "kafka.produce.buffer",
-		[]trace.SpanStartOption{
-			trace.WithSpanKind(trace.SpanKindProducer),
-			trace.WithAttributes(
-				attribute.String("messaging.system", "kafka"),
-				attribute.String("messaging.destination", entity.Topic),
-				attribute.String("messaging.message.id", entity.ID),
-			),
-		},
-		func(ctx context.Context) error {
-			return s.produceToKafka(ctx, entity)
-		},
+func (s *sender) startProducerSpan(ctx context.Context, entity *outboxEntity) (context.Context, trace.Span) {
+	tracer := otel.Tracer("kafka.producer")
+	return tracer.Start(ctx, "kafka.produce.buffer",
+		trace.WithSpanKind(trace.SpanKindProducer),
+		trace.WithAttributes(
+			attribute.String("messaging.system", "kafka"),
+			attribute.String("messaging.destination", entity.Topic),
+			attribute.String("messaging.message.id", entity.ID),
+		),
 	)
 }
 
 func (s *sender) produceToKafka(ctx context.Context, entity *outboxEntity) error {
 	// Update headers with the current span context (child span)
-	updatedHeaders := make(map[string]string)
-	for k, v := range entity.Headers {
-		updatedHeaders[k] = v
-	}
-	propagator := otel.GetTextMapPropagator()
-	carrier := propagation.MapCarrier(updatedHeaders)
-	propagator.Inject(ctx, carrier)
+	updatedHeaders := s.injectTraceContext(ctx, entity.Headers)
 
 	// Convert to Kafka headers
 	var kafkaHeaders []kafka.Header
@@ -154,4 +149,15 @@ func (s *sender) produceToKafka(ctx context.Context, entity *outboxEntity) error
 	}
 
 	return nil
+}
+
+func (s *sender) injectTraceContext(ctx context.Context, headers map[string]string) map[string]string {
+	updatedHeaders := make(map[string]string)
+	for k, v := range headers {
+		updatedHeaders[k] = v
+	}
+	propagator := otel.GetTextMapPropagator()
+	carrier := propagation.MapCarrier(updatedHeaders)
+	propagator.Inject(ctx, carrier)
+	return updatedHeaders
 }

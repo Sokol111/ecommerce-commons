@@ -8,7 +8,9 @@ import (
 
 	"github.com/Sokol111/ecommerce-commons/pkg/core/logger"
 	"github.com/Sokol111/ecommerce-commons/pkg/http/problems"
+	"github.com/getkin/kin-openapi/openapi3"
 	"github.com/gin-gonic/gin"
+	oapiMiddleware "github.com/oapi-codegen/gin-middleware"
 	"go.uber.org/fx"
 	"go.uber.org/zap"
 )
@@ -36,6 +38,16 @@ func NewGinModule() fx.Option {
 			func() Middleware {
 				return Middleware{Priority: 200, Handler: loggerMiddleware()}
 			},
+			fx.ResultTags(`group:"gin_mw"`),
+		),
+		fx.Annotate(
+			func(swagger *openapi3.T) Middleware {
+				return Middleware{
+					Priority: 250,
+					Handler:  createOpenAPIValidatorHandler(swagger),
+				}
+			},
+			fx.ParamTags(`optional:"true"`),
 			fx.ResultTags(`group:"gin_mw"`),
 		),
 		fx.Annotate(
@@ -192,4 +204,9 @@ func problemMiddleware() gin.HandlerFunc {
 
 		c.JSON(status, problem)
 	}
+}
+
+func createOpenAPIValidatorHandler(swagger *openapi3.T) gin.HandlerFunc {
+	swagger.Servers = nil
+	return oapiMiddleware.OapiRequestValidator(swagger)
 }

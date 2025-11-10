@@ -2,7 +2,10 @@ package consumer
 
 import (
 	"context"
+	"errors"
+	"fmt"
 	"math"
+	"runtime/debug"
 	"sync"
 	"time"
 
@@ -14,6 +17,15 @@ import (
 	"go.opentelemetry.io/otel/trace"
 	"go.uber.org/zap"
 )
+
+type panicError struct {
+	Panic interface{}
+	Stack []byte
+}
+
+func (e *panicError) Error() string {
+	return fmt.Sprintf("panic: %v", e.Panic)
+}
 
 type processor struct {
 	consumer     *kafka.Consumer
@@ -62,8 +74,8 @@ func (p *processor) stop() {
 
 	// Final commit before shutdown
 	if _, commitErr := p.consumer.Commit(); commitErr != nil {
-		kafkaErr, ok := commitErr.(kafka.Error)
-		if !ok || kafkaErr.Code() != kafka.ErrNoOffset {
+		var kafkaErr kafka.Error
+		if !errors.As(commitErr, &kafkaErr) || kafkaErr.Code() != kafka.ErrNoOffset {
 			p.log.Warn("failed to commit offsets on shutdown", zap.Error(commitErr))
 		}
 	} else {
@@ -87,12 +99,12 @@ func (p *processor) run() {
 			if p.ctx.Err() != nil {
 				return
 			}
-			p.handleMessage(msg)
+			p.processMessage(msg)
 		}
 	}
 }
 
-func (p *processor) handleMessage(message *kafka.Message) {
+func (p *processor) processMessage(message *kafka.Message) {
 	// Extract trace context from Kafka headers
 	ctx := p.extractTraceContext(message)
 
@@ -100,48 +112,132 @@ func (p *processor) handleMessage(message *kafka.Message) {
 	ctx, span := p.startConsumerSpan(ctx, message)
 	defer span.End()
 
-	for attempt := 1; ctx.Err() == nil; attempt++ {
-		event, err := p.deserializer.Deserialize(p.subject, message.Value)
+	// Handle message with retry logic
+	err := p.handleMessage(ctx, message)
 
-		if err != nil {
-			span.RecordError(err)
-			p.log.Error("failed to deserialize message",
-				zap.String("key", string(message.Key)),
-				zap.Int32("partition", message.TopicPartition.Partition),
-				zap.Int32("offset", int32(message.TopicPartition.Offset)),
-				zap.Error(err))
-			sleep(ctx, backoffDuration(attempt, 10*time.Second))
-			continue
-		}
-
-		// Now process the deserialized event with trace context
-		err = p.handler.Process(ctx, event)
-
-		if err != nil {
-			// Handler error - log and retry
-			span.RecordError(err)
-			p.log.Error("failed to process message",
-				zap.String("key", string(message.Key)),
-				zap.Int32("partition", message.TopicPartition.Partition),
-				zap.Int32("offset", int32(message.TopicPartition.Offset)),
-				zap.Error(err))
-			sleep(ctx, backoffDuration(attempt, 10*time.Second))
-			continue
-		}
-
+	// Analyze error and decide what to do
+	if err == nil {
 		// Success - store offset
 		span.SetStatus(codes.Ok, "message processed successfully")
-		span.AddEvent("message.processed",
-			trace.WithAttributes(
-				attribute.Int("attempts", attempt),
-			),
-		)
 		p.storeOffset(message)
 		return
 	}
 
+	// Check error type
+	if errors.Is(err, ErrSkipMessage) {
+		// Skip message and commit offset
+		span.SetStatus(codes.Ok, "message skipped")
+		p.log.Info("skipping message",
+			zap.String("key", string(message.Key)),
+			zap.Int32("partition", message.TopicPartition.Partition),
+			zap.Int32("offset", int32(message.TopicPartition.Offset)))
+		p.storeOffset(message)
+		return
+	}
+
+	if errors.Is(err, ErrPermanent) {
+		// Permanent error - send to DLQ (TODO: implement DLQ)
+		span.SetStatus(codes.Error, "permanent error - should send to DLQ")
+		p.log.Error("permanent error - message should be sent to DLQ",
+			zap.String("key", string(message.Key)),
+			zap.Int32("partition", message.TopicPartition.Partition),
+			zap.Int32("offset", int32(message.TopicPartition.Offset)),
+			zap.Error(err))
+		// For now, just commit to avoid blocking
+		// TODO: Send to DLQ before committing
+		p.storeOffset(message)
+		return
+	}
+
+	// Context cancelled or retryable error exhausted retries
+	span.RecordError(err)
+	span.SetStatus(codes.Error, "message processing failed")
+	p.log.Error("message processing failed after retries",
+		zap.String("key", string(message.Key)),
+		zap.Int32("partition", message.TopicPartition.Partition),
+		zap.Int32("offset", int32(message.TopicPartition.Offset)),
+		zap.Error(err))
+	// TODO: Send to DLQ before committing
+	p.storeOffset(message)
+}
+
+func (p *processor) handleMessage(ctx context.Context, message *kafka.Message) error {
+	// Deserialize message once before retry loop
+	event, err := p.deserializer.Deserialize(p.subject, message.Value)
+	if err != nil {
+		// Deserialization error is permanent - cannot retry
+		return fmt.Errorf("%w: deserialization failed: %v", ErrPermanent, err)
+	}
+
+	// Retry processing with backoff
+	maxAttempts := 5
+	for attempt := 1; attempt <= maxAttempts && ctx.Err() == nil; attempt++ {
+		// Process the deserialized event with panic recovery
+		err = func() (err error) {
+			defer func() {
+				if r := recover(); r != nil {
+					// Panic is a permanent error - indicates a bug in the code
+					err = fmt.Errorf("%w: %v", ErrPermanent, &panicError{
+						Panic: r,
+						Stack: debug.Stack(),
+					})
+				}
+			}()
+			return p.handler.Process(ctx, event)
+		}()
+
+		if err == nil {
+			// Success
+			return nil
+		}
+
+		// Check if message should be skipped
+		if errors.Is(err, ErrSkipMessage) {
+			return err
+		}
+
+		// Check if error is permanent
+		if errors.Is(err, ErrPermanent) {
+			return err
+		}
+
+		// Log error
+		logFields := []zap.Field{
+			zap.String("key", string(message.Key)),
+			zap.Int32("partition", message.TopicPartition.Partition),
+			zap.Int32("offset", int32(message.TopicPartition.Offset)),
+			zap.Int("attempt", attempt),
+			zap.Int("maxAttempts", maxAttempts),
+		}
+
+		// Add panic-specific fields if it's a panic error
+		var panicErr *panicError
+		if errors.As(err, &panicErr) {
+			logFields = append(logFields,
+				zap.Any("panic", panicErr.Panic),
+				zap.ByteString("stack", panicErr.Stack),
+			)
+		} else {
+			logFields = append(logFields, zap.Error(err))
+		}
+
+		p.log.Error("failed to process message", logFields...)
+
+		// If this is the last attempt, return error
+		if attempt >= maxAttempts {
+			return fmt.Errorf("max retry attempts reached: %w", err)
+		}
+
+		// Sleep with backoff before next retry
+		sleep(ctx, backoffDuration(attempt, 10*time.Second))
+	}
+
 	// Context cancelled during retries
-	span.SetStatus(codes.Error, "context cancelled during message processing")
+	if ctx.Err() != nil {
+		return ctx.Err()
+	}
+
+	return fmt.Errorf("unexpected end of retry loop")
 }
 
 // extractTraceContext extracts OpenTelemetry trace context from Kafka message headers
@@ -188,20 +284,15 @@ func (p *processor) storeOffset(message *kafka.Message) {
 			zap.Int32("partition", message.TopicPartition.Partition),
 			zap.Int32("offset", int32(message.TopicPartition.Offset)),
 			zap.Error(err))
-	} else {
-		p.log.Debug("offset stored",
-			zap.Int32("partition", message.TopicPartition.Partition),
-			zap.Int32("offset", int32(message.TopicPartition.Offset)))
 	}
 }
 
 func backoffDuration(attempt int, max time.Duration) time.Duration {
-	var backoff time.Duration
-	var duration = time.Duration(math.Pow(2, float64(attempt))) * time.Second
+	duration := time.Duration(math.Pow(2, float64(attempt))) * time.Second
 	if duration > max {
-		backoff = max
+		return max
 	}
-	return backoff
+	return duration
 }
 
 func sleep(ctx context.Context, d time.Duration) {

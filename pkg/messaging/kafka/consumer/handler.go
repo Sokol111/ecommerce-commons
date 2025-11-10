@@ -3,8 +3,6 @@ package consumer
 import (
 	"context"
 	"errors"
-
-	"github.com/confluentinc/confluent-kafka-go/v2/kafka"
 )
 
 // Sentinel errors for message processing control flow
@@ -26,13 +24,6 @@ var ErrSkipMessage = errors.New("skip message processing")
 // If you don't wrap your error with ErrPermanent or ErrSkipMessage,
 // it will be treated as a retryable error with exponential backoff.
 var ErrPermanent = errors.New("permanent error")
-
-// DeserializerFunc is a legacy function that deserializes raw bytes into a typed event
-// based on the message headers (e.g., event-type header).
-// It should return ErrSkipMessage if the event type should be ignored.
-//
-// Deprecated: Use Deserializer interface with Schema Registry instead.
-type DeserializerFunc func(data []byte, headers []kafka.Header) (any, error)
 
 type Handler interface {
 	Process(ctx context.Context, event any) error

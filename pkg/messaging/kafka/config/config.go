@@ -54,19 +54,20 @@ func newConfig(v *viper.Viper, logger *zap.Logger) (Config, error) {
 
 	// Apply defaults from global consumer config to individual consumers
 	for i := range cfg.ConsumersConfig.ConsumerConfig {
-		if cfg.ConsumersConfig.ConsumerConfig[i].GroupID == "" {
-			cfg.ConsumersConfig.ConsumerConfig[i].GroupID = cfg.ConsumersConfig.GroupID
+		consumer := &cfg.ConsumersConfig.ConsumerConfig[i]
+		if consumer.GroupID == "" {
+			consumer.GroupID = cfg.ConsumersConfig.GroupID
 		}
-		if cfg.ConsumersConfig.ConsumerConfig[i].AutoOffsetReset == "" {
-			cfg.ConsumersConfig.ConsumerConfig[i].AutoOffsetReset = cfg.ConsumersConfig.AutoOffsetReset
+		if consumer.AutoOffsetReset == "" {
+			consumer.AutoOffsetReset = cfg.ConsumersConfig.AutoOffsetReset
 		}
 		// Apply default subject naming convention: {topic}-value
-		if cfg.ConsumersConfig.ConsumerConfig[i].Subject == "" {
-			cfg.ConsumersConfig.ConsumerConfig[i].Subject = cfg.ConsumersConfig.ConsumerConfig[i].Topic + "-value"
+		if consumer.Subject == "" {
+			consumer.Subject = consumer.Topic + "-value"
 		}
 		// Apply default DLQ topic naming convention: {topic}.dlq
-		if cfg.ConsumersConfig.ConsumerConfig[i].EnableDLQ && cfg.ConsumersConfig.ConsumerConfig[i].DLQTopic == "" {
-			cfg.ConsumersConfig.ConsumerConfig[i].DLQTopic = cfg.ConsumersConfig.ConsumerConfig[i].Topic + ".dlq"
+		if consumer.EnableDLQ && consumer.DLQTopic == "" {
+			consumer.DLQTopic = consumer.Topic + ".dlq"
 		}
 	}
 

@@ -7,21 +7,21 @@ import (
 // NewGinModule provides all Gin middleware modules
 // Middleware execution order (by priority, lower = earlier):
 //
-//	10 - Timeout          - kills hanging requests
-//	20 - RateLimit        - limits requests/second
-//	30 - HTTPBulkhead     - limits concurrent requests
-//	40 - Recovery         - catches panics
-//	50 - Logger           - logs requests
+//	10 - Recovery         - catches panics (must be first)
+//	20 - Logger           - logs all requests
+//	30 - Timeout          - kills hanging requests
+//	40 - RateLimit        - limits requests/second
+//	50 - HTTPBulkhead     - limits concurrent requests
 //	60 - OpenAPIValidator - validates against schema
 //	70 - ErrorLogger      - logs errors from handlers
-//	80 - Problem          - converts errors to RFC 7807
+//	80 - Problem          - converts errors to RFC 7807 (must be last)
 func NewGinModule() fx.Option {
 	return fx.Options(
-		TimeoutModule(10),
-		RateLimitModule(20),
-		HTTPBulkheadModule(30),
-		RecoveryModule(40),
-		LoggerModule(50),
+		RecoveryModule(10),
+		LoggerModule(20),
+		TimeoutModule(30),
+		RateLimitModule(40),
+		HTTPBulkheadModule(50),
 		OpenAPIValidatorModule(60),
 		ErrorLoggerModule(70),
 		ProblemModule(80),

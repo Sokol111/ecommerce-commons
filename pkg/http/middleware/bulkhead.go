@@ -2,8 +2,9 @@ package middleware
 
 import (
 	"context"
-	"net/http"
+	"errors"
 
+	"github.com/Sokol111/ecommerce-commons/pkg/http/problems"
 	"github.com/Sokol111/ecommerce-commons/pkg/http/server"
 	"github.com/gin-gonic/gin"
 	"go.uber.org/fx"
@@ -52,10 +53,10 @@ func NewHTTPBulkheadMiddleware(serverConfig server.Config, log *zap.Logger, prio
 					zap.Error(err),
 				)
 
-				c.AbortWithStatusJSON(http.StatusServiceUnavailable, gin.H{
-					"error":  "service overloaded",
-					"detail": "too many concurrent requests, please try again later",
-				})
+				problem := problems.ServiceUnavailable("too many concurrent requests, please try again later")
+				problem.Instance = c.Request.URL.Path
+				c.Error(errors.New(problem.Detail)).SetMeta(problem)
+				c.Abort()
 				return
 			}
 			defer sem.Release(1)

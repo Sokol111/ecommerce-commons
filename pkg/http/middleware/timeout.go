@@ -2,8 +2,9 @@ package middleware
 
 import (
 	"context"
-	"net/http"
+	"errors"
 
+	"github.com/Sokol111/ecommerce-commons/pkg/http/problems"
 	"github.com/Sokol111/ecommerce-commons/pkg/http/server"
 	"github.com/gin-gonic/gin"
 	"go.uber.org/fx"
@@ -64,10 +65,10 @@ func NewTimeoutMiddleware(serverConfig server.Config, log *zap.Logger, priority 
 					zap.Duration("timeout", config.RequestTimeout),
 				)
 
-				c.AbortWithStatusJSON(http.StatusGatewayTimeout, gin.H{
-					"error":  "request timeout",
-					"detail": "request took too long to process",
-				})
+				problem := problems.GatewayTimeout("request took too long to process")
+				problem.Instance = c.Request.URL.Path
+				c.Error(errors.New(problem.Detail)).SetMeta(problem)
+				c.Abort()
 			}
 		},
 	}

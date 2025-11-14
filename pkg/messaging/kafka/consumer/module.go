@@ -31,7 +31,13 @@ func RegisterHandlerAndConsumer(
 ) fx.Option {
 	return fx.Module(
 		consumerName, // Unique module name
-		fx.Provide(handlerConstructor, fx.Private), // Handler is private to this module
+		fx.Provide(
+			fx.Annotate(
+				handlerConstructor,
+				fx.As(new(Handler)),
+			),
+			fx.Private,
+		), // Handler is private to this module
 		fx.Provide(
 			fx.Annotate(
 				func(lc fx.Lifecycle, log *zap.Logger, conf config.Config, h Handler, readiness health.Readiness, deserializer Deserializer, p producer.Producer) (Consumer, error) {

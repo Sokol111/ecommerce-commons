@@ -21,13 +21,15 @@ type ConsumersConfig struct {
 }
 
 type ConsumerConfig struct {
-	Name            string `mapstructure:"name"`
-	Topic           string `mapstructure:"topic"`
-	Subject         string `mapstructure:"subject"`
-	GroupID         string `mapstructure:"group-id"`
-	AutoOffsetReset string `mapstructure:"auto-offset-reset"`
-	EnableDLQ       bool   `mapstructure:"enable-dlq"`
-	DLQTopic        string `mapstructure:"dlq-topic"`
+	Name                    string `mapstructure:"name"`
+	Topic                   string `mapstructure:"topic"`
+	Subject                 string `mapstructure:"subject"`
+	GroupID                 string `mapstructure:"group-id"`
+	AutoOffsetReset         string `mapstructure:"auto-offset-reset"`
+	EnableDLQ               bool   `mapstructure:"enable-dlq"`
+	DLQTopic                string `mapstructure:"dlq-topic"`
+	ReadinessTimeoutSeconds int    `mapstructure:"readiness-timeout-seconds"` // Timeout for waiting topic readiness (0 = no timeout)
+	FailOnTopicError        bool   `mapstructure:"fail-on-topic-error"`       // Whether to fail startup if topic is not available
 }
 
 type SchemaRegistryConfig struct {
@@ -68,6 +70,10 @@ func newConfig(v *viper.Viper, logger *zap.Logger) (Config, error) {
 		// Apply default DLQ topic naming convention: {topic}.dlq
 		if consumer.EnableDLQ && consumer.DLQTopic == "" {
 			consumer.DLQTopic = consumer.Topic + ".dlq"
+		}
+		// Apply default readiness timeout: 60 seconds
+		if consumer.ReadinessTimeoutSeconds == 0 {
+			consumer.ReadinessTimeoutSeconds = 60
 		}
 	}
 

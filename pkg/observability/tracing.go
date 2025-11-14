@@ -53,7 +53,7 @@ func NewTracingModule() fx.Option {
 }
 
 func provideTracerProvider(lc fx.Lifecycle, log *zap.Logger, conf Config, appConf config.Config, readiness health.Readiness) (trace.TracerProvider, error) {
-	readiness.AddOne()
+	readiness.AddComponent("tracing-module")
 
 	ctx := context.Background()
 
@@ -104,7 +104,7 @@ func provideTracerProvider(lc fx.Lifecycle, log *zap.Logger, conf Config, appCon
 				propagation.Baggage{},
 			))
 			log.Info("otel tracing initialized", zap.String("endpoint", conf.OtelCollectorEndpoint))
-			readiness.Done()
+			readiness.MarkReady("tracing-module")
 			return nil
 		},
 		OnStop: func(ctx context.Context) error {

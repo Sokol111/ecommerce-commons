@@ -18,7 +18,7 @@ func NewHttpServerModule() fx.Option {
 
 func startHTTPServer(lc fx.Lifecycle, log *zap.Logger, conf Config, engine *gin.Engine, readiness health.Readiness, shutdowner fx.Shutdowner) {
 	var srv Server
-	readiness.AddOne()
+	readiness.AddComponent("http-server")
 	lc.Append(fx.Hook{
 		OnStart: func(ctx context.Context) error {
 			// Create server in OnStart - all routes are registered by now
@@ -29,7 +29,7 @@ func startHTTPServer(lc fx.Lifecycle, log *zap.Logger, conf Config, engine *gin.
 					shutdowner.Shutdown()
 				}
 			}()
-			readiness.Done()
+			readiness.MarkReady("http-server")
 			return nil
 		},
 		OnStop: func(ctx context.Context) error {

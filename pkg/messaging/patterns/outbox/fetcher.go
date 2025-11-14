@@ -5,6 +5,7 @@ import (
 	"errors"
 	"time"
 
+	"github.com/Sokol111/ecommerce-commons/pkg/http/health"
 	"go.uber.org/fx"
 	"go.uber.org/zap"
 )
@@ -13,21 +14,23 @@ type fetcher struct {
 	store        Store
 	entitiesChan chan<- *outboxEntity
 	logger       *zap.Logger
+	readiness    health.Readiness
 
 	ctx        context.Context
 	cancelFunc context.CancelFunc
 }
 
-func newFetcher(store Store, entitiesChan chan<- *outboxEntity, logger *zap.Logger) *fetcher {
+func newFetcher(store Store, entitiesChan chan<- *outboxEntity, logger *zap.Logger, readiness health.Readiness) *fetcher {
 	return &fetcher{
 		store:        store,
 		entitiesChan: entitiesChan,
 		logger:       logger.With(zap.String("component", "outbox")),
+		readiness:    readiness,
 	}
 }
 
-func provideFetcher(lc fx.Lifecycle, store Store, channels *channels, logger *zap.Logger) *fetcher {
-	f := newFetcher(store, channels.entities, logger)
+func provideFetcher(lc fx.Lifecycle, store Store, channels *channels, logger *zap.Logger, readiness health.Readiness) *fetcher {
+	f := newFetcher(store, channels.entities, logger, readiness)
 
 	lc.Append(fx.Hook{
 		OnStart: func(ctx context.Context) error {
@@ -58,6 +61,18 @@ func (f *fetcher) stop() {
 
 func (f *fetcher) run() {
 	defer f.logger.Info("fetcher worker stopped")
+
+	// Wait for readiness before starting to fetch entities
+	f.logger.Info("waiting for readiness before fetching outbox entities")
+	for !f.readiness.IsReady() {
+		select {
+		case <-f.ctx.Done():
+			return
+		default:
+			time.Sleep(100 * time.Millisecond)
+		}
+	}
+	f.logger.Info("readiness achieved, starting to fetch outbox entities")
 
 	for {
 		select {

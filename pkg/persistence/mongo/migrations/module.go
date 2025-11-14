@@ -27,10 +27,10 @@ func provideMigrator(lc fx.Lifecycle, log *zap.Logger, conf Config, m mongo.Mong
 	}
 
 	if conf.AutoMigrate {
-		readiness.AddOne()
+		readiness.AddComponent("migrations-module")
 		lc.Append(fx.Hook{
 			OnStart: func(ctx context.Context) error {
-				defer readiness.Done()
+				defer readiness.MarkReady("migrations-module")
 				log.Info("auto-running migrations on startup",
 					zap.String("collection", conf.CollectionName),
 					zap.String("path", conf.MigrationsPath),

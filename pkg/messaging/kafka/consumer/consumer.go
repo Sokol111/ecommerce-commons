@@ -8,42 +8,47 @@ import (
 )
 
 type Consumer interface {
-	Start() error
+	Start(ctx context.Context) error
 	Stop(ctx context.Context) error
 }
 
 type consumer struct {
-	reader    *reader
-	processor *processor
-	log       *zap.Logger
+	reader      *reader
+	processor   *processor
+	initializer *initializer
+	log         *zap.Logger
 
 	startOnce sync.Once
 	stopOnce  sync.Once
 }
 
-func newConsumer(
-	reader *reader,
-	processor *processor,
-	log *zap.Logger,
-) Consumer {
+func newConsumer(reader *reader, processor *processor, initializer *initializer, log *zap.Logger) Consumer {
 	return &consumer{
-		reader:    reader,
-		processor: processor,
-		log:       log,
+		reader:      reader,
+		processor:   processor,
+		initializer: initializer,
+		log:         log,
 	}
 }
 
-func (c *consumer) Start() error {
-	var startErr error
+func (c *consumer) Start(ctx context.Context) error {
+	var err error
 	c.startOnce.Do(func() {
 		c.log.Info("starting consumer")
 
-		c.reader.start()
-		c.processor.start()
+		// Initialize consumer (subscribe + wait for readiness)
+		err = c.initializer.Initialize(ctx)
+		if err != nil {
+			return
+		}
 
-		c.log.Info("consumer started")
+		// Start reader
+		c.reader.start()
+
+		// Start processor
+		c.processor.start()
 	})
-	return startErr
+	return err
 }
 
 func (c *consumer) Stop(ctx context.Context) error {

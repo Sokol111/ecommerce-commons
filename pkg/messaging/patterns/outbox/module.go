@@ -29,10 +29,10 @@ func NewOutboxModule() fx.Option {
 
 func provideOutbox(lc fx.Lifecycle, log *zap.Logger, store Store, channels *channels, migrator migrations.Migrator, readiness health.Readiness) Outbox {
 	if migrator != nil {
-		readiness.AddOne()
+		readiness.AddComponent("outbox-migrations")
 		lc.Append(fx.Hook{
 			OnStart: func(ctx context.Context) error {
-				defer readiness.Done()
+				defer readiness.MarkReady("outbox-migrations")
 				log.Info("running outbox migrations")
 				if err := migrator.UpFromFS("outbox_migrations", migrationsFS, "migrations"); err != nil {
 					return err

@@ -104,16 +104,27 @@ func provideConsumer(
 		logFields = append(logFields, zap.String("dlq_topic", dlqTopic))
 	}
 
-	reader := newReader(kafkaConsumer, consumerConf.Topic, messagesChan, log.With(logFields...))
+	reader := newReader(kafkaConsumer, consumerConf.Topic, messagesChan, log.With(logFields...), readiness)
 	processor := newProcessor(kafkaConsumer, messagesChan, handler, deserializer, consumerConf.Subject, log.With(logFields...), producerForDLQ, dlqTopic)
+	initializer := newInitializer(
+		kafkaConsumer,
+		consumerConf.Topic,
+		log.With(logFields...),
+		consumerConf.ReadinessTimeoutSeconds,
+		consumerConf.FailOnTopicError,
+	)
 
-	c := newConsumer(reader, processor, log.With(logFields...))
+	c := newConsumer(reader, processor, initializer, log.With(logFields...))
 
-	readiness.AddOne()
+	readiness.AddComponent("kafka-consumer-" + consumerName)
 	lc.Append(fx.Hook{
 		OnStart: func(ctx context.Context) error {
-			defer readiness.Done()
-			return c.Start()
+			if err := c.Start(ctx); err != nil {
+				return err
+			}
+			// Signal readiness after successful consumer start
+			readiness.MarkReady("kafka-consumer-" + consumerName)
+			return nil
 		},
 		OnStop: func(ctx context.Context) error {
 			return c.Stop(ctx)

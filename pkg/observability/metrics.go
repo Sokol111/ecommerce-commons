@@ -39,7 +39,7 @@ func provideMeterProvider(lc fx.Lifecycle, log *zap.Logger, conf Config, appConf
 		return nil, fmt.Errorf("metrics enabled but otel-collector-endpoint is empty")
 	}
 
-	readiness.AddOne()
+	readiness.AddComponent("metrics-module")
 	ctx := context.Background()
 
 	res, err := resource.New(ctx,
@@ -88,7 +88,7 @@ func provideMeterProvider(lc fx.Lifecycle, log *zap.Logger, conf Config, appConf
 				zap.String("endpoint", conf.OtelCollectorEndpoint),
 				zap.Duration("interval", interval),
 			)
-			readiness.Done()
+			readiness.MarkReady("metrics-module")
 			return nil
 		},
 		OnStop: func(ctx context.Context) error {

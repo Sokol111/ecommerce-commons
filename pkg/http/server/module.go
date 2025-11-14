@@ -2,30 +2,27 @@ package server
 
 import (
 	"context"
-	"net/http"
 
 	"github.com/Sokol111/ecommerce-commons/pkg/http/health"
+	"github.com/gin-gonic/gin"
 	"go.uber.org/fx"
 	"go.uber.org/zap"
 )
 
 func NewHttpServerModule() fx.Option {
 	return fx.Options(
-		fx.Provide(
-			provideServer,
-			newConfig,
-		),
+		fx.Provide(newConfig),
 		fx.Invoke(startHTTPServer),
 	)
 }
 
-func startHTTPServer(Server) {}
-
-func provideServer(lc fx.Lifecycle, log *zap.Logger, conf Config, handler http.Handler, readiness health.Readiness, shutdowner fx.Shutdowner) Server {
-	srv := newServer(log, conf, handler)
+func startHTTPServer(lc fx.Lifecycle, log *zap.Logger, conf Config, engine *gin.Engine, readiness health.Readiness, shutdowner fx.Shutdowner) {
+	var srv Server
 	readiness.AddOne()
 	lc.Append(fx.Hook{
 		OnStart: func(ctx context.Context) error {
+			// Create server in OnStart - all routes are registered by now
+			srv = newServer(log, conf, engine)
 			go func() {
 				if err := srv.Serve(); err != nil {
 					log.Error("HTTP server failed, shutting down application", zap.Error(err))
@@ -36,8 +33,10 @@ func provideServer(lc fx.Lifecycle, log *zap.Logger, conf Config, handler http.H
 			return nil
 		},
 		OnStop: func(ctx context.Context) error {
-			return srv.Shutdown(ctx)
+			if srv != nil {
+				return srv.Shutdown(ctx)
+			}
+			return nil
 		},
 	})
-	return srv
 }

@@ -1,6 +1,8 @@
 package middleware
 
 import (
+	"strings"
+
 	"github.com/getkin/kin-openapi/openapi3"
 	"github.com/gin-gonic/gin"
 	oapiMiddleware "github.com/oapi-codegen/gin-middleware"
@@ -8,9 +10,20 @@ import (
 )
 
 // createOpenAPIValidatorHandler creates OpenAPI request validator middleware
+// that skips validation for health endpoints
 func createOpenAPIValidatorHandler(swagger *openapi3.T) gin.HandlerFunc {
 	swagger.Servers = nil
-	return oapiMiddleware.OapiRequestValidator(swagger)
+	validator := oapiMiddleware.OapiRequestValidator(swagger)
+
+	return func(c *gin.Context) {
+		// Skip OpenAPI validation for health endpoints
+		if strings.HasPrefix(c.Request.URL.Path, "/health/") {
+			c.Next()
+			return
+		}
+
+		validator(c)
+	}
 }
 
 // OpenAPIValidatorModule provides OpenAPI validator middleware

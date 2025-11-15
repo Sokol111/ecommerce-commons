@@ -5,8 +5,8 @@ import (
 	"time"
 
 	"github.com/Sokol111/ecommerce-commons/pkg/core/config"
+	"github.com/Sokol111/ecommerce-commons/pkg/core/health"
 	"github.com/Sokol111/ecommerce-commons/pkg/core/logger"
-	"github.com/Sokol111/ecommerce-commons/pkg/http/health"
 	commongin "github.com/Sokol111/ecommerce-commons/pkg/http/middleware"
 	"github.com/gin-gonic/gin"
 	"go.opentelemetry.io/otel"

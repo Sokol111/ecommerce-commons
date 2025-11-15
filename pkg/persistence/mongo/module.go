@@ -3,7 +3,7 @@ package mongo
 import (
 	"context"
 
-	"github.com/Sokol111/ecommerce-commons/pkg/http/health"
+	"github.com/Sokol111/ecommerce-commons/pkg/core/health"
 	"go.uber.org/fx"
 	"go.uber.org/zap"
 )

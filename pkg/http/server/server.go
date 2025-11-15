@@ -11,6 +11,7 @@ import (
 
 type Server interface {
 	Serve() error
+	ServeWithReadyCallback(onReady func()) error
 	Shutdown(ctx context.Context) error
 }
 
@@ -31,12 +32,21 @@ func newServer(log *zap.Logger, conf Config, handler http.Handler) Server {
 }
 
 func (s *server) Serve() error {
+	return s.ServeWithReadyCallback(nil)
+}
+
+func (s *server) ServeWithReadyCallback(onReady func()) error {
 	ln, err := net.Listen("tcp", s.httpSrv.Addr)
 	if err != nil {
 		s.log.Error("failed to listen", zap.Error(err))
 		return err
 	}
 	s.log.Info("starting HTTP server at", zap.String("addr", s.httpSrv.Addr))
+
+	// Signal that server is ready to accept connections
+	if onReady != nil {
+		onReady()
+	}
 
 	if err := s.httpSrv.Serve(ln); err != nil && err != http.ErrServerClosed {
 		s.log.Error("HTTP server stopped with error", zap.Error(err))

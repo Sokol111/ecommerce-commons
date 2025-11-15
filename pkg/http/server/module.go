@@ -3,7 +3,7 @@ package server
 import (
 	"context"
 
-	"github.com/Sokol111/ecommerce-commons/pkg/http/health"
+	"github.com/Sokol111/ecommerce-commons/pkg/core/health"
 	"github.com/gin-gonic/gin"
 	"go.uber.org/fx"
 	"go.uber.org/zap"
@@ -23,13 +23,16 @@ func startHTTPServer(lc fx.Lifecycle, log *zap.Logger, conf Config, engine *gin.
 		OnStart: func(ctx context.Context) error {
 			// Create server in OnStart - all routes are registered by now
 			srv = newServer(log, conf, engine)
+
 			go func() {
-				if err := srv.Serve(); err != nil {
+				if err := srv.ServeWithReadyCallback(func() {
+					readiness.MarkReady("http-server")
+				}); err != nil {
 					log.Error("HTTP server failed, shutting down application", zap.Error(err))
 					shutdowner.Shutdown()
 				}
 			}()
-			readiness.MarkReady("http-server")
+
 			return nil
 		},
 		OnStop: func(ctx context.Context) error {

@@ -12,6 +12,7 @@ type Config struct {
 	Brokers         string               `mapstructure:"brokers"`
 	SchemaRegistry  SchemaRegistryConfig `mapstructure:"schema-registry"`
 	ConsumersConfig ConsumersConfig      `mapstructure:"consumers-config"`
+	ProducerConfig  ProducerConfig       `mapstructure:"producer-config"`
 }
 
 type ConsumersConfig struct {
@@ -30,6 +31,11 @@ type ConsumerConfig struct {
 	DLQTopic                string `mapstructure:"dlq-topic"`
 	ReadinessTimeoutSeconds int    `mapstructure:"readiness-timeout-seconds"` // Timeout for waiting topic readiness (0 = no timeout)
 	FailOnTopicError        bool   `mapstructure:"fail-on-topic-error"`       // Whether to fail startup if topic is not available
+}
+
+type ProducerConfig struct {
+	ReadinessTimeoutSeconds int  `mapstructure:"readiness-timeout-seconds"` // Timeout for waiting brokers readiness (0 = no timeout)
+	FailOnBrokerError       bool `mapstructure:"fail-on-broker-error"`      // Whether to fail startup if brokers are not available
 }
 
 type SchemaRegistryConfig struct {
@@ -75,6 +81,11 @@ func newConfig(v *viper.Viper, logger *zap.Logger) (Config, error) {
 		if consumer.ReadinessTimeoutSeconds == 0 {
 			consumer.ReadinessTimeoutSeconds = 60
 		}
+	}
+
+	// Apply default producer config settings
+	if cfg.ProducerConfig.ReadinessTimeoutSeconds == 0 {
+		cfg.ProducerConfig.ReadinessTimeoutSeconds = 60
 	}
 
 	logger.Info("loaded kafka config", zap.Any("config", cfg))

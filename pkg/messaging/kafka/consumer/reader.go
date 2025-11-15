@@ -75,10 +75,24 @@ func (r *reader) run() {
 	}
 	r.log.Info("Kubernetes readiness achieved, starting to read messages")
 
+	// Log initial partition assignment
+	r.logPartitionAssignment()
+
+	// Set up periodic partition assignment logging
+	ticker := time.NewTicker(5 * time.Minute)
+	defer ticker.Stop()
+
+	lastAssignmentCheck := time.Now()
+
 	for {
 		select {
 		case <-r.ctx.Done():
 			return
+		case <-ticker.C:
+			if time.Since(lastAssignmentCheck) >= 5*time.Minute {
+				r.logPartitionAssignment()
+				lastAssignmentCheck = time.Now()
+			}
 		default:
 			msg, err := r.consumer.ReadMessage(5 * time.Second)
 			if err != nil {
@@ -129,5 +143,29 @@ func (r *reader) run() {
 			case r.messagesChan <- msg:
 			}
 		}
+	}
+}
+
+func (r *reader) logPartitionAssignment() {
+	assignment, err := r.consumer.Assignment()
+	if err != nil {
+		r.log.Warn("failed to get partition assignment",
+			zap.String("topic", r.topic),
+			zap.Error(err))
+		return
+	}
+
+	if len(assignment) == 0 {
+		r.log.Warn("consumer has no assigned partitions - idle consumer (more consumers than partitions)",
+			zap.String("topic", r.topic))
+	} else {
+		partitionIDs := make([]int32, len(assignment))
+		for idx, partition := range assignment {
+			partitionIDs[idx] = partition.Partition
+		}
+		r.log.Info("current partition assignment",
+			zap.String("topic", r.topic),
+			zap.Int("partition_count", len(assignment)),
+			zap.Int32s("partitions", partitionIDs))
 	}
 }

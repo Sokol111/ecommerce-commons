@@ -55,7 +55,25 @@ func (i *initializer) Initialize(ctx context.Context) error {
 		return err
 	}
 
-	i.log.Info("consumer initialized successfully", zap.String("topic", i.topic))
+	// Check assigned partitions
+	assignment, err := i.consumer.Assignment()
+	if err != nil {
+		return fmt.Errorf("failed to get partition assignment: %w", err)
+	}
+
+	if len(assignment) == 0 {
+		i.log.Warn("consumer has no assigned partitions - likely more consumers than partitions in the group",
+			zap.String("topic", i.topic))
+	} else {
+		partitionIDs := make([]int32, len(assignment))
+		for idx, partition := range assignment {
+			partitionIDs[idx] = partition.Partition
+		}
+		i.log.Info("consumer initialized successfully with assigned partitions",
+			zap.String("topic", i.topic),
+			zap.Int32s("partitions", partitionIDs))
+	}
+
 	return nil
 }
 
@@ -96,8 +114,17 @@ func (i *initializer) waitUntilReady(ctx context.Context) error {
 		default:
 		}
 
+		// Calculate timeout for GetMetadata from context
+		timeout := 5 * time.Second
+		if deadline, ok := ctx.Deadline(); ok {
+			remaining := time.Until(deadline)
+			if remaining < timeout {
+				timeout = remaining
+			}
+		}
+
 		// Get topic metadata (allTopics=false means only this specific topic)
-		metadata, err := i.consumer.GetMetadata(&i.topic, false, 5000)
+		metadata, err := i.consumer.GetMetadata(&i.topic, false, int(timeout.Milliseconds()))
 		if err != nil {
 			lastErr = err
 			i.log.Warn("failed to get topic metadata, retrying",

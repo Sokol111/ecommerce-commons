@@ -5,7 +5,7 @@ import (
 	"errors"
 	"time"
 
-	"github.com/Sokol111/ecommerce-commons/pkg/http/health"
+	"github.com/Sokol111/ecommerce-commons/pkg/core/health"
 	"go.uber.org/fx"
 	"go.uber.org/zap"
 )
@@ -62,17 +62,13 @@ func (f *fetcher) stop() {
 func (f *fetcher) run() {
 	defer f.logger.Info("fetcher worker stopped")
 
-	// Wait for readiness before starting to fetch entities
-	f.logger.Info("waiting for readiness before fetching outbox entities")
-	for !f.readiness.IsReady() {
-		select {
-		case <-f.ctx.Done():
-			return
-		default:
-			time.Sleep(100 * time.Millisecond)
-		}
+	// Wait for Kubernetes readiness before starting to fetch entities
+	f.logger.Info("waiting for Kubernetes readiness before fetching outbox entities")
+	if err := f.readiness.WaitKubernetesReady(f.ctx); err != nil {
+		f.logger.Info("context cancelled while waiting for Kubernetes readiness")
+		return
 	}
-	f.logger.Info("readiness achieved, starting to fetch outbox entities")
+	f.logger.Info("Kubernetes readiness achieved, starting to fetch outbox entities")
 
 	for {
 		select {

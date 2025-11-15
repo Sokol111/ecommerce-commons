@@ -6,7 +6,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/Sokol111/ecommerce-commons/pkg/http/health"
+	"github.com/Sokol111/ecommerce-commons/pkg/core/health"
 	"github.com/confluentinc/confluent-kafka-go/v2/kafka"
 	"go.uber.org/zap"
 )
@@ -67,17 +67,13 @@ func (r *reader) run() {
 		r.wg.Done()
 	}()
 
-	// Wait for readiness before starting to read messages
-	r.log.Info("waiting for readiness before reading messages")
-	for !r.readiness.IsReady() {
-		select {
-		case <-r.ctx.Done():
-			return
-		default:
-			sleep(r.ctx, 100*time.Millisecond)
-		}
+	// Wait for Kubernetes readiness before starting to read messages
+	r.log.Info("waiting for Kubernetes readiness before reading messages")
+	if err := r.readiness.WaitKubernetesReady(r.ctx); err != nil {
+		r.log.Info("context cancelled while waiting for Kubernetes readiness")
+		return
 	}
-	r.log.Info("readiness achieved, starting to read messages")
+	r.log.Info("Kubernetes readiness achieved, starting to read messages")
 
 	for {
 		select {

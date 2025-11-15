@@ -3,27 +3,26 @@ package health
 import (
 	"net/http"
 
+	coreHealth "github.com/Sokol111/ecommerce-commons/pkg/core/health"
 	"github.com/gin-gonic/gin"
 )
 
 type healthHandler struct {
-	readiness Readiness
+	readiness coreHealth.Readiness
 }
 
-func newHealthHandler(r Readiness) *healthHandler {
+func newHealthHandler(r coreHealth.Readiness) *healthHandler {
 	return &healthHandler{readiness: r}
 }
 
 func (h *healthHandler) IsReady(c *gin.Context) {
-	status := h.readiness.getStatus()
-
-	// Notify readiness tracker when probe returns 200 OK (first time Kubernetes knows we're ready)
-	if status.Ready {
-		h.readiness.notifyKubernetesProbe()
-	}
+	// Notify readiness tracker when we return 200 OK (Kubernetes will see we're ready)
+	// The method itself checks if we're ready and if it's the first notification
+	h.readiness.NotifyKubernetesProbe()
 
 	// Support both simple text and detailed JSON responses
 	if c.Query("format") == "json" || c.GetHeader("Accept") == "application/json" {
+		status := h.readiness.GetStatus()
 		if status.Ready {
 			c.JSON(http.StatusOK, status)
 		} else {
@@ -33,7 +32,7 @@ func (h *healthHandler) IsReady(c *gin.Context) {
 	}
 
 	// Default simple response for Kubernetes probes
-	if status.Ready {
+	if h.readiness.IsReady() {
 		c.String(http.StatusOK, "ready")
 	} else {
 		c.String(http.StatusServiceUnavailable, "not ready")

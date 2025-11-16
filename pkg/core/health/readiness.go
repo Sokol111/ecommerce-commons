@@ -4,20 +4,22 @@ import (
 	"context"
 	"sync"
 	"time"
+
+	"go.uber.org/zap"
 )
 
 type ComponentStatus struct {
-	Name      string    `json:"name"`
-	Ready     bool      `json:"ready"`
-	StartedAt time.Time `json:"started_at"`
-	ReadyAt   time.Time `json:"ready_at,omitempty"`
+	Name      string
+	Ready     bool
+	StartedAt time.Time
+	ReadyAt   time.Time
 }
 
 type ReadinessStatus struct {
-	Ready                bool              `json:"ready"`
-	Components           []ComponentStatus `json:"components"`
-	ReadyAt              time.Time         `json:"ready_at,omitempty"`
-	KubernetesNotifiedAt time.Time         `json:"kubernetes_notified_at,omitempty"` // When K8s first got 200 OK
+	Ready                bool
+	Components           []ComponentStatus
+	ReadyAt              time.Time
+	KubernetesNotifiedAt time.Time
 }
 
 type Readiness interface {
@@ -45,13 +47,15 @@ type readiness struct {
 	readyOnce           sync.Once
 	kubernetesReadyChan chan struct{}
 	kubernetesReadyOnce sync.Once
+	logger              *zap.Logger
 }
 
-func NewReadiness() Readiness {
+func NewReadiness(logger *zap.Logger) Readiness {
 	return &readiness{
 		components:          make(map[string]*component),
 		readyChan:           make(chan struct{}),
 		kubernetesReadyChan: make(chan struct{}),
+		logger:              logger,
 	}
 }
 
@@ -89,6 +93,10 @@ func (r *readiness) MarkReady(name string) {
 			if allReady {
 				r.readyOnce.Do(func() {
 					close(r.readyChan)
+					r.logger.Info("All components are ready",
+						zap.Int("component_count", len(r.components)),
+						zap.Time("ready_at", time.Now()),
+					)
 				})
 			}
 		}
@@ -154,6 +162,9 @@ func (r *readiness) NotifyKubernetesProbe() {
 	// Close channel once to signal Kubernetes notification
 	r.kubernetesReadyOnce.Do(func() {
 		close(r.kubernetesReadyChan)
+		r.logger.Info("Kubernetes readiness probe notified",
+			zap.Time("notified_at", time.Now()),
+		)
 	})
 }
 

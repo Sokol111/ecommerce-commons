@@ -13,11 +13,11 @@ import (
 type Serializer interface {
 	// Serialize serializes a Go struct to Avro bytes with Schema Registry integration
 	//
-	// The subject parameter determines the schema subject in Schema Registry.
-	// Convention: "{topic}-value" for message values, "{topic}-key" for keys.
+	// The topic parameter determines the schema subject in Schema Registry.
+	// Subject is automatically formed as "{topic}-value" for message values.
 	//
 	// Returns bytes in format: [0x00][schema_id (4 bytes)][avro_data]
-	Serialize(subject string, msg interface{}) ([]byte, error)
+	Serialize(topic string, msg interface{}) ([]byte, error)
 
 	// Close releases resources used by the serializer
 	Close() error
@@ -47,8 +47,8 @@ func NewAvroSerializer(conf config.SchemaRegistryConfig) (Serializer, error) {
 	return &avroSerializer{serializer: ser}, nil
 }
 
-func (s *avroSerializer) Serialize(subject string, msg interface{}) ([]byte, error) {
-	return s.serializer.Serialize(subject, msg)
+func (s *avroSerializer) Serialize(topic string, msg interface{}) ([]byte, error) {
+	return s.serializer.Serialize(topic, msg)
 }
 
 func (s *avroSerializer) Close() error {

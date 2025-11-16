@@ -24,7 +24,6 @@ type ConsumersConfig struct {
 type ConsumerConfig struct {
 	Name                    string `mapstructure:"name"`
 	Topic                   string `mapstructure:"topic"`
-	Subject                 string `mapstructure:"subject"`
 	GroupID                 string `mapstructure:"group-id"`
 	AutoOffsetReset         string `mapstructure:"auto-offset-reset"`
 	EnableDLQ               bool   `mapstructure:"enable-dlq"`
@@ -68,10 +67,6 @@ func newConfig(v *viper.Viper, logger *zap.Logger) (Config, error) {
 		}
 		if consumer.AutoOffsetReset == "" {
 			consumer.AutoOffsetReset = cfg.ConsumersConfig.AutoOffsetReset
-		}
-		// Apply default subject naming convention: {topic}-value
-		if consumer.Subject == "" {
-			consumer.Subject = consumer.Topic + "-value"
 		}
 		// Apply default DLQ topic naming convention: {topic}.dlq
 		if consumer.EnableDLQ && consumer.DLQTopic == "" {

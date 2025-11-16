@@ -12,7 +12,7 @@ import (
 func NewProducerModule() fx.Option {
 	return fx.Provide(
 		provideProducer,
-		provideSerializer,
+		newAvroSerializer,
 	)
 }
 
@@ -48,20 +48,4 @@ func provideProducer(lc fx.Lifecycle, log *zap.Logger, conf config.Config, readi
 	})
 
 	return p, nil
-}
-
-func provideSerializer(lc fx.Lifecycle, kafkaConf config.Config, log *zap.Logger) (Serializer, error) {
-	serializer, err := NewAvroSerializer(kafkaConf.SchemaRegistry)
-	if err != nil {
-		return nil, err
-	}
-
-	lc.Append(fx.Hook{
-		OnStop: func(ctx context.Context) error {
-			log.Info("closing schema registry serializer")
-			return serializer.Close()
-		},
-	})
-
-	return serializer, nil
 }

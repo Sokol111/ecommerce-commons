@@ -7,6 +7,7 @@ require (
 	github.com/getkin/kin-openapi v0.133.0
 	github.com/gin-gonic/gin v1.10.1
 	github.com/golang-migrate/migrate/v4 v4.19.0
+	github.com/hamba/avro/v2 v2.30.0
 	github.com/oapi-codegen/gin-middleware v1.0.2
 	github.com/sony/gobreaker v1.0.0
 	github.com/spf13/viper v1.21.0
@@ -26,7 +27,6 @@ require (
 )
 
 require (
-	github.com/actgardner/gogen-avro/v10 v10.2.1 // indirect
 	github.com/bytedance/gopkg v0.1.3 // indirect
 	github.com/cenkalti/backoff/v4 v4.3.0 // indirect
 	github.com/cenkalti/backoff/v5 v5.0.3 // indirect
@@ -41,7 +41,6 @@ require (
 	github.com/grpc-ecosystem/grpc-gateway/v2 v2.27.2 // indirect
 	github.com/hashicorp/errwrap v1.1.0 // indirect
 	github.com/hashicorp/go-multierror v1.1.1 // indirect
-	github.com/heetch/avro v0.4.5 // indirect
 	github.com/josharian/intern v1.0.0 // indirect
 	github.com/mailru/easyjson v0.7.7 // indirect
 	github.com/moby/go-archive v0.1.0 // indirect

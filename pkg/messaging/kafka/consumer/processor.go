@@ -33,7 +33,6 @@ type processor struct {
 	messagesChan <-chan *kafka.Message
 	handler      Handler
 	deserializer Deserializer
-	subject      string // Topic subject for Schema Registry
 	log          *zap.Logger
 
 	dlqProducer producer.Producer
@@ -49,7 +48,6 @@ func newProcessor(
 	messagesChan <-chan *kafka.Message,
 	handler Handler,
 	deserializer Deserializer,
-	subject string,
 	log *zap.Logger,
 	dlqProducer producer.Producer,
 	dlqTopic string,
@@ -59,7 +57,6 @@ func newProcessor(
 		messagesChan: messagesChan,
 		handler:      handler,
 		deserializer: deserializer,
-		subject:      subject,
 		log:          log,
 		dlqProducer:  dlqProducer,
 		dlqTopic:     dlqTopic,
@@ -170,7 +167,7 @@ func (p *processor) processMessage(message *kafka.Message) {
 
 func (p *processor) handleMessage(ctx context.Context, message *kafka.Message) error {
 	// Deserialize message once before retry loop
-	event, err := p.deserializer.Deserialize(p.subject, message.Value)
+	event, err := p.deserializer.Deserialize(message.Value)
 	if err != nil {
 		// Deserialization error is permanent - cannot retry
 		return fmt.Errorf("%w: deserialization failed: %v", ErrPermanent, err)

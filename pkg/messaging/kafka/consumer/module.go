@@ -14,6 +14,7 @@ import (
 
 func NewConsumerModule() fx.Option {
 	return fx.Options(
+		fx.Provide(newAvroDeserializer),
 		fx.Invoke(func(in kafkaConsumersGroup, log *zap.Logger) {
 			log.Info("kafka consumers initialized", zap.Int("count", len(in.Consumers)))
 		}),
@@ -105,7 +106,7 @@ func provideConsumer(
 	}
 
 	reader := newReader(kafkaConsumer, consumerConf.Topic, messagesChan, log.With(logFields...), readiness)
-	processor := newProcessor(kafkaConsumer, messagesChan, handler, deserializer, consumerConf.Subject, log.With(logFields...), producerForDLQ, dlqTopic)
+	processor := newProcessor(kafkaConsumer, messagesChan, handler, deserializer, log.With(logFields...), producerForDLQ, dlqTopic)
 	initializer := newInitializer(
 		kafkaConsumer,
 		consumerConf.Topic,

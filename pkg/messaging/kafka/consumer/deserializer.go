@@ -3,65 +3,150 @@ package consumer
 import (
 	"fmt"
 	"reflect"
+	"sync"
 
-	"github.com/Sokol111/ecommerce-commons/pkg/messaging/kafka/config"
 	"github.com/confluentinc/confluent-kafka-go/v2/schemaregistry"
-	"github.com/confluentinc/confluent-kafka-go/v2/schemaregistry/serde"
-	"github.com/confluentinc/confluent-kafka-go/v2/schemaregistry/serde/avro"
+	hambavro "github.com/hamba/avro/v2"
+	"go.uber.org/fx"
 )
 
 // Deserializer deserializes Avro bytes to Go structs using Schema Registry
 type Deserializer interface {
 	// Deserialize deserializes Avro bytes to a Go struct
 	//
-	// The subject parameter is used to fetch the schema from Schema Registry.
 	// The data must be in format: [0x00][schema_id (4 bytes)][avro_data]
 	//
 	// Returns a concrete Go type based on the type registry configuration.
-	Deserialize(subject string, data []byte) (interface{}, error)
-
-	// Close releases resources used by the deserializer
-	Close() error
+	Deserialize(data []byte) (interface{}, error)
 }
 
-// TypeMapping maps Avro schema full names to Go types
-type TypeMapping map[string]reflect.Type
+// typeMapping maps Avro schema full names to Go types
+type typeMapping map[string]reflect.Type
 
-type avroDeserializer struct {
-	deserializer *avro.GenericDeserializer
-}
-
-// NewAvroDeserializer creates a new Avro deserializer with Schema Registry integration
+// RegisterTypeMapping registers Avro schema full names to Go types for deserialization
+// This should be called during application initialization before the deserializer is used
 //
 // Example:
 //
-//	deserializer, err := NewAvroDeserializer(config, consumer.TypeMapping{
+//	consumer.RegisterTypeMapping(map[string]reflect.Type{
 //	   "com.ecommerce.events.product.ProductCreatedEvent": reflect.TypeOf(events.ProductCreatedEvent{}),
 //	   "com.ecommerce.events.product.ProductUpdatedEvent": reflect.TypeOf(events.ProductUpdatedEvent{}),
 //	})
-func NewAvroDeserializer(conf config.SchemaRegistryConfig, typeMap TypeMapping) (Deserializer, error) {
-	client, err := schemaregistry.NewClient(schemaregistry.NewConfig(conf.URL))
-	if err != nil {
-		return nil, fmt.Errorf("failed to create schema registry client: %w", err)
-	}
-
-	deserConfig := avro.NewDeserializerConfig()
-
-	deser, err := avro.NewGenericDeserializer(client, serde.ValueSerde, deserConfig)
-	if err != nil {
-		return nil, fmt.Errorf("failed to create avro deserializer: %w", err)
-	}
-
-	return &avroDeserializer{deserializer: deser}, nil
+func RegisterTypeMapping(mapping map[string]reflect.Type) fx.Option {
+	return fx.Supply(typeMapping(mapping))
 }
 
-func (d *avroDeserializer) Deserialize(subject string, data []byte) (interface{}, error) {
-	return d.deserializer.Deserialize(subject, data)
+type schemaInfo struct {
+	schema     hambavro.Schema
+	schemaName string
+	goType     reflect.Type
 }
 
-func (d *avroDeserializer) Close() error {
-	if d.deserializer != nil {
-		d.deserializer.Close()
+type avroDeserializer struct {
+	client      schemaregistry.Client
+	typeMapping typeMapping
+	schemaCache map[int]*schemaInfo // schema ID -> schema info
+	mu          sync.RWMutex
+}
+
+// newAvroDeserializer creates a new Avro deserializer with Schema Registry integration
+// Uses hamba/avro for decoding with Schema Registry for schema management
+func newAvroDeserializer(client schemaregistry.Client, typeMap typeMapping) Deserializer {
+	return &avroDeserializer{
+		client:      client,
+		typeMapping: typeMap,
+		schemaCache: make(map[int]*schemaInfo),
 	}
-	return nil
+}
+
+func (d *avroDeserializer) Deserialize(data []byte) (interface{}, error) {
+	// Validate Confluent wire format
+	if len(data) < 5 {
+		return nil, fmt.Errorf("data too short: expected at least 5 bytes, got %d", len(data))
+	}
+
+	// Check magic byte
+	if data[0] != 0x00 {
+		return nil, fmt.Errorf("invalid magic byte: expected 0x00, got 0x%02x", data[0])
+	}
+
+	// Extract schema ID (big-endian)
+	schemaID := int(data[1])<<24 | int(data[2])<<16 | int(data[3])<<8 | int(data[4])
+
+	// Get schema info (cached or fetch from registry)
+	info, err := d.getSchemaInfo(schemaID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get schema info for ID %d: %w", schemaID, err)
+	}
+
+	// Create new instance of the target type
+	targetPtr := reflect.New(info.goType)
+	target := targetPtr.Interface()
+
+	// Unmarshal Avro data into the target
+	if err := hambavro.Unmarshal(info.schema, data[5:], target); err != nil {
+		return nil, fmt.Errorf("failed to unmarshal avro data: %w", err)
+	}
+
+	// Return the value (not pointer)
+	return targetPtr.Elem().Interface(), nil
+}
+
+func (d *avroDeserializer) getSchemaInfo(schemaID int) (*schemaInfo, error) {
+	// Check cache first
+	d.mu.RLock()
+	cached, exists := d.schemaCache[schemaID]
+	d.mu.RUnlock()
+
+	if exists {
+		return cached, nil
+	}
+
+	// Fetch schema from Schema Registry
+	// First, get subject info for this schema ID
+	subjectVersions, err := d.client.GetSubjectsAndVersionsByID(schemaID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get subjects for schema ID: %w", err)
+	}
+
+	if len(subjectVersions) == 0 {
+		return nil, fmt.Errorf("no subjects found for schema ID %d", schemaID)
+	}
+
+	// Use the first subject (typically there's only one for value schemas)
+	subject := subjectVersions[0].Subject
+
+	// Get schema metadata
+	schemaMetadata, err := d.client.GetBySubjectAndID(subject, schemaID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to fetch schema from registry: %w", err)
+	}
+
+	// Parse Avro schema
+	schema, err := hambavro.Parse(schemaMetadata.Schema)
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse avro schema: %w", err)
+	}
+
+	// Get schema full name (namespace.name)
+	schemaName := schema.String() // This will be something like "com.ecommerce.events.product.ProductCreatedEvent"
+
+	// Find matching Go type
+	goType, ok := d.typeMapping[schemaName]
+	if !ok {
+		return nil, fmt.Errorf("no Go type registered for schema: %s", schemaName)
+	}
+
+	// Cache the schema info
+	info := &schemaInfo{
+		schema:     schema,
+		schemaName: schemaName,
+		goType:     goType,
+	}
+
+	d.mu.Lock()
+	d.schemaCache[schemaID] = info
+	d.mu.Unlock()
+
+	return info, nil
 }

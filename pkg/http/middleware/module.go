@@ -10,6 +10,7 @@ import (
 //	10 - Recovery         - catches panics (must be first)
 //	20 - Logger           - logs all requests
 //	30 - Timeout          - kills hanging requests
+//	35 - CircuitBreaker   - protects against cascading failures
 //	40 - RateLimit        - limits requests/second
 //	50 - HTTPBulkhead     - limits concurrent requests
 //	60 - OpenAPIValidator - validates against schema
@@ -20,6 +21,7 @@ func NewGinModule() fx.Option {
 		RecoveryModule(10),
 		LoggerModule(20),
 		TimeoutModule(30),
+		CircuitBreakerModule(35),
 		RateLimitModule(40),
 		HTTPBulkheadModule(50),
 		OpenAPIValidatorModule(60),

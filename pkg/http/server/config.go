@@ -19,6 +19,9 @@ type Config struct {
 
 	// HTTP Bulkhead
 	Bulkhead BulkheadConfig `mapstructure:"bulkhead"`
+
+	// Circuit Breaker
+	CircuitBreaker CircuitBreakerConfig `mapstructure:"circuit-breaker"`
 }
 
 type TimeoutConfig struct {
@@ -36,6 +39,14 @@ type BulkheadConfig struct {
 	Enabled       bool          `mapstructure:"enabled"`
 	MaxConcurrent int           `mapstructure:"max-concurrent"`
 	Timeout       time.Duration `mapstructure:"timeout"`
+}
+
+type CircuitBreakerConfig struct {
+	Enabled          bool          `mapstructure:"enabled"`
+	FailureThreshold uint32        `mapstructure:"failure-threshold"`
+	Timeout          time.Duration `mapstructure:"timeout"`
+	Interval         time.Duration `mapstructure:"interval"`
+	MaxRequests      uint32        `mapstructure:"max-requests"`
 }
 
 func newConfig(v *viper.Viper, logger *zap.Logger) (Config, error) {
@@ -63,6 +74,20 @@ func newConfig(v *viper.Viper, logger *zap.Logger) (Config, error) {
 	}
 	if cfg.Bulkhead.Enabled && cfg.Bulkhead.Timeout == 0 {
 		cfg.Bulkhead.Timeout = 100 * time.Millisecond // Default: 100ms timeout
+	}
+
+	// Set default values for circuit breaker
+	if cfg.CircuitBreaker.Enabled && cfg.CircuitBreaker.FailureThreshold == 0 {
+		cfg.CircuitBreaker.FailureThreshold = 5 // Default: 5 consecutive failures
+	}
+	if cfg.CircuitBreaker.Enabled && cfg.CircuitBreaker.Timeout == 0 {
+		cfg.CircuitBreaker.Timeout = 60 * time.Second // Default: 60 seconds
+	}
+	if cfg.CircuitBreaker.Enabled && cfg.CircuitBreaker.Interval == 0 {
+		cfg.CircuitBreaker.Interval = 60 * time.Second // Default: 60 seconds (reset interval)
+	}
+	if cfg.CircuitBreaker.Enabled && cfg.CircuitBreaker.MaxRequests == 0 {
+		cfg.CircuitBreaker.MaxRequests = 1 // Default: 1 request in half-open state
 	}
 
 	logger.Info("loaded server config", zap.Any("config", cfg))

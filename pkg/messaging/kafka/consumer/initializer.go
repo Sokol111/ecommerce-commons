@@ -88,7 +88,6 @@ func (i *initializer) subscribe() error {
 		return err
 	}
 
-	i.log.Info("subscribed to topic")
 	return nil
 }
 

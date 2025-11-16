@@ -12,6 +12,11 @@ import (
 // createOpenAPIValidatorHandler creates OpenAPI request validator middleware
 // that skips validation for health endpoints
 func createOpenAPIValidatorHandler(swagger *openapi3.T) gin.HandlerFunc {
+	// If swagger is not provided, return nil to skip this middleware
+	if swagger == nil {
+		return nil
+	}
+
 	swagger.Servers = nil
 	validator := oapiMiddleware.OapiRequestValidator(swagger)
 

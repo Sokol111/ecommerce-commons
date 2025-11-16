@@ -34,8 +34,8 @@ type ConsumerConfig struct {
 }
 
 type ProducerConfig struct {
-	ReadinessTimeoutSeconds int  `mapstructure:"readiness-timeout-seconds"` // Timeout for waiting brokers readiness (0 = no timeout)
-	FailOnBrokerError       bool `mapstructure:"fail-on-broker-error"`      // Whether to fail startup if brokers are not available
+	ReadinessTimeoutSeconds int   `mapstructure:"readiness-timeout-seconds"` // Timeout for waiting brokers readiness (0 = no timeout)
+	FailOnBrokerError       *bool `mapstructure:"fail-on-broker-error"`      // Whether to fail startup if brokers are not available
 }
 
 type SchemaRegistryConfig struct {
@@ -86,6 +86,11 @@ func newConfig(v *viper.Viper, logger *zap.Logger) (Config, error) {
 	// Apply default producer config settings
 	if cfg.ProducerConfig.ReadinessTimeoutSeconds == 0 {
 		cfg.ProducerConfig.ReadinessTimeoutSeconds = 60
+	}
+	// Apply default fail-on-broker-error: true
+	if cfg.ProducerConfig.FailOnBrokerError == nil {
+		defaultFailOnBrokerError := true
+		cfg.ProducerConfig.FailOnBrokerError = &defaultFailOnBrokerError
 	}
 
 	logger.Info("loaded kafka config", zap.Any("config", cfg))

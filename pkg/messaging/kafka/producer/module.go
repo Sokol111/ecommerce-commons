@@ -28,7 +28,7 @@ func provideProducer(lc fx.Lifecycle, log *zap.Logger, conf config.Config, readi
 		p.(*producer).producer,
 		log.With(zap.String("component", "producer")),
 		conf.ProducerConfig.ReadinessTimeoutSeconds,
-		conf.ProducerConfig.FailOnBrokerError,
+		*conf.ProducerConfig.FailOnBrokerError,
 	)
 
 	readiness.AddComponent("kafka-producer")

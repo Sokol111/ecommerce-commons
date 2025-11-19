@@ -134,7 +134,12 @@ func (d *avroDeserializer) getSchemaInfo(schemaID int) (*schemaInfo, error) {
 	// Find matching Go type
 	goType, ok := d.typeMapping[schemaName]
 	if !ok {
-		return nil, fmt.Errorf("no Go type registered for schema: %s", schemaName)
+		// Log all registered types for debugging
+		registeredTypes := make([]string, 0, len(d.typeMapping))
+		for name := range d.typeMapping {
+			registeredTypes = append(registeredTypes, name)
+		}
+		return nil, fmt.Errorf("no Go type registered for schema: %s, registered types: %v", schemaName, registeredTypes)
 	}
 
 	// Cache the schema info

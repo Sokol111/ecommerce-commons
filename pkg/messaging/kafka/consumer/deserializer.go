@@ -129,7 +129,12 @@ func (d *avroDeserializer) getSchemaInfo(schemaID int) (*schemaInfo, error) {
 	}
 
 	// Get schema full name (namespace.name)
-	schemaName := schema.String() // This will be something like "com.ecommerce.events.product.ProductCreatedEvent"
+	// Event schemas are always NamedSchema (record type)
+	namedSchema, ok := schema.(hambavro.NamedSchema)
+	if !ok {
+		return nil, fmt.Errorf("schema is not a NamedSchema (record/enum/fixed)")
+	}
+	schemaName := namedSchema.FullName()
 
 	// Find matching Go type
 	goType, ok := d.typeMapping[schemaName]

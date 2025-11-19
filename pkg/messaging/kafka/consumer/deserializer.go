@@ -88,8 +88,8 @@ func (d *avroDeserializer) Deserialize(data []byte) (interface{}, error) {
 		return nil, fmt.Errorf("failed to unmarshal avro data: %w", err)
 	}
 
-	// Return the value (not pointer)
-	return targetPtr.Elem().Interface(), nil
+	// Return the pointer (for interface implementation with pointer receivers)
+	return target, nil
 }
 
 func (d *avroDeserializer) getSchemaInfo(schemaID int) (*schemaInfo, error) {

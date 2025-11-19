@@ -12,6 +12,6 @@ func NewHTTPModule() fx.Option {
 	return fx.Options(
 		middleware.NewGinModule(),
 		server.NewHttpServerModule(),
-		health.NewHealthModule(),
+		health.NewHealthRoutesModule(),
 	)
 }

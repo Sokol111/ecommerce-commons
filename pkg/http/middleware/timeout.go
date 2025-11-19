@@ -3,6 +3,7 @@ package middleware
 import (
 	"context"
 	"errors"
+	"net/http"
 
 	"github.com/Sokol111/ecommerce-commons/pkg/http/problems"
 	"github.com/Sokol111/ecommerce-commons/pkg/http/server"
@@ -65,7 +66,7 @@ func NewTimeoutMiddleware(serverConfig server.Config, log *zap.Logger, priority 
 					zap.Duration("timeout", config.RequestTimeout),
 				)
 
-				problem := problems.GatewayTimeout("request took too long to process")
+				problem := problems.New(http.StatusGatewayTimeout, "request took too long to process")
 				problem.Instance = c.Request.URL.Path
 				c.Error(errors.New(problem.Detail)).SetMeta(problem)
 				c.Abort()

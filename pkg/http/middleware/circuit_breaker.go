@@ -2,6 +2,7 @@ package middleware
 
 import (
 	"errors"
+	"net/http"
 
 	"github.com/Sokol111/ecommerce-commons/pkg/http/problems"
 	"github.com/Sokol111/ecommerce-commons/pkg/http/server"
@@ -82,7 +83,7 @@ func NewCircuitBreakerMiddleware(serverConfig server.Config, log *zap.Logger, pr
 						zap.String("method", c.Request.Method),
 					)
 
-					problem := problems.ServiceUnavailable("service is temporarily unavailable due to circuit breaker")
+					problem := problems.New(http.StatusServiceUnavailable, "service is temporarily unavailable due to circuit breaker")
 					problem.Instance = c.Request.URL.Path
 					c.Error(errors.New(problem.Detail)).SetMeta(problem)
 					c.Abort()

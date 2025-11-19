@@ -2,6 +2,7 @@ package middleware
 
 import (
 	"errors"
+	"net/http"
 
 	"github.com/Sokol111/ecommerce-commons/pkg/http/problems"
 	"github.com/Sokol111/ecommerce-commons/pkg/http/server"
@@ -36,7 +37,7 @@ func NewRateLimitMiddleware(serverConfig server.Config, priority int) Middleware
 
 			// Check rate limit
 			if !limiter.Allow() {
-				problem := problems.TooManyRequests("rate limit exceeded, please try again later")
+				problem := problems.New(http.StatusTooManyRequests, "rate limit exceeded, please try again later")
 				problem.Instance = c.Request.URL.Path
 				c.Error(errors.New(problem.Detail)).SetMeta(problem)
 				c.Abort()

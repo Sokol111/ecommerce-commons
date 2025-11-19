@@ -3,6 +3,7 @@ package middleware
 import (
 	"context"
 	"errors"
+	"net/http"
 
 	"github.com/Sokol111/ecommerce-commons/pkg/http/problems"
 	"github.com/Sokol111/ecommerce-commons/pkg/http/server"
@@ -53,7 +54,7 @@ func NewHTTPBulkheadMiddleware(serverConfig server.Config, log *zap.Logger, prio
 					zap.Error(err),
 				)
 
-				problem := problems.ServiceUnavailable("too many concurrent requests, please try again later")
+				problem := problems.New(http.StatusServiceUnavailable, "too many concurrent requests, please try again later")
 				problem.Instance = c.Request.URL.Path
 				c.Error(errors.New(problem.Detail)).SetMeta(problem)
 				c.Abort()

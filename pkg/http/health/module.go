@@ -5,7 +5,7 @@ import (
 	"go.uber.org/fx"
 )
 
-func NewHealthModule() fx.Option {
+func NewHealthRoutesModule() fx.Option {
 	return fx.Options(
 		fx.Provide(newHealthHandler),
 		fx.Invoke(registerHealthRoutes),

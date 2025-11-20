@@ -3,7 +3,6 @@ package logger
 import (
 	"context"
 	"fmt"
-	"os"
 
 	"go.uber.org/fx"
 	"go.uber.org/fx/fxevent"
@@ -24,25 +23,21 @@ func NewZapLoggingModule() fx.Option {
 	)
 }
 
-func provideLogger(lc fx.Lifecycle, conf Config) (*zap.Logger, error) {
-	logger, err := newLogger(conf)
+func provideLogger(lc fx.Lifecycle, conf Config) (*zap.Logger, zap.AtomicLevel, error) {
+	logger, atomicLevel, err := newLogger(conf)
 
 	if err != nil {
-		return nil, fmt.Errorf("failed to create logger: %w", err)
+		return nil, zap.AtomicLevel{}, fmt.Errorf("failed to create logger: %w", err)
 	}
 
 	lc.Append(fx.Hook{
 		OnStop: func(ctx context.Context) error {
-			err := logger.Sync()
-			if err != nil {
-				if pathErr, ok := err.(*os.PathError); ok && pathErr.Err.Error() == "invalid argument" {
-					return nil
-				}
-				return err
-			}
+			// Best-effort sync, ignore errors.
+			// Sync errors on stdout/stderr are expected on some systems.
+			_ = logger.Sync()
 			return nil
 		},
 	})
 
-	return logger, nil
+	return logger, atomicLevel, nil
 }

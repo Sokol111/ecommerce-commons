@@ -8,20 +8,11 @@ import (
 	"go.uber.org/zap/zapcore"
 )
 
-type contextKey string
+// contextKey is an unexported type for context keys to avoid collisions.
+type contextKey struct{}
 
 // LoggerCtxKey is the context key used to store and retrieve logger instances from context.
-const LoggerCtxKey contextKey = "logger_ctx_key"
-
-// Log level constants
-const (
-	LevelDebug = "debug"
-	LevelInfo  = "info"
-	LevelWarn  = "warn"
-	LevelError = "error"
-	LevelFatal = "fatal"
-	LevelPanic = "panic"
-)
+var loggerCtxKey = contextKey{}
 
 // FromContext extracts a logger from the context.
 // If no logger is found in the context, it returns the global logger.
@@ -30,7 +21,7 @@ func FromContext(ctx context.Context) *zap.Logger {
 	if ctx == nil {
 		return zap.L()
 	}
-	if ctxLogger, ok := ctx.Value(LoggerCtxKey).(*zap.Logger); ok && ctxLogger != nil {
+	if ctxLogger, ok := ctx.Value(loggerCtxKey).(*zap.Logger); ok && ctxLogger != nil {
 		return ctxLogger
 	}
 	return zap.L()
@@ -42,30 +33,25 @@ func WithLogger(ctx context.Context, logger *zap.Logger) context.Context {
 	if ctx == nil {
 		ctx = context.Background()
 	}
-	return context.WithValue(ctx, LoggerCtxKey, logger)
+	return context.WithValue(ctx, loggerCtxKey, logger)
 }
 
-func newLogger(conf Config) (*zap.Logger, error) {
-	// Validate configuration before building logger
+func newLogger(conf Config) (*zap.Logger, zap.AtomicLevel, error) {
 	if err := conf.Validate(); err != nil {
-		return nil, fmt.Errorf("logger configuration validation failed: %w", err)
+		return nil, zap.AtomicLevel{}, fmt.Errorf("logger configuration validation failed: %w", err)
 	}
 
 	var cfg zap.Config
 
-	// Use development or production config based on configuration
 	if conf.Development {
 		cfg = zap.NewDevelopmentConfig()
 	} else {
 		cfg = zap.NewProductionConfig()
 	}
 
-	// Set log level (defaults to info if empty)
-	logLevel := conf.Level
-	if logLevel == "" {
-		logLevel = "info"
-	}
-	cfg.Level = zap.NewAtomicLevelAt(parseLogLevel(logLevel))
+	// After Validate(), Level is guaranteed to be valid
+	atomicLevel := zap.NewAtomicLevelAt(conf.Level)
+	cfg.Level = atomicLevel
 
 	// Use ISO8601 time encoding for consistency
 	cfg.EncoderConfig.EncodeTime = zapcore.ISO8601TimeEncoder
@@ -80,36 +66,23 @@ func newLogger(conf Config) (*zap.Logger, error) {
 		cfg.ErrorOutputPaths = conf.ErrorOutputPaths
 	}
 
-	logger, err := cfg.Build()
+	// Build logger with optional features
+	options := []zap.Option{
+		zap.AddCaller(),
+		zap.AddStacktrace(conf.StacktraceLevel),
+	}
+
+	logger, err := cfg.Build(options...)
 	if err != nil {
-		return nil, err
+		return nil, zap.AtomicLevel{}, err
 	}
 
 	zap.ReplaceGlobals(logger)
 
 	logger.Info("logger initialized",
-		zap.String("level", logLevel),
+		zap.String("level", conf.Level.String()),
 		zap.Bool("development", conf.Development),
 	)
 
-	return logger, nil
-}
-
-func parseLogLevel(level string) zapcore.Level {
-	switch level {
-	case LevelDebug:
-		return zapcore.DebugLevel
-	case LevelInfo:
-		return zapcore.InfoLevel
-	case LevelWarn:
-		return zapcore.WarnLevel
-	case LevelError:
-		return zapcore.ErrorLevel
-	case LevelFatal:
-		return zapcore.FatalLevel
-	case LevelPanic:
-		return zapcore.PanicLevel
-	default:
-		return zapcore.InfoLevel
-	}
+	return logger, atomicLevel, nil
 }

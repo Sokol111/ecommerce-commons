@@ -16,7 +16,7 @@ func NewHTTPTelemetryModule() fx.Option {
 	type deps struct {
 		fx.In
 		Conf    Config
-		AppConf config.Config
+		AppConf config.AppConfig
 
 		TP trace.TracerProvider `optional:"true"`
 		MP metric.MeterProvider `optional:"true"`

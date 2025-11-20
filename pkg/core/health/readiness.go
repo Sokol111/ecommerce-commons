@@ -2,24 +2,30 @@ package health
 
 import (
 	"context"
+	"sort"
 	"sync"
 	"time"
 
+	"go.uber.org/fx"
 	"go.uber.org/zap"
 )
 
+func NewReadinessModule() fx.Option {
+	return fx.Provide(newReadiness)
+}
+
 type ComponentStatus struct {
-	Name      string
-	Ready     bool
-	StartedAt time.Time
-	ReadyAt   time.Time
+	Name      string    `json:"name"`
+	Ready     bool      `json:"ready"`
+	StartedAt time.Time `json:"started_at"`
+	ReadyAt   time.Time `json:"ready_at,omitempty"`
 }
 
 type ReadinessStatus struct {
-	Ready                bool
-	Components           []ComponentStatus
-	ReadyAt              time.Time
-	KubernetesNotifiedAt time.Time
+	Ready                bool              `json:"ready"`
+	Components           []ComponentStatus `json:"components"`
+	ReadyAt              time.Time         `json:"ready_at,omitempty"`
+	KubernetesNotifiedAt time.Time         `json:"kubernetes_notified_at,omitempty"`
 }
 
 type Readiness interface {
@@ -41,16 +47,17 @@ type component struct {
 }
 
 type readiness struct {
-	mu                  sync.RWMutex
-	components          map[string]*component
-	readyChan           chan struct{}
-	readyOnce           sync.Once
-	kubernetesReadyChan chan struct{}
-	kubernetesReadyOnce sync.Once
-	logger              *zap.Logger
+	mu                   sync.RWMutex
+	components           map[string]*component
+	readyChan            chan struct{}
+	readyOnce            sync.Once
+	kubernetesReadyChan  chan struct{}
+	kubernetesReadyOnce  sync.Once
+	kubernetesNotifiedAt time.Time
+	logger               *zap.Logger
 }
 
-func NewReadiness(logger *zap.Logger) Readiness {
+func newReadiness(logger *zap.Logger) Readiness {
 	return &readiness{
 		components:          make(map[string]*component),
 		readyChan:           make(chan struct{}),
@@ -60,6 +67,10 @@ func NewReadiness(logger *zap.Logger) Readiness {
 }
 
 func (r *readiness) AddComponent(name string) {
+	if name == "" {
+		panic("readiness: component name cannot be empty")
+	}
+
 	r.mu.Lock()
 	defer r.mu.Unlock()
 
@@ -69,37 +80,62 @@ func (r *readiness) AddComponent(name string) {
 			ready:     false,
 			startedAt: time.Now(),
 		}
+		r.logger.Debug("Component added",
+			zap.String("component", name),
+		)
+	} else {
+		r.logger.Warn("Component already exists",
+			zap.String("component", name),
+		)
 	}
 }
 
 func (r *readiness) MarkReady(name string) {
+	if name == "" {
+		panic("readiness: component name cannot be empty")
+	}
+
 	r.mu.Lock()
 	defer r.mu.Unlock()
 
-	if comp, exists := r.components[name]; exists {
-		if !comp.ready {
-			comp.ready = true
-			comp.readyAt = time.Now()
+	comp, exists := r.components[name]
+	if !exists {
+		panic("readiness: component '" + name + "' does not exist, must call AddComponent first")
+	}
 
-			// Check if all components are ready
-			allReady := len(r.components) > 0
-			for _, c := range r.components {
-				if !c.ready {
-					allReady = false
-					break
-				}
-			}
+	if comp.ready {
+		r.logger.Debug("Component already marked as ready",
+			zap.String("component", name),
+		)
+		return
+	}
 
-			if allReady {
-				r.readyOnce.Do(func() {
-					close(r.readyChan)
-					r.logger.Info("All components are ready",
-						zap.Int("component_count", len(r.components)),
-						zap.Time("ready_at", time.Now()),
-					)
-				})
-			}
+	comp.ready = true
+	comp.readyAt = time.Now()
+	duration := comp.readyAt.Sub(comp.startedAt)
+
+	r.logger.Info("Component ready",
+		zap.String("component", name),
+		zap.Duration("initialization_time", duration),
+	)
+
+	// Check if all components are ready
+	allReady := len(r.components) > 0
+	for _, c := range r.components {
+		if !c.ready {
+			allReady = false
+			break
 		}
+	}
+
+	if allReady {
+		r.readyOnce.Do(func() {
+			close(r.readyChan)
+			r.logger.Info("All components are ready",
+				zap.Int("component_count", len(r.components)),
+				zap.Time("ready_at", time.Now()),
+			)
+		})
 	}
 }
 
@@ -119,7 +155,6 @@ func (r *readiness) GetStatus() ReadinessStatus {
 	ready := r.IsReady()
 	var readyAt time.Time
 	if ready && len(r.components) > 0 {
-		// Find the latest readyAt time from all components
 		for _, comp := range r.components {
 			if comp.readyAt.After(readyAt) {
 				readyAt = comp.readyAt
@@ -127,14 +162,14 @@ func (r *readiness) GetStatus() ReadinessStatus {
 		}
 	}
 
-	// Note: We don't store kubernetesNotifiedAt timestamp anymore
-	// Could be added back if needed by storing in a separate field on channel close
 	status := ReadinessStatus{
-		Ready:      ready,
-		Components: make([]ComponentStatus, 0, len(r.components)),
-		ReadyAt:    readyAt,
+		Ready:                ready,
+		Components:           make([]ComponentStatus, 0, len(r.components)),
+		ReadyAt:              readyAt,
+		KubernetesNotifiedAt: r.kubernetesNotifiedAt,
 	}
 
+	// Collect and sort components by name for deterministic output
 	for _, comp := range r.components {
 		status.Components = append(status.Components, ComponentStatus{
 			Name:      comp.name,
@@ -143,6 +178,10 @@ func (r *readiness) GetStatus() ReadinessStatus {
 			ReadyAt:   comp.readyAt,
 		})
 	}
+
+	sort.Slice(status.Components, func(i, j int) bool {
+		return status.Components[i].Name < status.Components[j].Name
+	})
 
 	return status
 }
@@ -161,9 +200,12 @@ func (r *readiness) NotifyKubernetesProbe() {
 
 	// Close channel once to signal Kubernetes notification
 	r.kubernetesReadyOnce.Do(func() {
+		r.mu.Lock()
+		r.kubernetesNotifiedAt = time.Now()
+		r.mu.Unlock()
 		close(r.kubernetesReadyChan)
 		r.logger.Info("Kubernetes readiness probe notified",
-			zap.Time("notified_at", time.Now()),
+			zap.Time("notified_at", r.kubernetesNotifiedAt),
 		)
 	})
 }

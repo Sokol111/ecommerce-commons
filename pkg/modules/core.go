@@ -21,6 +21,6 @@ func NewCoreModule() fx.Option {
 		config.NewAppConfigModule(),
 		config.NewViperModule(),
 		logger.NewZapLoggingModule(),
-		health.NewHealthModule(),
+		health.NewReadinessModule(),
 	)
 }

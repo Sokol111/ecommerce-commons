@@ -29,7 +29,7 @@ func NewTracingModule() fx.Option {
 			newConfig,
 		),
 		fx.Provide(
-			func(lc fx.Lifecycle, log *zap.Logger, conf Config, appConf config.Config, readiness health.Readiness) (trace.TracerProvider, error) {
+			func(lc fx.Lifecycle, log *zap.Logger, conf Config, appConf config.AppConfig, readiness health.Readiness) (trace.TracerProvider, error) {
 				if !conf.TracingEnabled {
 					log.Info("tracing disabled")
 					return nil, nil
@@ -52,7 +52,7 @@ func NewTracingModule() fx.Option {
 	)
 }
 
-func provideTracerProvider(lc fx.Lifecycle, log *zap.Logger, conf Config, appConf config.Config, readiness health.Readiness) (trace.TracerProvider, error) {
+func provideTracerProvider(lc fx.Lifecycle, log *zap.Logger, conf Config, appConf config.AppConfig, readiness health.Readiness) (trace.TracerProvider, error) {
 	readiness.AddComponent("tracing-module")
 
 	ctx := context.Background()

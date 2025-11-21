@@ -2,7 +2,6 @@ package logger
 
 import (
 	"fmt"
-	"strings"
 
 	"github.com/spf13/viper"
 	"go.uber.org/zap/zapcore"
@@ -17,39 +16,10 @@ type Config struct {
 	// In production mode (false), JSON encoding is used.
 	Development bool `mapstructure:"development"`
 
-	// OutputPaths is a list of URLs or file paths to write logging output to.
-	// If empty, defaults to stderr.
-	OutputPaths []string `mapstructure:"outputPaths"`
-
-	// ErrorOutputPaths is a list of URLs or file paths to write internal logger errors to.
-	// If empty, defaults to stderr.
-	ErrorOutputPaths []string `mapstructure:"errorOutputPaths"`
-
 	// StacktraceLevel sets the minimum level at which stacktraces are captured.
 	// Use zapcore constants: DebugLevel, InfoLevel, WarnLevel, ErrorLevel, DPanicLevel, PanicLevel, FatalLevel
 	// Defaults to ErrorLevel.
 	StacktraceLevel zapcore.Level `mapstructure:"stacktraceLevel"`
-}
-
-func (c Config) Validate() error {
-	if err := validatePaths(c.OutputPaths, "outputPaths"); err != nil {
-		return err
-	}
-
-	if err := validatePaths(c.ErrorOutputPaths, "errorOutputPaths"); err != nil {
-		return err
-	}
-
-	return nil
-}
-
-func validatePaths(paths []string, fieldName string) error {
-	for i, path := range paths {
-		if strings.TrimSpace(path) == "" {
-			return fmt.Errorf("%s[%d] cannot be empty or whitespace", fieldName, i)
-		}
-	}
-	return nil
 }
 
 func newConfig(v *viper.Viper) (Config, error) {
@@ -63,11 +33,9 @@ func newConfig(v *viper.Viper) (Config, error) {
 
 	// Parse level from string first
 	var rawCfg struct {
-		Level            string   `mapstructure:"level"`
-		Development      bool     `mapstructure:"development"`
-		OutputPaths      []string `mapstructure:"outputPaths"`
-		ErrorOutputPaths []string `mapstructure:"errorOutputPaths"`
-		StacktraceLevel  string   `mapstructure:"stacktraceLevel"`
+		Level           string `mapstructure:"level"`
+		Development     bool   `mapstructure:"development"`
+		StacktraceLevel string `mapstructure:"stacktraceLevel"`
 	}
 
 	if err := sub.Unmarshal(&rawCfg); err != nil {
@@ -95,11 +63,9 @@ func newConfig(v *viper.Viper) (Config, error) {
 	}
 
 	cfg := Config{
-		Level:            level,
-		Development:      rawCfg.Development,
-		OutputPaths:      rawCfg.OutputPaths,
-		ErrorOutputPaths: rawCfg.ErrorOutputPaths,
-		StacktraceLevel:  stacktraceLevel,
+		Level:           level,
+		Development:     rawCfg.Development,
+		StacktraceLevel: stacktraceLevel,
 	}
 
 	return cfg, nil

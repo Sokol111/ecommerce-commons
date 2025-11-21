@@ -2,7 +2,6 @@ package logger
 
 import (
 	"context"
-	"fmt"
 
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
@@ -14,17 +13,20 @@ type contextKey struct{}
 // LoggerCtxKey is the context key used to store and retrieve logger instances from context.
 var loggerCtxKey = contextKey{}
 
+// defaultLogger holds the default logger instance created during initialization.
+var defaultLogger *zap.Logger
+
 // FromContext extracts a logger from the context.
-// If no logger is found in the context, it returns the global logger.
+// If no logger is found in the context, it returns the default logger.
 // This function is safe to call with a nil context.
 func FromContext(ctx context.Context) *zap.Logger {
 	if ctx == nil {
-		return zap.L()
+		return defaultLogger
 	}
 	if ctxLogger, ok := ctx.Value(loggerCtxKey).(*zap.Logger); ok && ctxLogger != nil {
 		return ctxLogger
 	}
-	return zap.L()
+	return defaultLogger
 }
 
 // WithLogger returns a new context with the provided logger attached.
@@ -37,10 +39,6 @@ func WithLogger(ctx context.Context, logger *zap.Logger) context.Context {
 }
 
 func newLogger(conf Config) (*zap.Logger, zap.AtomicLevel, error) {
-	if err := conf.Validate(); err != nil {
-		return nil, zap.AtomicLevel{}, fmt.Errorf("logger configuration validation failed: %w", err)
-	}
-
 	var cfg zap.Config
 
 	if conf.Development {
@@ -56,16 +54,6 @@ func newLogger(conf Config) (*zap.Logger, zap.AtomicLevel, error) {
 	// Use ISO8601 time encoding for consistency
 	cfg.EncoderConfig.EncodeTime = zapcore.ISO8601TimeEncoder
 
-	// Configure output paths if provided
-	if len(conf.OutputPaths) > 0 {
-		cfg.OutputPaths = conf.OutputPaths
-	}
-
-	// Configure error output paths if provided
-	if len(conf.ErrorOutputPaths) > 0 {
-		cfg.ErrorOutputPaths = conf.ErrorOutputPaths
-	}
-
 	// Build logger with optional features
 	options := []zap.Option{
 		zap.AddCaller(),
@@ -77,11 +65,16 @@ func newLogger(conf Config) (*zap.Logger, zap.AtomicLevel, error) {
 		return nil, zap.AtomicLevel{}, err
 	}
 
-	zap.ReplaceGlobals(logger)
+	// Set as default logger for the package
+	defaultLogger = logger
 
 	logger.Info("logger initialized",
 		zap.String("level", conf.Level.String()),
+		zap.String("stacktrace_level", conf.StacktraceLevel.String()),
 		zap.Bool("development", conf.Development),
+		zap.Bool("caller_enabled", true),
+		zap.String("encoding", map[bool]string{true: "console", false: "json"}[conf.Development]),
+		zap.String("time_encoding", "ISO8601"),
 	)
 
 	return logger, atomicLevel, nil

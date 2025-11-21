@@ -108,8 +108,7 @@ server:
 	require.NoError(t, err)
 
 	// Set environment variable to override config file value
-	os.Setenv("SERVER_PORT", "9000")
-	defer os.Unsetenv("SERVER_PORT")
+	t.Setenv("SERVER_PORT", "9000")
 
 	appCfg := AppConfig{
 		ConfigFile:     configFile,
@@ -140,8 +139,7 @@ my-service:
 	require.NoError(t, err)
 
 	// Test that dots and dashes in env var names are replaced with underscores
-	os.Setenv("MY_SERVICE_SOME_NESTED_VALUE", "from-env")
-	defer os.Unsetenv("MY_SERVICE_SOME_NESTED_VALUE")
+	t.Setenv("MY_SERVICE_SOME_NESTED_VALUE", "from-env")
 
 	appCfg := AppConfig{
 		ConfigFile:     configFile,
@@ -255,4 +253,239 @@ func TestNewViper_EmptyConfigFile(t *testing.T) {
 	require.NoError(t, err)
 	assert.NotNil(t, v)
 	assert.Empty(t, v.AllSettings())
+}
+
+func TestNewViper_SubWithEnvOverride(t *testing.T) {
+	t.Run("BasicSubConfig", func(t *testing.T) {
+		type DatabaseConfig struct {
+			Host string `mapstructure:"host"`
+			Port int    `mapstructure:"port"`
+		}
+
+		// Arrange
+		tmpDir := t.TempDir()
+		configFile := filepath.Join(tmpDir, "config.yaml")
+
+		configContent := `
+database:
+  host: localhost
+  port: 5432
+`
+		err := os.WriteFile(configFile, []byte(configContent), 0644)
+		require.NoError(t, err)
+
+		appCfg := AppConfig{
+			ConfigFile:     configFile,
+			ServiceName:    "test-service",
+			ServiceVersion: "1.0.0",
+			Environment:    "test",
+		}
+
+		// Act
+		v, err := newViper(appCfg)
+		require.NoError(t, err)
+
+		dbSub := v.Sub("database")
+		require.NotNil(t, dbSub, "database sub-config should not be nil")
+
+		var dbConfig DatabaseConfig
+		err = dbSub.Unmarshal(&dbConfig)
+
+		// Assert
+		require.NoError(t, err)
+		assert.Equal(t, "localhost", dbConfig.Host)
+		assert.Equal(t, 5432, dbConfig.Port)
+	})
+
+	t.Run("SubConfigWithEnvOverride", func(t *testing.T) {
+		type CacheConfig struct {
+			Host string `mapstructure:"host"`
+			Port int    `mapstructure:"port"`
+			TTL  int    `mapstructure:"ttl"`
+		}
+
+		// Arrange
+		tmpDir := t.TempDir()
+		configFile := filepath.Join(tmpDir, "config.yaml")
+
+		configContent := `
+cache:
+  host: localhost
+  port: 6379
+  ttl: 300
+`
+		err := os.WriteFile(configFile, []byte(configContent), 0644)
+		require.NoError(t, err)
+
+		// Set environment variable to override cache port
+		t.Setenv("CACHE_PORT", "6380")
+
+		appCfg := AppConfig{
+			ConfigFile:     configFile,
+			ServiceName:    "test-service",
+			ServiceVersion: "1.0.0",
+			Environment:    "test",
+		}
+
+		// Act
+		v, err := newViper(appCfg)
+		require.NoError(t, err)
+
+		cacheSub := v.Sub("cache")
+		require.NotNil(t, cacheSub, "cache sub-config should not be nil")
+
+		var cacheConfig CacheConfig
+		err = cacheSub.Unmarshal(&cacheConfig)
+
+		// Assert
+		require.NoError(t, err)
+		assert.Equal(t, "localhost", cacheConfig.Host)
+		assert.Equal(t, 6380, cacheConfig.Port) // overridden by env var
+		assert.Equal(t, 300, cacheConfig.TTL)
+	})
+
+	t.Run("NestedSubConfigWithEnvOverride", func(t *testing.T) {
+		type Credentials struct {
+			Username     string `mapstructure:"user-name"`
+			Password     string `mapstructure:"password"`
+			DatabaseName string `mapstructure:"database-name"`
+		}
+
+		type DatabaseConfig struct {
+			Host        string      `mapstructure:"host"`
+			Port        int         `mapstructure:"port"`
+			Credentials Credentials `mapstructure:"credentials"`
+		}
+
+		// Arrange
+		tmpDir := t.TempDir()
+		configFile := filepath.Join(tmpDir, "config.yaml")
+
+		configContent := `
+database:
+  host: localhost
+  port: 5432
+  credentials:
+    user-name: admin
+    password: secret
+    database-name: testdb
+`
+		err := os.WriteFile(configFile, []byte(configContent), 0644)
+		require.NoError(t, err)
+
+		// Set environment variables to override nested credentials with dashes
+		t.Setenv("DATABASE_CREDENTIALS_USER_NAME", "produser")
+		t.Setenv("DATABASE_CREDENTIALS_PASSWORD", "prodpass")
+		t.Setenv("DATABASE_CREDENTIALS_DATABASE_NAME", "productiondb")
+
+		appCfg := AppConfig{
+			ConfigFile:     configFile,
+			ServiceName:    "test-service",
+			ServiceVersion: "1.0.0",
+			Environment:    "test",
+		}
+
+		// Act
+		v, err := newViper(appCfg)
+		require.NoError(t, err)
+
+		dbSub := v.Sub("database")
+		require.NotNil(t, dbSub)
+
+		var dbConfig DatabaseConfig
+		err = dbSub.Unmarshal(&dbConfig)
+
+		// Assert
+		require.NoError(t, err)
+		assert.Equal(t, "localhost", dbConfig.Host)
+		assert.Equal(t, 5432, dbConfig.Port)
+		assert.Equal(t, "produser", dbConfig.Credentials.Username) // user-name overridden by USER_NAME
+		assert.Equal(t, "prodpass", dbConfig.Credentials.Password)
+		assert.Equal(t, "productiondb", dbConfig.Credentials.DatabaseName) // database-name overridden by DATABASE_NAME
+	})
+
+	t.Run("MultiLevelNestedSubConfigWithEnvOverride", func(t *testing.T) {
+		type Pool struct {
+			Min int `mapstructure:"min"`
+			Max int `mapstructure:"max"`
+		}
+
+		type DatabaseConfig struct {
+			Host string `mapstructure:"host"`
+			Port int    `mapstructure:"port"`
+			Pool Pool   `mapstructure:"pool"`
+		}
+
+		// Arrange
+		tmpDir := t.TempDir()
+		configFile := filepath.Join(tmpDir, "config.yaml")
+
+		configContent := `
+database:
+  host: localhost
+  port: 5432
+  pool:
+    min: 5
+    max: 20
+`
+		err := os.WriteFile(configFile, []byte(configContent), 0644)
+		require.NoError(t, err)
+
+		// Set environment variable to override pool max value
+		t.Setenv("DATABASE_POOL_MAX", "50")
+
+		appCfg := AppConfig{
+			ConfigFile:     configFile,
+			ServiceName:    "test-service",
+			ServiceVersion: "1.0.0",
+			Environment:    "test",
+		}
+
+		// Act
+		v, err := newViper(appCfg)
+		require.NoError(t, err)
+
+		dbSub := v.Sub("database")
+		require.NotNil(t, dbSub)
+
+		var dbConfig DatabaseConfig
+		err = dbSub.Unmarshal(&dbConfig)
+
+		// Assert
+		require.NoError(t, err)
+		assert.Equal(t, "localhost", dbConfig.Host)
+		assert.Equal(t, 5432, dbConfig.Port)
+		assert.Equal(t, 5, dbConfig.Pool.Min)
+		assert.Equal(t, 50, dbConfig.Pool.Max) // overridden by env var
+	})
+
+	t.Run("SubConfigForMissingSection", func(t *testing.T) {
+		// Arrange
+		tmpDir := t.TempDir()
+		configFile := filepath.Join(tmpDir, "config.yaml")
+
+		configContent := `
+server:
+  port: 8080
+`
+		err := os.WriteFile(configFile, []byte(configContent), 0644)
+		require.NoError(t, err)
+
+		appCfg := AppConfig{
+			ConfigFile:     configFile,
+			ServiceName:    "test-service",
+			ServiceVersion: "1.0.0",
+			Environment:    "test",
+		}
+
+		// Act
+		v, err := newViper(appCfg)
+		require.NoError(t, err)
+
+		// Try to get non-existent sub-config
+		dbSub := v.Sub("database")
+
+		// Assert
+		assert.Nil(t, dbSub, "sub-config for missing section should be nil")
+	})
 }

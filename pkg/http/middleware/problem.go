@@ -3,9 +3,9 @@ package middleware
 import (
 	"net/http"
 
-	"github.com/Sokol111/ecommerce-commons/pkg/core/logger"
 	"github.com/Sokol111/ecommerce-commons/pkg/http/problems"
 	"github.com/gin-gonic/gin"
+	"go.opentelemetry.io/otel/trace"
 	"go.uber.org/fx"
 )
 
@@ -57,12 +57,11 @@ func problemMiddleware() gin.HandlerFunc {
 			}
 		}
 
-		// Try to extract trace ID from context if available (if not already set)
+		// Try to extract trace ID from OpenTelemetry context if available (if not already set)
 		if problem.TraceID == "" {
-			if traceID, exists := c.Get(string(logger.LoggerCtxKey)); exists {
-				if tid, ok := traceID.(string); ok {
-					problem.TraceID = tid
-				}
+			sc := trace.SpanContextFromContext(c)
+			if sc.IsValid() {
+				problem.TraceID = sc.TraceID().String()
 			}
 		}
 

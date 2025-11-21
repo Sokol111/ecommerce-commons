@@ -12,12 +12,13 @@ import (
 
 // Environment variable names
 const (
-	envAppEnv            = "APP_ENV"
-	envAppServiceName    = "APP_SERVICE_NAME"
-	envAppServiceVersion = "APP_SERVICE_VERSION"
-	envConfigFile        = "CONFIG_FILE"
-	envConfigDir         = "CONFIG_DIR"
-	envConfigName        = "CONFIG_NAME"
+	envAppEnv                = "APP_ENV"
+	envAppServiceName        = "APP_SERVICE_NAME"
+	envAppServiceVersion     = "APP_SERVICE_VERSION"
+	envConfigFile            = "CONFIG_FILE"
+	envConfigDir             = "CONFIG_DIR"
+	envConfigName            = "CONFIG_NAME"
+	envKubernetesServiceHost = "KUBERNETES_SERVICE_HOST"
 )
 
 // Default configuration values
@@ -37,6 +38,8 @@ type AppConfig struct {
 	ServiceVersion string
 	// Environment is the deployment environment (e.g., "local", "staging", "pro")
 	Environment string
+	// IsKubernetes indicates if the application is running in Kubernetes
+	IsKubernetes bool
 }
 
 // NewAppConfigModule creates a new fx module for application configuration.
@@ -61,6 +64,7 @@ func NewAppConfigModule() fx.Option {
 				zap.String("configFile", conf.ConfigFile),
 				zap.Bool("configFileProvided", os.Getenv(envConfigFile) != ""),
 				zap.Bool("dotEnvFound", dotEnvExists == nil),
+				zap.Bool("isKubernetes", conf.IsKubernetes),
 			)
 		}),
 	)
@@ -87,6 +91,8 @@ func newAppConfig() (AppConfig, error) {
 		return AppConfig{}, fmt.Errorf("%s is required", envAppServiceVersion)
 	}
 
+	isKubernetes := os.Getenv(envKubernetesServiceHost) != ""
+
 	// Build full config file path
 	configFile := os.Getenv(envConfigFile)
 	if configFile == "" {
@@ -110,5 +116,6 @@ func newAppConfig() (AppConfig, error) {
 		ServiceName:    serviceName,
 		ServiceVersion: serviceVersion,
 		Environment:    env,
+		IsKubernetes:   isKubernetes,
 	}, nil
 }

@@ -1,7 +1,6 @@
 package config
 
 import (
-	"os"
 	"path/filepath"
 	"testing"
 
@@ -11,10 +10,9 @@ import (
 
 func TestNewAppConfig_Success(t *testing.T) {
 	// Arrange
-	os.Clearenv()
-	os.Setenv(envAppEnv, "test")
-	os.Setenv(envAppServiceName, "test-service")
-	os.Setenv(envAppServiceVersion, "1.0.0")
+	t.Setenv(envAppEnv, "test")
+	t.Setenv(envAppServiceName, "test-service")
+	t.Setenv(envAppServiceVersion, "1.0.0")
 
 	// Act
 	cfg, err := newAppConfig()
@@ -25,13 +23,13 @@ func TestNewAppConfig_Success(t *testing.T) {
 	assert.Equal(t, "test-service", cfg.ServiceName)
 	assert.Equal(t, "1.0.0", cfg.ServiceVersion)
 	assert.Equal(t, filepath.Join(defaultConfigDir, "config.test.yaml"), cfg.ConfigFile)
+	assert.False(t, cfg.IsKubernetes)
 }
 
 func TestNewAppConfig_MissingAppEnv(t *testing.T) {
 	// Arrange
-	os.Clearenv()
-	os.Setenv(envAppServiceName, "test-service")
-	os.Setenv(envAppServiceVersion, "1.0.0")
+	t.Setenv(envAppServiceName, "test-service")
+	t.Setenv(envAppServiceVersion, "1.0.0")
 
 	// Act
 	_, err := newAppConfig()
@@ -43,9 +41,8 @@ func TestNewAppConfig_MissingAppEnv(t *testing.T) {
 
 func TestNewAppConfig_MissingServiceName(t *testing.T) {
 	// Arrange
-	os.Clearenv()
-	os.Setenv(envAppEnv, "test")
-	os.Setenv(envAppServiceVersion, "1.0.0")
+	t.Setenv(envAppEnv, "test")
+	t.Setenv(envAppServiceVersion, "1.0.0")
 
 	// Act
 	_, err := newAppConfig()
@@ -57,9 +54,8 @@ func TestNewAppConfig_MissingServiceName(t *testing.T) {
 
 func TestNewAppConfig_MissingServiceVersion(t *testing.T) {
 	// Arrange
-	os.Clearenv()
-	os.Setenv(envAppEnv, "test")
-	os.Setenv(envAppServiceName, "test-service")
+	t.Setenv(envAppEnv, "test")
+	t.Setenv(envAppServiceName, "test-service")
 
 	// Act
 	_, err := newAppConfig()
@@ -71,11 +67,10 @@ func TestNewAppConfig_MissingServiceVersion(t *testing.T) {
 
 func TestNewAppConfig_CustomConfigFile(t *testing.T) {
 	// Arrange
-	os.Clearenv()
-	os.Setenv(envAppEnv, "test")
-	os.Setenv(envAppServiceName, "test-service")
-	os.Setenv(envAppServiceVersion, "1.0.0")
-	os.Setenv(envConfigFile, "/custom/path/config.yaml")
+	t.Setenv(envAppEnv, "test")
+	t.Setenv(envAppServiceName, "test-service")
+	t.Setenv(envAppServiceVersion, "1.0.0")
+	t.Setenv(envConfigFile, "/custom/path/config.yaml")
 
 	// Act
 	cfg, err := newAppConfig()
@@ -83,15 +78,15 @@ func TestNewAppConfig_CustomConfigFile(t *testing.T) {
 	// Assert
 	require.NoError(t, err)
 	assert.Equal(t, "/custom/path/config.yaml", cfg.ConfigFile)
+	assert.False(t, cfg.IsKubernetes)
 }
 
 func TestNewAppConfig_CustomConfigDir(t *testing.T) {
 	// Arrange
-	os.Clearenv()
-	os.Setenv(envAppEnv, "staging")
-	os.Setenv(envAppServiceName, "test-service")
-	os.Setenv(envAppServiceVersion, "1.0.0")
-	os.Setenv(envConfigDir, "/etc/myapp")
+	t.Setenv(envAppEnv, "staging")
+	t.Setenv(envAppServiceName, "test-service")
+	t.Setenv(envAppServiceVersion, "1.0.0")
+	t.Setenv(envConfigDir, "/etc/myapp")
 
 	// Act
 	cfg, err := newAppConfig()
@@ -103,11 +98,10 @@ func TestNewAppConfig_CustomConfigDir(t *testing.T) {
 
 func TestNewAppConfig_CustomConfigName(t *testing.T) {
 	// Arrange
-	os.Clearenv()
-	os.Setenv(envAppEnv, "test")
-	os.Setenv(envAppServiceName, "test-service")
-	os.Setenv(envAppServiceVersion, "1.0.0")
-	os.Setenv(envConfigName, "custom-config")
+	t.Setenv(envAppEnv, "test")
+	t.Setenv(envAppServiceName, "test-service")
+	t.Setenv(envAppServiceVersion, "1.0.0")
+	t.Setenv(envConfigName, "custom-config")
 
 	// Act
 	cfg, err := newAppConfig()
@@ -119,12 +113,11 @@ func TestNewAppConfig_CustomConfigName(t *testing.T) {
 
 func TestNewAppConfig_CustomConfigDirAndName(t *testing.T) {
 	// Arrange
-	os.Clearenv()
-	os.Setenv(envAppEnv, "pro")
-	os.Setenv(envAppServiceName, "test-service")
-	os.Setenv(envAppServiceVersion, "2.1.0")
-	os.Setenv(envConfigDir, "/opt/config")
-	os.Setenv(envConfigName, "app")
+	t.Setenv(envAppEnv, "pro")
+	t.Setenv(envAppServiceName, "test-service")
+	t.Setenv(envAppServiceVersion, "2.1.0")
+	t.Setenv(envConfigDir, "/opt/config")
+	t.Setenv(envConfigName, "app")
 
 	// Act
 	cfg, err := newAppConfig()
@@ -163,16 +156,56 @@ func TestNewAppConfig_DifferentEnvironments(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			// Arrange
-			os.Clearenv()
-			os.Setenv(envAppEnv, tt.env)
-			os.Setenv(envAppServiceName, "test-service")
-			os.Setenv(envAppServiceVersion, "1.0.0") // Act
+			t.Setenv(envAppEnv, tt.env)
+			t.Setenv(envAppServiceName, "test-service")
+			t.Setenv(envAppServiceVersion, "1.0.0")
+
+			// Act
 			cfg, err := newAppConfig()
 
 			// Assert
 			require.NoError(t, err)
 			assert.Equal(t, tt.env, cfg.Environment)
 			assert.Equal(t, tt.expectedCfg, cfg.ConfigFile)
+			assert.False(t, cfg.IsKubernetes)
+		})
+	}
+}
+
+func TestNewAppConfig_KubernetesDetection(t *testing.T) {
+	tests := []struct {
+		name               string
+		setKubernetesEnv   bool
+		expectedKubernetes bool
+	}{
+		{
+			name:               "running in Kubernetes",
+			setKubernetesEnv:   true,
+			expectedKubernetes: true,
+		},
+		{
+			name:               "not running in Kubernetes",
+			setKubernetesEnv:   false,
+			expectedKubernetes: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			// Arrange
+			t.Setenv(envAppEnv, "test")
+			t.Setenv(envAppServiceName, "test-service")
+			t.Setenv(envAppServiceVersion, "1.0.0")
+			if tt.setKubernetesEnv {
+				t.Setenv(envKubernetesServiceHost, "10.96.0.1")
+			}
+
+			// Act
+			cfg, err := newAppConfig()
+
+			// Assert
+			require.NoError(t, err)
+			assert.Equal(t, tt.expectedKubernetes, cfg.IsKubernetes)
 		})
 	}
 }

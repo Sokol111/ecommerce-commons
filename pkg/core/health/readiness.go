@@ -198,6 +198,12 @@ func (r *readiness) WaitForTrafficReady(ctx context.Context) error {
 }
 
 func (r *readiness) MarkTrafficReady() {
+	// Check if all components are ready first
+	if !r.IsReady() {
+		r.logger.Warn("Attempted to mark traffic ready before all components are ready - ignoring")
+		return
+	}
+
 	select {
 	case <-r.kubernetesReadyChan:
 		return

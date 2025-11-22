@@ -8,11 +8,15 @@ import (
 )
 
 type healthHandler struct {
-	readiness coreHealth.ReadinessChecker
+	readiness      coreHealth.ReadinessChecker
+	trafficControl coreHealth.TrafficController
 }
 
-func newHealthHandler(r coreHealth.ReadinessChecker) *healthHandler {
-	return &healthHandler{readiness: r}
+func newHealthHandler(r coreHealth.ReadinessChecker, tc coreHealth.TrafficController) *healthHandler {
+	return &healthHandler{
+		readiness:      r,
+		trafficControl: tc,
+	}
 }
 
 func (h *healthHandler) IsReady(c *gin.Context) {
@@ -29,6 +33,8 @@ func (h *healthHandler) IsReady(c *gin.Context) {
 
 	// Default simple response for Kubernetes probes
 	if h.readiness.IsReady() {
+		// Notify that we're ready for traffic (idempotent - safe to call multiple times)
+		h.trafficControl.MarkTrafficReady()
 		c.String(http.StatusOK, "ready")
 	} else {
 		c.String(http.StatusServiceUnavailable, "not ready")

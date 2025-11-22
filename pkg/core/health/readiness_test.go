@@ -350,6 +350,39 @@ func TestMarkTrafficReady(t *testing.T) {
 
 		assert.Equal(t, firstNotifiedAt, secondNotifiedAt)
 	})
+
+	t.Run("ignores MarkTrafficReady when components not ready", func(t *testing.T) {
+		logger := zap.NewNop()
+		r := newReadiness(logger, false)
+
+		r.AddComponent("database")
+		r.AddComponent("cache")
+		r.MarkReady("database") // Only one component ready
+
+		// Try to mark traffic ready prematurely
+		r.MarkTrafficReady()
+
+		status := r.GetStatus()
+		assert.True(t, status.KubernetesNotifiedAt.IsZero(), "Should not mark traffic ready when not all components are ready")
+
+		// Now mark the second component ready
+		r.MarkReady("cache")
+		r.MarkTrafficReady()
+
+		status = r.GetStatus()
+		assert.False(t, status.KubernetesNotifiedAt.IsZero(), "Should mark traffic ready after all components are ready")
+	})
+
+	t.Run("ignores MarkTrafficReady when no components", func(t *testing.T) {
+		logger := zap.NewNop()
+		r := newReadiness(logger, false)
+
+		// Try to mark traffic ready with no components
+		r.MarkTrafficReady()
+
+		status := r.GetStatus()
+		assert.True(t, status.KubernetesNotifiedAt.IsZero(), "Should not mark traffic ready with no components")
+	})
 }
 
 func TestWaitForTrafficReady(t *testing.T) {
@@ -483,6 +516,54 @@ func TestWaitForTrafficReady(t *testing.T) {
 		err := r.WaitForTrafficReady(ctx)
 		assert.Error(t, err)
 		assert.Equal(t, context.DeadlineExceeded, err)
+	})
+
+	t.Run("premature MarkTrafficReady does not affect WaitForTrafficReady in kubernetes mode", func(t *testing.T) {
+		logger := zap.NewNop()
+		r := newReadiness(logger, true)
+
+		r.AddComponent("database")
+
+		// Try to mark traffic ready before components are ready
+		r.MarkTrafficReady()
+
+		ready := make(chan struct{})
+		go func() {
+			ctx := context.Background()
+			err := r.WaitForTrafficReady(ctx)
+			assert.NoError(t, err)
+			close(ready)
+		}()
+
+		// Should not be ready yet
+		select {
+		case <-ready:
+			t.Fatal("should not be ready yet - premature MarkTrafficReady should be ignored")
+		case <-time.After(50 * time.Millisecond):
+			// Expected
+		}
+
+		// Mark component ready
+		r.MarkReady("database")
+
+		// Still should not be ready - waiting for proper traffic ready signal
+		select {
+		case <-ready:
+			t.Fatal("should not be ready yet - need proper MarkTrafficReady after components ready")
+		case <-time.After(50 * time.Millisecond):
+			// Expected
+		}
+
+		// Now properly mark traffic ready
+		r.MarkTrafficReady()
+
+		// Should become ready now
+		select {
+		case <-ready:
+			// Expected
+		case <-time.After(100 * time.Millisecond):
+			t.Fatal("should be ready now")
+		}
 	})
 }
 

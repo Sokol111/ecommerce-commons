@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"net/http"
+	"time"
 
 	"github.com/Sokol111/ecommerce-commons/pkg/http/problems"
 	"github.com/Sokol111/ecommerce-commons/pkg/http/server"
@@ -13,58 +14,44 @@ import (
 	"golang.org/x/sync/semaphore"
 )
 
-// NewHTTPBulkheadMiddleware creates an HTTP bulkhead middleware that limits concurrent requests
-func NewHTTPBulkheadMiddleware(serverConfig server.Config, log *zap.Logger, priority int) Middleware {
-	config := serverConfig.Bulkhead
-
-	// Skip if disabled
-	if !config.Enabled {
-		return Middleware{
-			Priority: priority,
-			Handler:  nil, // Will be skipped in newEngine
-		}
-	}
-
+// newHTTPBulkheadMiddleware creates an HTTP bulkhead middleware that limits concurrent requests
+func newHTTPBulkheadMiddleware(maxConcurrent int, timeout time.Duration, log *zap.Logger) gin.HandlerFunc {
 	// Create semaphore for bulkhead
-	sem := semaphore.NewWeighted(int64(config.MaxConcurrent))
+	sem := semaphore.NewWeighted(int64(maxConcurrent))
 
 	log.Info("HTTP bulkhead initialized",
-		zap.Int("max-concurrent", config.MaxConcurrent),
-		zap.Duration("timeout", config.Timeout),
+		zap.Int("max-concurrent", maxConcurrent),
+		zap.Duration("timeout", timeout),
 	)
 
-	return Middleware{
-		Priority: priority,
-		Handler: func(c *gin.Context) {
-			// Allow health checks without bulkhead
-			if c.Request.URL.Path == "/health/live" || c.Request.URL.Path == "/health/ready" {
-				c.Next()
-				return
-			}
-
-			// Create timeout context for acquiring bulkhead slot
-			ctx, cancel := context.WithTimeout(c.Request.Context(), config.Timeout)
-			defer cancel()
-
-			// Try to acquire semaphore slot
-			if err := sem.Acquire(ctx, 1); err != nil {
-				log.Warn("HTTP bulkhead acquisition failed - rejecting request",
-					zap.Duration("timeout", config.Timeout),
-					zap.Int("max-concurrent", config.MaxConcurrent),
-					zap.Error(err),
-				)
-
-				problem := problems.New(http.StatusServiceUnavailable, "too many concurrent requests, please try again later")
-				problem.Instance = c.Request.URL.Path
-				c.Error(errors.New(problem.Detail)).SetMeta(problem)
-				c.Abort()
-				return
-			}
-			defer sem.Release(1)
-
-			// Process request
+	return func(c *gin.Context) {
+		// Allow health checks without bulkhead
+		if c.Request.URL.Path == "/health/live" || c.Request.URL.Path == "/health/ready" {
 			c.Next()
-		},
+			return
+		}
+
+		// Create timeout context for acquiring bulkhead slot
+		ctx, cancel := context.WithTimeout(c.Request.Context(), timeout)
+		defer cancel()
+
+		// Try to acquire semaphore slot
+		if err := sem.Acquire(ctx, 1); err != nil {
+			log.Warn("HTTP bulkhead acquisition failed - rejecting request",
+				zap.Duration("timeout", timeout),
+				zap.Int("max-concurrent", maxConcurrent),
+				zap.Error(err),
+			)
+
+			problem := problems.New(http.StatusServiceUnavailable, "too many concurrent requests, please try again later")
+			problem.Instance = c.Request.URL.Path
+			c.AbortWithError(problem.Status, errors.New(problem.Detail)).SetMeta(problem)
+			return
+		}
+		defer sem.Release(1)
+
+		// Process request
+		c.Next()
 	}
 }
 
@@ -73,7 +60,17 @@ func HTTPBulkheadModule(priority int) fx.Option {
 	return fx.Provide(
 		fx.Annotate(
 			func(serverConfig server.Config, log *zap.Logger) Middleware {
-				return NewHTTPBulkheadMiddleware(serverConfig, log, priority)
+				// Skip if disabled
+				if !serverConfig.Bulkhead.Enabled {
+					return Middleware{
+						Priority: priority,
+						Handler:  nil, // Will be skipped in newEngine
+					}
+				}
+				return Middleware{
+					Priority: priority,
+					Handler:  newHTTPBulkheadMiddleware(serverConfig.Bulkhead.MaxConcurrent, serverConfig.Bulkhead.Timeout, log),
+				}
 			},
 			fx.ResultTags(`group:"gin_mw"`),
 		),

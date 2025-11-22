@@ -41,8 +41,8 @@ func RegisterHandlerAndConsumer(
 		), // Handler is private to this module
 		fx.Provide(
 			fx.Annotate(
-				func(lc fx.Lifecycle, log *zap.Logger, conf config.Config, h Handler, readiness health.Readiness, deserializer Deserializer, p producer.Producer) (Consumer, error) {
-					return provideConsumer(lc, log, conf, consumerName, h, deserializer, readiness, p)
+				func(lc fx.Lifecycle, log *zap.Logger, conf config.Config, h Handler, cm health.ComponentManager, rw health.ReadinessWaiter, deserializer Deserializer, p producer.Producer) (Consumer, error) {
+					return provideConsumer(lc, log, conf, consumerName, h, deserializer, cm, rw, p)
 				},
 				fx.ResultTags(`group:"kafka_consumers"`), // Consumer is exported to group
 			),
@@ -57,7 +57,8 @@ func provideConsumer(
 	consumerName string,
 	handler Handler,
 	deserializer Deserializer,
-	readiness health.Readiness,
+	componentMgr health.ComponentManager,
+	readinessWaiter health.ReadinessWaiter,
 	dlqProducer producer.Producer,
 ) (Consumer, error) {
 	var consumerConf *config.ConsumerConfig
@@ -105,7 +106,7 @@ func provideConsumer(
 		logFields = append(logFields, zap.String("dlq_topic", dlqTopic))
 	}
 
-	reader := newReader(kafkaConsumer, consumerConf.Topic, messagesChan, log.With(logFields...), readiness)
+	reader := newReader(kafkaConsumer, consumerConf.Topic, messagesChan, log.With(logFields...), readinessWaiter)
 	processor := newProcessor(kafkaConsumer, messagesChan, handler, deserializer, log.With(logFields...), producerForDLQ, dlqTopic)
 	initializer := newInitializer(
 		kafkaConsumer,
@@ -117,14 +118,14 @@ func provideConsumer(
 
 	c := newConsumer(reader, processor, initializer, log.With(logFields...))
 
-	readiness.AddComponent("kafka-consumer-" + consumerName)
+	componentMgr.AddComponent("kafka-consumer-" + consumerName)
 	lc.Append(fx.Hook{
 		OnStart: func(ctx context.Context) error {
 			if err := c.Start(ctx); err != nil {
 				return err
 			}
 			// Signal readiness after successful consumer start
-			readiness.MarkReady("kafka-consumer-" + consumerName)
+			componentMgr.MarkReady("kafka-consumer-" + consumerName)
 			return nil
 		},
 		OnStop: func(ctx context.Context) error {

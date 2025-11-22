@@ -27,7 +27,7 @@ func NewOutboxModule() fx.Option {
 	)
 }
 
-func provideOutbox(lc fx.Lifecycle, log *zap.Logger, store Store, channels *channels, migrator migrations.Migrator, readiness health.Readiness) Outbox {
+func provideOutbox(lc fx.Lifecycle, log *zap.Logger, store Store, channels *channels, migrator migrations.Migrator, readiness health.ComponentManager) Outbox {
 	if migrator != nil {
 		readiness.AddComponent("outbox-migrations")
 		lc.Append(fx.Hook{

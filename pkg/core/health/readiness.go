@@ -6,38 +6,8 @@ import (
 	"sync"
 	"time"
 
-	"go.uber.org/fx"
 	"go.uber.org/zap"
 )
-
-func NewReadinessModule() fx.Option {
-	return fx.Provide(newReadiness)
-}
-
-type ComponentStatus struct {
-	Name      string    `json:"name"`
-	Ready     bool      `json:"ready"`
-	StartedAt time.Time `json:"started_at"`
-	ReadyAt   time.Time `json:"ready_at,omitempty"`
-}
-
-type ReadinessStatus struct {
-	Ready                bool              `json:"ready"`
-	Components           []ComponentStatus `json:"components"`
-	ReadyAt              time.Time         `json:"ready_at,omitempty"`
-	KubernetesNotifiedAt time.Time         `json:"kubernetes_notified_at,omitempty"`
-}
-
-type Readiness interface {
-	AddComponent(name string)
-	MarkReady(name string)
-	IsReady() bool
-	GetStatus() ReadinessStatus
-	NotifyKubernetesProbe()                        // Called when readiness probe returns 200 OK
-	IsKubernetesReady() bool                       // Check if Kubernetes already knows we're ready
-	WaitReady(ctx context.Context) error           // Wait until all components are ready
-	WaitKubernetesReady(ctx context.Context) error // Wait until Kubernetes has been notified
-}
 
 type component struct {
 	name      string
@@ -54,16 +24,25 @@ type readiness struct {
 	kubernetesReadyChan  chan struct{}
 	kubernetesReadyOnce  sync.Once
 	kubernetesNotifiedAt time.Time
+	isKubernetes         bool
 	logger               *zap.Logger
 }
 
-func newReadiness(logger *zap.Logger) Readiness {
-	return &readiness{
+func newReadiness(logger *zap.Logger, isKubernetes bool) *readiness {
+	r := &readiness{
 		components:          make(map[string]*component),
 		readyChan:           make(chan struct{}),
 		kubernetesReadyChan: make(chan struct{}),
+		isKubernetes:        isKubernetes,
 		logger:              logger,
 	}
+
+	// In local mode, automatically mark as ready for traffic
+	if !isKubernetes {
+		logger.Info("Running in local mode - traffic readiness will be automatic")
+	}
+
+	return r
 }
 
 func (r *readiness) AddComponent(name string) {
@@ -186,41 +165,6 @@ func (r *readiness) GetStatus() ReadinessStatus {
 	return status
 }
 
-// NotifyKubernetesProbe records when Kubernetes readiness probe first received 200 OK
-func (r *readiness) NotifyKubernetesProbe() {
-	// Fast path: check if already notified
-	if r.IsKubernetesReady() {
-		return
-	}
-
-	// Only notify if we're ready
-	if !r.IsReady() {
-		return
-	}
-
-	// Close channel once to signal Kubernetes notification
-	r.kubernetesReadyOnce.Do(func() {
-		r.mu.Lock()
-		r.kubernetesNotifiedAt = time.Now()
-		r.mu.Unlock()
-		close(r.kubernetesReadyChan)
-		r.logger.Info("Kubernetes readiness probe notified",
-			zap.Time("notified_at", r.kubernetesNotifiedAt),
-		)
-	})
-}
-
-// IsKubernetesReady returns true if Kubernetes has been notified about ready status
-// This happens when readiness probe first receives 200 OK response
-func (r *readiness) IsKubernetesReady() bool {
-	select {
-	case <-r.kubernetesReadyChan:
-		return true
-	default:
-		return false
-	}
-}
-
 // WaitReady blocks until all components are ready or context is cancelled
 func (r *readiness) WaitReady(ctx context.Context) error {
 	select {
@@ -231,12 +175,42 @@ func (r *readiness) WaitReady(ctx context.Context) error {
 	}
 }
 
-// WaitKubernetesReady blocks until Kubernetes has been notified about readiness or context is cancelled
-func (r *readiness) WaitKubernetesReady(ctx context.Context) error {
+func (r *readiness) WaitForTrafficReady(ctx context.Context) error {
+	// First wait for all components to be ready
+	if err := r.WaitReady(ctx); err != nil {
+		return err
+	}
+
+	// In local mode, we're ready to handle traffic immediately
+	if !r.isKubernetes {
+		r.logger.Debug("Local mode - ready for traffic immediately")
+		return nil
+	}
+
+	// In Kubernetes mode, wait for the readiness probe to confirm
+	r.logger.Info("Kubernetes mode - waiting for readiness probe confirmation")
 	select {
 	case <-r.kubernetesReadyChan:
 		return nil
 	case <-ctx.Done():
 		return ctx.Err()
 	}
+}
+
+func (r *readiness) MarkTrafficReady() {
+	select {
+	case <-r.kubernetesReadyChan:
+		return
+	default:
+	}
+
+	r.kubernetesReadyOnce.Do(func() {
+		r.mu.Lock()
+		r.kubernetesNotifiedAt = time.Now()
+		r.mu.Unlock()
+		close(r.kubernetesReadyChan)
+		r.logger.Info("Traffic readiness manually marked",
+			zap.Time("marked_at", r.kubernetesNotifiedAt),
+		)
+	})
 }

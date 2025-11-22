@@ -16,7 +16,7 @@ func NewProducerModule() fx.Option {
 	)
 }
 
-func provideProducer(lc fx.Lifecycle, log *zap.Logger, conf config.Config, readiness health.Readiness) (Producer, error) {
+func provideProducer(lc fx.Lifecycle, log *zap.Logger, conf config.Config, readiness health.ComponentManager) (Producer, error) {
 	p, err := newProducer(conf, log.With(zap.String("component", "producer")))
 
 	if err != nil {

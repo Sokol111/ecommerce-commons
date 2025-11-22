@@ -16,7 +16,7 @@ func NewHttpServerModule() fx.Option {
 	)
 }
 
-func startHTTPServer(lc fx.Lifecycle, log *zap.Logger, conf Config, engine *gin.Engine, readiness health.Readiness, shutdowner fx.Shutdowner) {
+func startHTTPServer(lc fx.Lifecycle, log *zap.Logger, conf Config, engine *gin.Engine, readiness health.ComponentManager, shutdowner fx.Shutdowner) {
 	var srv Server
 	readiness.AddComponent("http-server")
 	lc.Append(fx.Hook{

@@ -16,7 +16,7 @@ type reader struct {
 	topic        string
 	messagesChan chan<- *kafka.Message
 	log          *zap.Logger
-	readiness    health.Readiness
+	readiness    health.ReadinessWaiter
 
 	ctx        context.Context
 	cancelFunc context.CancelFunc
@@ -28,7 +28,7 @@ func newReader(
 	topic string,
 	messagesChan chan<- *kafka.Message,
 	log *zap.Logger,
-	readiness health.Readiness,
+	readiness health.ReadinessWaiter,
 ) *reader {
 	return &reader{
 		consumer:     consumer,
@@ -67,13 +67,13 @@ func (r *reader) run() {
 		r.wg.Done()
 	}()
 
-	// Wait for Kubernetes readiness before starting to read messages
-	r.log.Info("waiting for Kubernetes readiness before reading messages")
-	if err := r.readiness.WaitKubernetesReady(r.ctx); err != nil {
-		r.log.Info("context cancelled while waiting for Kubernetes readiness")
+	// Wait for traffic readiness before starting to read messages
+	r.log.Info("waiting for traffic readiness before reading messages")
+	if err := r.readiness.WaitForTrafficReady(r.ctx); err != nil {
+		r.log.Info("context cancelled while waiting for traffic readiness")
 		return
 	}
-	r.log.Info("Kubernetes readiness achieved, starting to read messages")
+	r.log.Info("traffic readiness achieved, starting to read messages")
 
 	// Log initial partition assignment
 	r.logPartitionAssignment()

@@ -19,7 +19,7 @@ func recoveryMiddleware() gin.HandlerFunc {
 					zap.Any("panic", r),
 					zap.ByteString("stack", debug.Stack()),
 				)
-				logger.FromContext(c).Error("Panic recovered", fields...)
+				logger.Get(c).Error("Panic recovered", fields...)
 				c.AbortWithStatus(http.StatusInternalServerError)
 			}
 		}()

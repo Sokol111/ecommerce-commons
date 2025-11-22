@@ -78,5 +78,5 @@ func (o *outbox) injectTraceContext(ctx context.Context, headers map[string]stri
 }
 
 func (o *outbox) log(ctx context.Context) *zap.Logger {
-	return logger.FromContext(ctx).With(zap.String("component", "outbox"))
+	return logger.Get(ctx).With(zap.String("component", "outbox"))
 }

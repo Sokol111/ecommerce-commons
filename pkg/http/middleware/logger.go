@@ -31,7 +31,7 @@ func loggerMiddleware() gin.HandlerFunc {
 			zap.String("user_agent", c.Request.UserAgent()),
 		)
 
-		logger.FromContext(c).Debug("Incoming request", fields...)
+		logger.Get(c).Debug("Incoming request", fields...)
 	}
 }
 

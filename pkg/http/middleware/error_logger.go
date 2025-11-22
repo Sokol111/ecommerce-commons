@@ -13,7 +13,7 @@ func errorLoggerMiddleware() gin.HandlerFunc {
 		c.Next()
 
 		if len(c.Errors) > 0 {
-			log := logger.FromContext(c)
+			log := logger.Get(c)
 			for _, e := range c.Errors {
 				fields := append(requestFields(c),
 					zap.Int("status", c.Writer.Status()),

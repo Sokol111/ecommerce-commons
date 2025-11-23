@@ -17,7 +17,7 @@ func TestNewCircuitBreakerMiddleware(t *testing.T) {
 	t.Run("allows requests when circuit is closed", func(t *testing.T) {
 		logger := zap.NewNop()
 		cb := newCircuitBreaker(5, 10*time.Second, 5*time.Second, 3, logger)
-		middleware := newCircuitBreakerMiddleware(cb, logger)
+		middleware := newCircuitBreakerMiddleware(cb)
 
 		router := gin.New()
 		router.Use(middleware)
@@ -39,7 +39,7 @@ func TestNewCircuitBreakerMiddleware(t *testing.T) {
 		logger := zap.NewNop()
 		// Create circuit breaker in open state
 		cb := newCircuitBreaker(1, 10*time.Second, 100*time.Millisecond, 1, logger)
-		middleware := newCircuitBreakerMiddleware(cb, logger)
+		middleware := newCircuitBreakerMiddleware(cb)
 
 		// Force circuit to open by triggering failures
 		router := gin.New()
@@ -81,7 +81,7 @@ func TestNewCircuitBreakerMiddleware(t *testing.T) {
 		logger := zap.NewNop()
 		failureThreshold := uint32(3)
 		cb := newCircuitBreaker(5, 10*time.Second, 1*time.Second, failureThreshold, logger)
-		middleware := newCircuitBreakerMiddleware(cb, logger)
+		middleware := newCircuitBreakerMiddleware(cb)
 
 		router := gin.New()
 		router.Use(middleware)
@@ -113,7 +113,7 @@ func TestNewCircuitBreakerMiddleware(t *testing.T) {
 	t.Run("rejects requests when circuit is open", func(t *testing.T) {
 		logger := zap.NewNop()
 		cb := newCircuitBreaker(5, 10*time.Second, 100*time.Millisecond, 2, logger)
-		middleware := newCircuitBreakerMiddleware(cb, logger)
+		middleware := newCircuitBreakerMiddleware(cb)
 
 		router := gin.New()
 		router.Use(middleware)
@@ -141,7 +141,7 @@ func TestNewCircuitBreakerMiddleware(t *testing.T) {
 	t.Run("does not trip circuit on 4xx errors", func(t *testing.T) {
 		logger := zap.NewNop()
 		cb := newCircuitBreaker(5, 10*time.Second, 5*time.Second, 3, logger)
-		middleware := newCircuitBreakerMiddleware(cb, logger)
+		middleware := newCircuitBreakerMiddleware(cb)
 
 		router := gin.New()
 		router.Use(middleware)
@@ -177,7 +177,7 @@ func TestNewCircuitBreakerMiddleware(t *testing.T) {
 	t.Run("trips circuit only on 5xx errors", func(t *testing.T) {
 		logger := zap.NewNop()
 		cb := newCircuitBreaker(5, 10*time.Second, 1*time.Second, 3, logger)
-		middleware := newCircuitBreakerMiddleware(cb, logger)
+		middleware := newCircuitBreakerMiddleware(cb)
 
 		requestCount := 0
 		router := gin.New()
@@ -238,7 +238,7 @@ func TestNewCircuitBreakerMiddleware(t *testing.T) {
 		logger := zap.NewNop()
 		timeout := 200 * time.Millisecond
 		cb := newCircuitBreaker(1, 10*time.Second, timeout, 1, logger)
-		middleware := newCircuitBreakerMiddleware(cb, logger)
+		middleware := newCircuitBreakerMiddleware(cb)
 
 		failureCount := 0
 		router := gin.New()
@@ -286,7 +286,7 @@ func TestNewCircuitBreakerMiddleware(t *testing.T) {
 	t.Run("handles aborted requests correctly", func(t *testing.T) {
 		logger := zap.NewNop()
 		cb := newCircuitBreaker(5, 10*time.Second, 5*time.Second, 1, logger)
-		middleware := newCircuitBreakerMiddleware(cb, logger)
+		middleware := newCircuitBreakerMiddleware(cb)
 
 		router := gin.New()
 		router.Use(middleware)
@@ -321,7 +321,7 @@ func TestNewCircuitBreakerMiddleware(t *testing.T) {
 	t.Run("successful requests keep circuit closed", func(t *testing.T) {
 		logger := zap.NewNop()
 		cb := newCircuitBreaker(5, 10*time.Second, 5*time.Second, 3, logger)
-		middleware := newCircuitBreakerMiddleware(cb, logger)
+		middleware := newCircuitBreakerMiddleware(cb)
 
 		router := gin.New()
 		router.Use(middleware)
@@ -350,7 +350,7 @@ func TestNewCircuitBreakerMiddleware(t *testing.T) {
 		logger := zap.NewNop()
 		timeout := 150 * time.Millisecond
 		cb := newCircuitBreaker(1, 10*time.Second, timeout, 1, logger)
-		middleware := newCircuitBreakerMiddleware(cb, logger)
+		middleware := newCircuitBreakerMiddleware(cb)
 
 		requestCount := 0
 		router := gin.New()
@@ -398,7 +398,7 @@ func TestNewCircuitBreakerMiddleware(t *testing.T) {
 	t.Run("handles mixed success and failure scenarios", func(t *testing.T) {
 		logger := zap.NewNop()
 		cb := newCircuitBreaker(5, 10*time.Second, 5*time.Second, 3, logger)
-		middleware := newCircuitBreakerMiddleware(cb, logger)
+		middleware := newCircuitBreakerMiddleware(cb)
 
 		requestCount := 0
 		router := gin.New()

@@ -1,7 +1,5 @@
 package problems
 
-import "net/http"
-
 // Problem represents RFC7807 Problem Details for HTTP APIs
 type Problem struct {
 	Type     string       `json:"type,omitempty"`
@@ -16,14 +14,4 @@ type Problem struct {
 type FieldError struct {
 	Field   string `json:"field,omitempty"`
 	Message string `json:"message"`
-}
-
-// New creates a new Problem with the given status and detail
-func New(status int, detail string) *Problem {
-	return &Problem{
-		Type:   "about:blank",
-		Title:  http.StatusText(status),
-		Status: status,
-		Detail: detail,
-	}
 }

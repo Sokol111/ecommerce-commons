@@ -26,26 +26,7 @@ func problemMiddleware() gin.HandlerFunc {
 		// If meta is already a Problem, use it directly
 		if existingProblem, ok := firstErr.Meta.(*problems.Problem); ok {
 			problem = *existingProblem
-			// Ensure status is set from Problem
-			if problem.Status == 0 {
-				problem.Status = http.StatusInternalServerError
-			}
 		} else {
-			// Get status code, default to 500 if not set
-			status := c.Writer.Status()
-			if status == 0 || status == http.StatusOK {
-				status = http.StatusInternalServerError
-			}
-
-			// Build default Problem Details
-			problem = problems.Problem{
-				Type:     "about:blank",
-				Title:    http.StatusText(status),
-				Status:   status,
-				Detail:   firstErr.Error(),
-				Instance: c.Request.URL.Path,
-			}
-
 			// If meta contains field errors, add them
 			if meta, ok := firstErr.Meta.(map[string]string); ok {
 				for field, msg := range meta {
@@ -57,6 +38,24 @@ func problemMiddleware() gin.HandlerFunc {
 			}
 		}
 
+		if problem.Status == 0 {
+			problem.Status = c.Writer.Status()
+			if problem.Status == 0 {
+				problem.Status = http.StatusInternalServerError
+			}
+		}
+		if problem.Instance == "" {
+			problem.Instance = c.Request.URL.Path
+		}
+		if problem.Title == "" {
+			problem.Title = http.StatusText(problem.Status)
+		}
+		if problem.Type == "" {
+			problem.Type = "about:blank"
+		}
+		if problem.Detail == "" {
+			problem.Detail = firstErr.Error()
+		}
 		// Try to extract trace ID from OpenTelemetry context if available (if not already set)
 		if problem.TraceID == "" {
 			sc := trace.SpanContextFromContext(c)

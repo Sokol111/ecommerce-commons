@@ -45,7 +45,7 @@ func newCircuitBreaker(
 }
 
 // newCircuitBreakerMiddleware creates a circuit breaker middleware using sony/gobreaker
-func newCircuitBreakerMiddleware(cb *gobreaker.CircuitBreaker, log *zap.Logger) gin.HandlerFunc {
+func newCircuitBreakerMiddleware(cb *gobreaker.CircuitBreaker) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		// Allow health checks without circuit breaker
 		if c.Request.URL.Path == "/health/live" || c.Request.URL.Path == "/health/ready" {
@@ -72,13 +72,7 @@ func newCircuitBreakerMiddleware(cb *gobreaker.CircuitBreaker, log *zap.Logger) 
 		// Handle circuit breaker errors
 		if err != nil {
 			if err == gobreaker.ErrOpenState {
-				log.Warn("Circuit breaker is open - rejecting request",
-					zap.String("path", c.Request.URL.Path),
-					zap.String("method", c.Request.Method),
-				)
-
-				problem := problems.New(http.StatusServiceUnavailable, "service is temporarily unavailable due to circuit breaker")
-				problem.Instance = c.Request.URL.Path
+				problem := problems.Problem{Detail: "service is temporarily unavailable due to circuit breaker"}
 				c.AbortWithError(http.StatusServiceUnavailable, ErrCircuitBreakerOpen).SetMeta(problem)
 			}
 			// For other errors (like "server error"), request was already processed
@@ -116,7 +110,6 @@ func CircuitBreakerModule(priority int) fx.Option {
 							serverConfig.CircuitBreaker.FailureThreshold,
 							log,
 						),
-						log,
 					),
 				}
 			},

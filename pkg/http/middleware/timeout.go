@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"net/http"
+	"time"
 
 	"github.com/Sokol111/ecommerce-commons/pkg/http/problems"
 	"github.com/Sokol111/ecommerce-commons/pkg/http/server"
@@ -12,66 +13,39 @@ import (
 	"go.uber.org/zap"
 )
 
-// NewTimeoutMiddleware creates a middleware that adds request timeout to all requests
-func NewTimeoutMiddleware(serverConfig server.Config, log *zap.Logger, priority int) Middleware {
-	config := serverConfig.Timeout
-
-	// Skip if disabled
-	if !config.Enabled {
-		return Middleware{
-			Priority: priority,
-			Handler:  nil,
+// newTimeoutMiddleware creates a middleware that adds request timeout to all requests
+func newTimeoutMiddleware(timeout time.Duration) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		if c.Request.URL.Path == "/health/live" || c.Request.URL.Path == "/health/ready" {
+			c.Next()
+			return
 		}
-	}
 
-	log.Info("HTTP timeout middleware initialized",
-		zap.Duration("request-timeout", config.RequestTimeout),
-	)
+		// Create timeout context
+		ctx, cancel := context.WithTimeout(c.Request.Context(), timeout)
+		defer cancel()
 
-	return Middleware{
-		Priority: priority,
-		Handler: func(c *gin.Context) {
-			// Allow health checks without timeout
-			if c.Request.URL.Path == "/health/live" || c.Request.URL.Path == "/health/ready" {
-				c.Next()
-				return
-			}
+		// Replace request context with timeout context
+		c.Request = c.Request.WithContext(ctx)
 
-			// Create timeout context
-			ctx, cancel := context.WithTimeout(c.Request.Context(), config.RequestTimeout)
-			defer cancel()
+		// Channel to track if request completed
+		finished := make(chan struct{})
 
-			// Replace request context with timeout context
-			c.Request = c.Request.WithContext(ctx)
+		// Process request in goroutine
+		go func() {
+			c.Next()
+			close(finished)
+		}()
 
-			// Channel to track if request completed
-			finished := make(chan struct{})
-
-			// Process request in goroutine
-			go func() {
-				c.Next()
-				close(finished)
-			}()
-
-			// Wait for completion or timeout
-			select {
-			case <-finished:
-				// Request completed successfully
-				return
-			case <-ctx.Done():
-				// Timeout occurred
-				log.Warn("HTTP request timeout",
-					zap.String("path", c.Request.URL.Path),
-					zap.String("method", c.Request.Method),
-					zap.Duration("timeout", config.RequestTimeout),
-				)
-
-				problem := problems.New(http.StatusGatewayTimeout, "request took too long to process")
-				problem.Instance = c.Request.URL.Path
-				c.Error(errors.New(problem.Detail)).SetMeta(problem)
-				c.Abort()
-			}
-		},
+		// Wait for completion or timeout
+		select {
+		case <-finished:
+			// Request completed successfully
+			return
+		case <-ctx.Done():
+			problem := problems.Problem{Detail: "request took too long to process"}
+			c.AbortWithError(http.StatusGatewayTimeout, errors.New("HTTP request timeout")).SetMeta(problem)
+		}
 	}
 }
 
@@ -80,7 +54,20 @@ func TimeoutModule(priority int) fx.Option {
 	return fx.Provide(
 		fx.Annotate(
 			func(serverConfig server.Config, log *zap.Logger) Middleware {
-				return NewTimeoutMiddleware(serverConfig, log, priority)
+				if !serverConfig.Timeout.Enabled {
+					return Middleware{
+						Priority: priority,
+						Handler:  nil, // Will be skipped in newEngine
+					}
+
+				}
+				log.Info("HTTP timeout middleware initialized",
+					zap.Duration("request-timeout", serverConfig.Timeout.RequestTimeout),
+				)
+				return Middleware{
+					Priority: priority,
+					Handler:  newTimeoutMiddleware(serverConfig.Timeout.RequestTimeout),
+				}
 			},
 			fx.ResultTags(`group:"gin_mw"`),
 		),

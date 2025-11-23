@@ -4,7 +4,7 @@ import (
 	"strings"
 
 	"github.com/Sokol111/ecommerce-commons/pkg/core/config"
-	commongin "github.com/Sokol111/ecommerce-commons/pkg/http/middleware"
+	"github.com/Sokol111/ecommerce-commons/pkg/http/middleware"
 	"github.com/gin-gonic/gin"
 	"go.opentelemetry.io/contrib/instrumentation/github.com/gin-gonic/gin/otelgin"
 	"go.opentelemetry.io/otel/metric"
@@ -25,9 +25,9 @@ func NewHTTPTelemetryModule() fx.Option {
 	return fx.Options(
 		fx.Provide(
 			fx.Annotate(
-				func(d deps) commongin.Middleware {
+				func(d deps) middleware.Middleware {
 					if !d.Conf.TracingEnabled && !d.Conf.MetricsEnabled {
-						return commongin.Middleware{}
+						return middleware.Middleware{}
 					}
 
 					opts := []otelgin.Option{
@@ -50,7 +50,7 @@ func NewHTTPTelemetryModule() fx.Option {
 						opts = append(opts, otelgin.WithMeterProvider(d.MP))
 					}
 
-					return commongin.Middleware{
+					return middleware.Middleware{
 						Priority: 5, // First middleware to create tracing span for entire request
 						Handler:  otelgin.Middleware(d.AppConf.ServiceName, opts...),
 					}

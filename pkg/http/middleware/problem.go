@@ -54,7 +54,7 @@ func problemMiddleware() gin.HandlerFunc {
 			problem.Type = "about:blank"
 		}
 		if problem.Detail == "" {
-			problem.Detail = firstErr.Error()
+			problem.Detail = http.StatusText(problem.Status)
 		}
 		// Try to extract trace ID from OpenTelemetry context if available (if not already set)
 		if problem.TraceID == "" {

@@ -125,22 +125,25 @@ func GetTraceId(ctx context.Context) string {
 	return sc.TraceID().String()
 }
 
+func GetTraceIdAndSpanId(ctx context.Context) (string, string) {
+	sc := trace.SpanContextFromContext(ctx)
+	if !sc.IsValid() {
+		return "", ""
+	}
+	return sc.TraceID().String(), sc.SpanID().String()
+}
+
 func tracingLoggerMiddleware(log *zap.Logger) gin.HandlerFunc {
 	return func(c *gin.Context) {
-		l := withTrace(c.Request.Context(), log)
-		ctx := logger.With(c.Request.Context(), l)
+		traceId, spanId := GetTraceIdAndSpanId(c)
+		if traceId != "" && spanId != "" {
+			log = log.With(
+				zap.String("trace_id", traceId),
+				zap.String("span_id", spanId),
+			)
+		}
+		ctx := logger.With(c.Request.Context(), log)
 		c.Request = c.Request.WithContext(ctx)
 		c.Next()
 	}
-}
-
-func withTrace(ctx context.Context, log *zap.Logger) *zap.Logger {
-	sc := trace.SpanContextFromContext(ctx)
-	if !sc.IsValid() {
-		return log
-	}
-	return log.With(
-		zap.String("trace_id", sc.TraceID().String()),
-		zap.String("span_id", sc.SpanID().String()),
-	)
 }

@@ -11,8 +11,13 @@ import (
 	"golang.org/x/time/rate"
 )
 
-// NewRateLimitMiddleware creates a rate limiting middleware
-func NewRateLimitMiddleware(limiter *rate.Limiter) gin.HandlerFunc {
+// rateLimiter defines the interface for rate limiting
+type rateLimiter interface {
+	Allow() bool
+}
+
+// newRateLimitMiddleware creates a rate limiting middleware
+func newRateLimitMiddleware(limiter rateLimiter) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		// Allow health checks without rate limiting
 		if c.Request.URL.Path == "/health/live" || c.Request.URL.Path == "/health/ready" {
@@ -45,7 +50,7 @@ func RateLimitModule(priority int) fx.Option {
 				limiter := rate.NewLimiter(rate.Limit(config.RateLimit.RequestsPerSecond), config.RateLimit.Burst)
 				return Middleware{
 					Priority: priority,
-					Handler:  NewRateLimitMiddleware(limiter),
+					Handler:  newRateLimitMiddleware(limiter),
 				}
 			},
 			fx.ResultTags(`group:"gin_mw"`),

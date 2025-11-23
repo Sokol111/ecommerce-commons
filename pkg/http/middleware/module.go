@@ -9,24 +9,24 @@ import (
 //
 //	10 - Recovery         - catches panics (must be first)
 //	20 - Logger           - logs all requests
-//	30 - Timeout          - kills hanging requests
-//	35 - CircuitBreaker   - protects against cascading failures
-//	40 - RateLimit        - limits requests/second
-//	50 - HTTPBulkhead     - limits concurrent requests
-//	60 - OpenAPIValidator - validates against schema
-//	70 - ErrorLogger      - logs errors from handlers
-//	80 - Problem          - converts errors to RFC 7807 (must be last)
+//	30 - ErrorLogger      - logs errors from ALL middleware and handlers
+//	40 - Problem          - converts errors to RFC 7807 (must wrap all error sources)
+//	50 - Timeout          - kills hanging requests
+//	60 - CircuitBreaker   - protects against cascading failures
+//	70 - RateLimit        - limits requests/second
+//	80 - HTTPBulkhead     - limits concurrent requests
+//	90 - OpenAPIValidator - validates against schema
 func NewGinModule() fx.Option {
 	return fx.Options(
 		RecoveryModule(10),
 		LoggerModule(20),
-		TimeoutModule(30),
-		CircuitBreakerModule(35),
-		RateLimitModule(40),
-		HTTPBulkheadModule(50),
-		OpenAPIValidatorModule(60),
-		ErrorLoggerModule(70),
-		ProblemModule(80),
+		ErrorLoggerModule(30),
+		ProblemModule(40),
+		TimeoutModule(50),
+		CircuitBreakerModule(60),
+		RateLimitModule(70),
+		HTTPBulkheadModule(80),
+		OpenAPIValidatorModule(90),
 		fx.Provide(provideGinAndHandler),
 	)
 }

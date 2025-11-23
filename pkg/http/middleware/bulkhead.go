@@ -45,7 +45,7 @@ func newHTTPBulkheadMiddleware(maxConcurrent int, timeout time.Duration, log *za
 
 			problem := problems.New(http.StatusServiceUnavailable, "too many concurrent requests, please try again later")
 			problem.Instance = c.Request.URL.Path
-			c.AbortWithError(problem.Status, fmt.Errorf("bulkhead acquisition failed: %w", err)).SetMeta(problem)
+			c.AbortWithError(http.StatusServiceUnavailable, fmt.Errorf("bulkhead acquisition failed: %w", err)).SetMeta(problem)
 			return
 		}
 		defer sem.Release(1)

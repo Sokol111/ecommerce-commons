@@ -15,14 +15,9 @@ import (
 )
 
 // newHTTPBulkheadMiddleware creates an HTTP bulkhead middleware that limits concurrent requests
-func newHTTPBulkheadMiddleware(maxConcurrent int, timeout time.Duration, log *zap.Logger) gin.HandlerFunc {
+func newHTTPBulkheadMiddleware(maxConcurrent int, timeout time.Duration) gin.HandlerFunc {
 	// Create semaphore for bulkhead
 	sem := semaphore.NewWeighted(int64(maxConcurrent))
-
-	log.Info("HTTP bulkhead initialized",
-		zap.Int("max-concurrent", maxConcurrent),
-		zap.Duration("timeout", timeout),
-	)
 
 	return func(c *gin.Context) {
 		// Allow health checks without bulkhead
@@ -60,9 +55,14 @@ func HTTPBulkheadModule(priority int) fx.Option {
 						Handler:  nil, // Will be skipped in newEngine
 					}
 				}
+
+				log.Info("HTTP bulkhead initialized",
+					zap.Int("max-concurrent", serverConfig.Bulkhead.MaxConcurrent),
+					zap.Duration("timeout", serverConfig.Bulkhead.Timeout),
+				)
 				return Middleware{
 					Priority: priority,
-					Handler:  newHTTPBulkheadMiddleware(serverConfig.Bulkhead.MaxConcurrent, serverConfig.Bulkhead.Timeout, log),
+					Handler:  newHTTPBulkheadMiddleware(serverConfig.Bulkhead.MaxConcurrent, serverConfig.Bulkhead.Timeout),
 				}
 			},
 			fx.ResultTags(`group:"gin_mw"`),

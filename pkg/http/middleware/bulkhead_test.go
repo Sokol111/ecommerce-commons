@@ -10,7 +10,6 @@ import (
 	"time"
 
 	"github.com/gin-gonic/gin"
-	"go.uber.org/zap"
 )
 
 func TestNewHTTPBulkheadMiddleware(t *testing.T) {
@@ -19,9 +18,8 @@ func TestNewHTTPBulkheadMiddleware(t *testing.T) {
 	t.Run("allows requests within concurrency limit", func(t *testing.T) {
 		maxConcurrent := 5
 		timeout := 100 * time.Millisecond
-		logger := zap.NewNop()
 
-		middleware := newHTTPBulkheadMiddleware(maxConcurrent, timeout, logger)
+		middleware := newHTTPBulkheadMiddleware(maxConcurrent, timeout)
 
 		router := gin.New()
 		router.Use(middleware)
@@ -42,9 +40,8 @@ func TestNewHTTPBulkheadMiddleware(t *testing.T) {
 	t.Run("allows health checks without bulkhead restriction", func(t *testing.T) {
 		maxConcurrent := 1
 		timeout := 100 * time.Millisecond
-		logger := zap.NewNop()
 
-		middleware := newHTTPBulkheadMiddleware(maxConcurrent, timeout, logger)
+		middleware := newHTTPBulkheadMiddleware(maxConcurrent, timeout)
 
 		router := gin.New()
 		router.Use(middleware)
@@ -77,9 +74,8 @@ func TestNewHTTPBulkheadMiddleware(t *testing.T) {
 	t.Run("rejects requests when concurrency limit exceeded", func(t *testing.T) {
 		maxConcurrent := 2
 		timeout := 50 * time.Millisecond
-		logger := zap.NewNop()
 
-		middleware := newHTTPBulkheadMiddleware(maxConcurrent, timeout, logger)
+		middleware := newHTTPBulkheadMiddleware(maxConcurrent, timeout)
 
 		// Channel to block handlers
 		blockChan := make(chan struct{})
@@ -138,9 +134,8 @@ func TestNewHTTPBulkheadMiddleware(t *testing.T) {
 	t.Run("rejects request when timeout exceeded waiting for slot", func(t *testing.T) {
 		maxConcurrent := 1
 		timeout := 50 * time.Millisecond
-		logger := zap.NewNop()
 
-		middleware := newHTTPBulkheadMiddleware(maxConcurrent, timeout, logger)
+		middleware := newHTTPBulkheadMiddleware(maxConcurrent, timeout)
 
 		blockChan := make(chan struct{})
 
@@ -192,9 +187,8 @@ func TestNewHTTPBulkheadMiddleware(t *testing.T) {
 	t.Run("releases semaphore after request completion", func(t *testing.T) {
 		maxConcurrent := 1
 		timeout := 100 * time.Millisecond
-		logger := zap.NewNop()
 
-		middleware := newHTTPBulkheadMiddleware(maxConcurrent, timeout, logger)
+		middleware := newHTTPBulkheadMiddleware(maxConcurrent, timeout)
 
 		router := gin.New()
 		router.Use(middleware)
@@ -224,9 +218,8 @@ func TestNewHTTPBulkheadMiddleware(t *testing.T) {
 	t.Run("handles cancelled context", func(t *testing.T) {
 		maxConcurrent := 1
 		timeout := 100 * time.Millisecond
-		logger := zap.NewNop()
 
-		middleware := newHTTPBulkheadMiddleware(maxConcurrent, timeout, logger)
+		middleware := newHTTPBulkheadMiddleware(maxConcurrent, timeout)
 
 		blockChan := make(chan struct{})
 
@@ -269,9 +262,8 @@ func TestNewHTTPBulkheadMiddleware(t *testing.T) {
 	t.Run("multiple concurrent requests up to limit succeed", func(t *testing.T) {
 		maxConcurrent := 10
 		timeout := 200 * time.Millisecond
-		logger := zap.NewNop()
 
-		middleware := newHTTPBulkheadMiddleware(maxConcurrent, timeout, logger)
+		middleware := newHTTPBulkheadMiddleware(maxConcurrent, timeout)
 
 		var maxActive int32
 		var currentActive int32

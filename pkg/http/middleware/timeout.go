@@ -13,7 +13,13 @@ import (
 	"go.uber.org/zap"
 )
 
-// newTimeoutMiddleware creates a middleware that adds request timeout to all requests
+// newTimeoutMiddleware creates a middleware that adds request timeout to all requests.
+// This middleware sets a timeout context on the request. Handlers should respect this context
+// and check for context.Done() or context.Err() to handle timeouts properly.
+//
+// Note: This middleware only sets the timeout context. If a handler doesn't check the context
+// and runs longer than the timeout, the middleware will send a timeout response after the
+// handler completes (if no response was written yet).
 func newTimeoutMiddleware(timeout time.Duration) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		if c.Request.URL.Path == "/health/live" || c.Request.URL.Path == "/health/ready" {
@@ -28,21 +34,11 @@ func newTimeoutMiddleware(timeout time.Duration) gin.HandlerFunc {
 		// Replace request context with timeout context
 		c.Request = c.Request.WithContext(ctx)
 
-		// Channel to track if request completed
-		finished := make(chan struct{})
+		// Process request
+		c.Next()
 
-		// Process request in goroutine
-		go func() {
-			c.Next()
-			close(finished)
-		}()
-
-		// Wait for completion or timeout
-		select {
-		case <-finished:
-			// Request completed successfully
-			return
-		case <-ctx.Done():
+		// After handler completes, check if context timed out and no response was sent
+		if errors.Is(ctx.Err(), context.DeadlineExceeded) && !c.Writer.Written() {
 			problem := problems.Problem{Detail: "request took too long to process"}
 			c.AbortWithError(http.StatusGatewayTimeout, errors.New("HTTP request timeout")).SetMeta(problem)
 		}

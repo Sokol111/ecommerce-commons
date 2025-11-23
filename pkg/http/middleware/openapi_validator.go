@@ -1,6 +1,7 @@
 package middleware
 
 import (
+	"errors"
 	"strings"
 
 	"github.com/getkin/kin-openapi/openapi3"
@@ -9,17 +10,26 @@ import (
 	"go.uber.org/fx"
 )
 
-// createOpenAPIValidatorHandler creates OpenAPI request validator middleware
-// that skips validation for health endpoints
-func createOpenAPIValidatorHandler(swagger *openapi3.T) gin.HandlerFunc {
-	// If swagger is not provided, return nil to skip this middleware
-	if swagger == nil {
-		return nil
+// openAPIErrorHandler handles OpenAPI validation errors
+func openAPIErrorHandler(c *gin.Context, message string, statusCode int) {
+	c.AbortWithError(statusCode, errors.New(message))
+}
+
+// createOpenAPIValidator creates OpenAPI request validator with custom options
+func createOpenAPIValidator(swagger *openapi3.T) gin.HandlerFunc {
+	swagger.Servers = nil
+
+	options := &oapiMiddleware.Options{
+		ErrorHandler:          openAPIErrorHandler,
+		SilenceServersWarning: true,
 	}
 
-	swagger.Servers = nil
-	validator := oapiMiddleware.OapiRequestValidator(swagger)
+	return oapiMiddleware.OapiRequestValidatorWithOptions(swagger, options)
+}
 
+// createOpenAPIValidatorMiddleware creates OpenAPI request validator middleware
+// that skips validation for health endpoints
+func createOpenAPIValidatorMiddleware(validator gin.HandlerFunc) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		// Skip OpenAPI validation for health endpoints
 		if strings.HasPrefix(c.Request.URL.Path, "/health/") {
@@ -36,9 +46,18 @@ func OpenAPIValidatorModule(priority int) fx.Option {
 	return fx.Provide(
 		fx.Annotate(
 			func(swagger *openapi3.T) Middleware {
+				// Skip if nil
+				if swagger == nil {
+					return Middleware{
+						Priority: priority,
+						Handler:  nil, // Will be skipped in newEngine
+					}
+				}
+
+				validator := createOpenAPIValidator(swagger)
 				return Middleware{
 					Priority: priority,
-					Handler:  createOpenAPIValidatorHandler(swagger),
+					Handler:  createOpenAPIValidatorMiddleware(validator),
 				}
 			},
 			fx.ParamTags(`optional:"true"`),

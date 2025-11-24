@@ -26,6 +26,8 @@ func problemMiddleware() gin.HandlerFunc {
 		// If meta is already a Problem, use it directly
 		if existingProblem, ok := firstErr.Meta.(*problems.Problem); ok {
 			problem = *existingProblem
+		} else if existingProblem, ok := firstErr.Meta.(problems.Problem); ok {
+			problem = existingProblem
 		} else {
 			// If meta contains field errors, add them
 			if meta, ok := firstErr.Meta.(map[string]string); ok {
@@ -58,7 +60,7 @@ func problemMiddleware() gin.HandlerFunc {
 		}
 		// Try to extract trace ID from OpenTelemetry context if available (if not already set)
 		if problem.TraceID == "" {
-			sc := trace.SpanContextFromContext(c)
+			sc := trace.SpanContextFromContext(c.Request.Context())
 			if sc.IsValid() {
 				problem.TraceID = sc.TraceID().String()
 			}

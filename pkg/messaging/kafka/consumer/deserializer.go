@@ -7,7 +7,6 @@ import (
 
 	"github.com/confluentinc/confluent-kafka-go/v2/schemaregistry"
 	hambavro "github.com/hamba/avro/v2"
-	"go.uber.org/fx"
 )
 
 // Deserializer deserializes Avro bytes to Go structs using Schema Registry
@@ -22,19 +21,6 @@ type Deserializer interface {
 
 // typeMapping maps Avro schema full names to Go types
 type typeMapping map[string]reflect.Type
-
-// RegisterTypeMapping registers Avro schema full names to Go types for deserialization
-// This should be called during application initialization before the deserializer is used
-//
-// Example:
-//
-//	consumer.RegisterTypeMapping(map[string]reflect.Type{
-//	   "com.ecommerce.events.product.ProductCreatedEvent": reflect.TypeOf(events.ProductCreatedEvent{}),
-//	   "com.ecommerce.events.product.ProductUpdatedEvent": reflect.TypeOf(events.ProductUpdatedEvent{}),
-//	})
-func RegisterTypeMapping(mapping map[string]reflect.Type) fx.Option {
-	return fx.Supply(typeMapping(mapping))
-}
 
 type schemaInfo struct {
 	schema     hambavro.Schema
@@ -80,6 +66,7 @@ func (d *avroDeserializer) Deserialize(data []byte) (interface{}, error) {
 	}
 
 	// Create new instance of the target type
+	// If goType is ProductCreatedEvent, reflect.New creates *ProductCreatedEvent
 	targetPtr := reflect.New(info.goType)
 	target := targetPtr.Interface()
 
@@ -88,7 +75,8 @@ func (d *avroDeserializer) Deserialize(data []byte) (interface{}, error) {
 		return nil, fmt.Errorf("failed to unmarshal avro data: %w", err)
 	}
 
-	// Return the pointer (for interface implementation with pointer receivers)
+	// Return pointer to the deserialized object (e.g., *ProductCreatedEvent)
+	// This is required because Event interface methods have pointer receivers
 	return target, nil
 }
 

@@ -34,9 +34,9 @@ func newInitializer(
 	}
 }
 
-// Initialize subscribes to the topic and waits until it's ready
-func (i *initializer) Initialize(ctx context.Context) error {
-	i.log.Info("initializing consumer", zap.String("topic", i.topic))
+// initialize subscribes to the topic and waits until it's ready
+func (i *initializer) initialize(ctx context.Context) error {
+	i.log.Info("initializing consumer")
 
 	// Step 1: Subscribe to topic
 	if err := i.subscribe(); err != nil {
@@ -51,65 +51,70 @@ func (i *initializer) Initialize(ctx context.Context) error {
 		defer cancel()
 	}
 
-	if err := i.waitUntilReady(ctxWithTimeout); err != nil {
-		return err
-	}
+	i.log.Info("waiting for topic to be ready",
+		zap.Int("timeout_seconds", i.timeoutSeconds),
+		zap.Bool("fail_on_topic_error", i.failOnTopicError))
 
-	// Check assigned partitions
-	assignment, err := i.consumer.Assignment()
+	err := i.waitUntilReady(ctxWithTimeout)
+
 	if err != nil {
-		return fmt.Errorf("failed to get partition assignment: %w", err)
-	}
-
-	if len(assignment) == 0 {
-		i.log.Warn("consumer has no assigned partitions - likely more consumers than partitions in the group",
-			zap.String("topic", i.topic))
-	} else {
-		partitionIDs := make([]int32, len(assignment))
-		for idx, partition := range assignment {
-			partitionIDs[idx] = partition.Partition
+		if i.failOnTopicError {
+			return err
 		}
-		i.log.Info("consumer initialized successfully with assigned partitions",
-			zap.String("topic", i.topic),
-			zap.Int32s("partitions", partitionIDs))
+		i.log.Warn("timeout waiting for topic, continuing anyway", zap.Error(err))
 	}
 
 	return nil
 }
 
 func (i *initializer) subscribe() error {
-	i.log.Info("subscribing to topic", zap.String("topic", i.topic))
+	i.log.Info("subscribing to topic")
 
-	err := i.consumer.SubscribeTopics([]string{i.topic}, nil)
+	rebalanceCb := func(c *kafka.Consumer, event kafka.Event) error {
+		switch ev := event.(type) {
+		case kafka.AssignedPartitions:
+			i.logPartitionEvent("partitions assigned", ev.Partitions)
+		case kafka.RevokedPartitions:
+			i.logPartitionEvent("partitions revoked", ev.Partitions)
+		}
+		return nil
+	}
+
+	err := i.consumer.SubscribeTopics([]string{i.topic}, rebalanceCb)
 	if err != nil {
-		i.log.Error("failed to subscribe to topic",
-			zap.String("topic", i.topic),
-			zap.Error(err))
+		i.log.Error("failed to subscribe to topic", zap.Error(err))
 		return err
 	}
 
 	return nil
 }
 
-func (i *initializer) waitUntilReady(ctx context.Context) error {
-	i.log.Info("waiting for topic to be ready",
-		zap.Int("timeout_seconds", i.timeoutSeconds),
-		zap.Bool("fail_on_topic_error", i.failOnTopicError))
+func (i *initializer) logPartitionEvent(event string, partitions []kafka.TopicPartition) {
+	if len(partitions) == 0 {
+		i.log.Warn(event + ": no partitions")
+		return
+	}
 
+	partitionIDs := make([]int32, len(partitions))
+	for idx, partition := range partitions {
+		partitionIDs[idx] = partition.Partition
+	}
+
+	i.log.Info(event,
+		zap.Int("partition_count", len(partitions)),
+		zap.Int32s("partitions", partitionIDs))
+}
+
+func (i *initializer) waitUntilReady(ctx context.Context) error {
 	var lastErr error
 
 	for {
 		select {
 		case <-ctx.Done():
-			if i.failOnTopicError {
-				if lastErr != nil {
-					return fmt.Errorf("%w: %v", ctx.Err(), lastErr)
-				}
-				return ctx.Err()
+			if lastErr != nil {
+				return fmt.Errorf("%w: %v", ctx.Err(), lastErr)
 			}
-			i.log.Warn("timeout waiting for topic, continuing anyway",
-				zap.Error(lastErr))
-			return nil
+			return ctx.Err()
 		default:
 		}
 
@@ -126,9 +131,7 @@ func (i *initializer) waitUntilReady(ctx context.Context) error {
 		metadata, err := i.consumer.GetMetadata(&i.topic, false, int(timeout.Milliseconds()))
 		if err != nil {
 			lastErr = err
-			i.log.Warn("failed to get topic metadata, retrying",
-				zap.String("topic", i.topic),
-				zap.Error(err))
+			i.log.Warn("failed to get topic metadata, retrying", zap.Error(err))
 			sleep(ctx, 5*time.Second)
 			continue
 		}
@@ -137,8 +140,7 @@ func (i *initializer) waitUntilReady(ctx context.Context) error {
 		topicMeta, ok := metadata.Topics[i.topic]
 		if !ok {
 			lastErr = fmt.Errorf("topic not found in metadata")
-			i.log.Warn("topic not found in metadata, retrying",
-				zap.String("topic", i.topic))
+			i.log.Warn("topic not found in metadata, retrying")
 			sleep(ctx, 5*time.Second)
 			continue
 		}
@@ -146,9 +148,7 @@ func (i *initializer) waitUntilReady(ctx context.Context) error {
 		// Check for topic-level errors
 		if topicMeta.Error.Code() != kafka.ErrNoError {
 			lastErr = topicMeta.Error
-			i.log.Warn("topic has error, retrying",
-				zap.String("topic", i.topic),
-				zap.String("error", topicMeta.Error.String()))
+			i.log.Warn("topic has error, retrying", zap.String("error", topicMeta.Error.String()))
 			sleep(ctx, 5*time.Second)
 			continue
 		}
@@ -156,15 +156,12 @@ func (i *initializer) waitUntilReady(ctx context.Context) error {
 		// Check if topic has partitions
 		if len(topicMeta.Partitions) == 0 {
 			lastErr = fmt.Errorf("topic has no partitions")
-			i.log.Warn("topic has no partitions, retrying",
-				zap.String("topic", i.topic))
+			i.log.Warn("topic has no partitions, retrying")
 			sleep(ctx, 5*time.Second)
 			continue
 		}
 
-		i.log.Info("topic is ready",
-			zap.String("topic", i.topic),
-			zap.Int("partitions", len(topicMeta.Partitions)))
+		i.log.Info("topic is ready", zap.Int("partitions", len(topicMeta.Partitions)))
 		return nil
 	}
 }

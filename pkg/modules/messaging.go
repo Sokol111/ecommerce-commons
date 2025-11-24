@@ -2,7 +2,6 @@ package modules
 
 import (
 	"github.com/Sokol111/ecommerce-commons/pkg/messaging/kafka/config"
-	"github.com/Sokol111/ecommerce-commons/pkg/messaging/kafka/consumer"
 	"github.com/Sokol111/ecommerce-commons/pkg/messaging/kafka/producer"
 	"github.com/Sokol111/ecommerce-commons/pkg/messaging/kafka/schemaregistry"
 	"github.com/Sokol111/ecommerce-commons/pkg/messaging/patterns/outbox"
@@ -16,6 +15,5 @@ func NewMessagingModule() fx.Option {
 		schemaregistry.NewSchemaRegistryModule(),
 		producer.NewProducerModule(),
 		outbox.NewOutboxModule(),
-		consumer.NewConsumerModule(),
 	)
 }

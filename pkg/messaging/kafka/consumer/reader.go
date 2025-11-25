@@ -11,6 +11,12 @@ import (
 	"go.uber.org/zap"
 )
 
+type errorTracker struct {
+	count     int
+	firstSeen time.Time
+	lastWarn  time.Time
+}
+
 type reader struct {
 	consumer     *kafka.Consumer
 	topic        string
@@ -18,9 +24,10 @@ type reader struct {
 	log          *zap.Logger
 	readiness    health.ReadinessWaiter
 
-	ctx        context.Context
-	cancelFunc context.CancelFunc
-	wg         sync.WaitGroup
+	ctx           context.Context
+	cancelFunc    context.CancelFunc
+	wg            sync.WaitGroup
+	errorCounters map[string]*errorTracker
 }
 
 func newReader(
@@ -55,6 +62,30 @@ func (r *reader) stop() {
 	r.wg.Wait()
 }
 
+func (r *reader) logRetriableError(errorType string, msg string, fields ...zap.Field) {
+	if r.errorCounters == nil {
+		r.errorCounters = make(map[string]*errorTracker)
+	}
+
+	tracker, exists := r.errorCounters[errorType]
+	if !exists {
+		tracker = &errorTracker{firstSeen: time.Now()}
+		r.errorCounters[errorType] = tracker
+	}
+	tracker.count++
+
+	shouldWarn := tracker.lastWarn.IsZero() || time.Since(tracker.lastWarn) > 5*time.Minute
+
+	if shouldWarn {
+		r.log.Warn(msg, append(fields,
+			zap.Int("attempts", tracker.count),
+			zap.Duration("duration", time.Since(tracker.firstSeen)))...)
+		tracker.lastWarn = time.Now()
+	} else {
+		r.log.Debug(msg, fields...)
+	}
+}
+
 func (r *reader) run() {
 	defer func() {
 		r.log.Info("reader worker stopped")
@@ -74,40 +105,46 @@ func (r *reader) run() {
 		case <-r.ctx.Done():
 			return
 		default:
-			msg, err := r.consumer.ReadMessage(5 * time.Second)
+			msg, err := r.consumer.ReadMessage(30 * time.Second)
 			if err != nil {
 				var kafkaErr kafka.Error
 				if errors.As(err, &kafkaErr) {
-					// Normal timeout - continue without logging
-					if kafkaErr.IsTimeout() {
+					switch {
+					case kafkaErr.IsTimeout():
 						continue
-					}
 
-					// Topic doesn't exist yet - wait longer before retrying
-					if kafkaErr.Code() == kafka.ErrUnknownTopicOrPart {
-						r.log.Warn("topic not available, waiting for topic creation",
-							zap.String("topic", r.topic))
-						sleep(r.ctx, 10*time.Second)
+					case kafkaErr.IsFatal():
+						r.log.Error("fatal kafka error - consumer instance is no longer operable",
+							zap.Error(err),
+							zap.String("error_code", kafkaErr.Code().String()))
+						r.cancelFunc()
+						return
+
+					case kafkaErr.Code() == kafka.ErrUnknownTopicOrPart:
+						// Topic doesn't exist yet - wait longer before retrying
+						r.logRetriableError("topic_not_found", "topic not available, waiting for topic creation")
 						continue
-					}
 
-					// Connection issues - these are usually temporary
-					if kafkaErr.Code() == kafka.ErrTransport ||
+					case kafkaErr.Code() == kafka.ErrTransport ||
 						kafkaErr.Code() == kafka.ErrAllBrokersDown ||
-						kafkaErr.Code() == kafka.ErrNetworkException {
-						r.log.Warn("broker connection issue, retrying",
-							zap.String("topic", r.topic),
-							zap.Error(err))
-						sleep(r.ctx, 5*time.Second)
+						kafkaErr.Code() == kafka.ErrNetworkException:
+						// Connection issues - these are usually temporary
+						r.logRetriableError("broker_connection", "broker connection issue, retrying", zap.Error(err))
 						continue
-					}
 
-					// Leader election or rebalance in progress
-					if kafkaErr.Code() == kafka.ErrLeaderNotAvailable ||
-						kafkaErr.Code() == kafka.ErrNotLeaderForPartition {
-						r.log.Debug("partition leader changing, retrying",
-							zap.String("topic", r.topic))
-						sleep(r.ctx, 2*time.Second)
+					case kafkaErr.Code() == kafka.ErrLeaderNotAvailable ||
+						kafkaErr.Code() == kafka.ErrNotLeaderForPartition:
+						// Leader election or rebalance in progress
+						r.logRetriableError("leader_election", "partition leader changing, retrying")
+						continue
+
+					case kafkaErr.IsRetriable():
+						// Всі інші retriable помилки
+						r.logRetriableError("retriable_error",
+							"retriable kafka error, retrying",
+							zap.String("topic", r.topic),
+							zap.String("error_code", kafkaErr.Code().String()),
+							zap.Error(err))
 						continue
 					}
 				}
@@ -116,6 +153,9 @@ func (r *reader) run() {
 				r.log.Error("failed to read message", zap.Error(err))
 				continue
 			}
+
+			// Успішно прочитали повідомлення - скидаємо всі лічильники помилок
+			r.errorCounters = nil
 
 			select {
 			case <-r.ctx.Done():

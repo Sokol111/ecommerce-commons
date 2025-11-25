@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"reflect"
-	"time"
 
 	"github.com/Sokol111/ecommerce-commons/pkg/core/health"
 	"github.com/Sokol111/ecommerce-commons/pkg/messaging/kafka/config"
@@ -12,11 +11,6 @@ import (
 	"github.com/confluentinc/confluent-kafka-go/v2/kafka"
 	"go.uber.org/fx"
 	"go.uber.org/zap"
-)
-
-const (
-	defaultMaxRetryAttempts = 5
-	defaultMaxBackoff       = 10 * time.Second
 )
 
 func getConsumerConfig(conf config.Config, consumerName string) (config.ConsumerConfig, error) {
@@ -89,8 +83,8 @@ func RegisterHandlerAndConsumer(
 		),
 		fx.Provide(
 			fx.Annotate(
-				func(logger consumerLogger) RetryExecutor {
-					return newRetryExecutor(defaultMaxRetryAttempts, defaultMaxBackoff, logger.Logger)
+				func(consumerConf config.ConsumerConfig, logger consumerLogger) RetryExecutor {
+					return newRetryExecutor(consumerConf.MaxRetryAttempts, consumerConf.InitialBackoff, consumerConf.MaxBackoff, logger.Logger)
 				},
 				fx.As(new(RetryExecutor)),
 			),
@@ -105,8 +99,8 @@ func RegisterHandlerAndConsumer(
 		),
 		fx.Provide(
 			fx.Annotate(
-				func() chan *kafka.Message {
-					return make(chan *kafka.Message, 100)
+				func(consumerConf config.ConsumerConfig) chan *kafka.Message {
+					return make(chan *kafka.Message, consumerConf.ChannelBufferSize)
 				},
 			),
 			fx.Private,

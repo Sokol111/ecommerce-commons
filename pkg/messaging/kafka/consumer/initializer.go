@@ -107,6 +107,7 @@ func (i *initializer) logPartitionEvent(event string, partitions []kafka.TopicPa
 
 func (i *initializer) waitUntilReady(ctx context.Context) error {
 	var lastErr error
+	var lastLogTime time.Time
 
 	for {
 		select {
@@ -119,7 +120,7 @@ func (i *initializer) waitUntilReady(ctx context.Context) error {
 		}
 
 		// Calculate timeout for GetMetadata from context
-		timeout := 5 * time.Second
+		timeout := 10 * time.Second
 		if deadline, ok := ctx.Deadline(); ok {
 			remaining := time.Until(deadline)
 			if remaining < timeout {
@@ -130,34 +131,49 @@ func (i *initializer) waitUntilReady(ctx context.Context) error {
 		// Get topic metadata (allTopics=false means only this specific topic)
 		metadata, err := i.consumer.GetMetadata(&i.topic, false, int(timeout.Milliseconds()))
 		if err != nil {
+			if lastErr == nil || time.Since(lastLogTime) > 30*time.Second {
+				lastErr = err
+				lastLogTime = time.Now()
+				i.log.Debug("failed to get topic metadata, retrying", zap.Error(err))
+			}
 			lastErr = err
-			i.log.Warn("failed to get topic metadata, retrying", zap.Error(err))
-			sleep(ctx, 5*time.Second)
 			continue
 		}
 
 		// Check if topic exists
 		topicMeta, ok := metadata.Topics[i.topic]
 		if !ok {
-			lastErr = fmt.Errorf("topic not found in metadata")
-			i.log.Warn("topic not found in metadata, retrying")
-			sleep(ctx, 5*time.Second)
+			err := fmt.Errorf("topic not found in metadata")
+			if lastErr == nil || time.Since(lastLogTime) > 30*time.Second {
+				lastErr = err
+				lastLogTime = time.Now()
+				i.log.Debug("topic not found in metadata, retrying")
+			}
+			lastErr = err
 			continue
 		}
 
 		// Check for topic-level errors
 		if topicMeta.Error.Code() != kafka.ErrNoError {
-			lastErr = topicMeta.Error
-			i.log.Warn("topic has error, retrying", zap.String("error", topicMeta.Error.String()))
-			sleep(ctx, 5*time.Second)
+			err := topicMeta.Error
+			if lastErr == nil || time.Since(lastLogTime) > 30*time.Second {
+				lastErr = err
+				lastLogTime = time.Now()
+				i.log.Debug("topic has error, retrying", zap.String("error", topicMeta.Error.String()))
+			}
+			lastErr = err
 			continue
 		}
 
 		// Check if topic has partitions
 		if len(topicMeta.Partitions) == 0 {
-			lastErr = fmt.Errorf("topic has no partitions")
-			i.log.Warn("topic has no partitions, retrying")
-			sleep(ctx, 5*time.Second)
+			err := fmt.Errorf("topic has no partitions")
+			if lastErr == nil || time.Since(lastLogTime) > 30*time.Second {
+				lastErr = err
+				lastLogTime = time.Now()
+				i.log.Debug("topic has no partitions, retrying")
+			}
+			lastErr = err
 			continue
 		}
 

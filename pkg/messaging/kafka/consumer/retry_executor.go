@@ -27,16 +27,18 @@ type RetryExecutor interface {
 }
 
 type retryExecutor struct {
-	maxAttempts int
-	maxBackoff  time.Duration
-	log         *zap.Logger
+	maxAttempts    int
+	initialBackoff time.Duration
+	maxBackoff     time.Duration
+	log            *zap.Logger
 }
 
-func newRetryExecutor(maxAttempts int, maxBackoff time.Duration, log *zap.Logger) RetryExecutor {
+func newRetryExecutor(maxAttempts int, initialBackoff, maxBackoff time.Duration, log *zap.Logger) RetryExecutor {
 	return &retryExecutor{
-		maxAttempts: maxAttempts,
-		maxBackoff:  maxBackoff,
-		log:         log,
+		maxAttempts:    maxAttempts,
+		initialBackoff: initialBackoff,
+		maxBackoff:     maxBackoff,
+		log:            log,
 	}
 }
 
@@ -69,7 +71,7 @@ func (r *retryExecutor) Execute(ctx context.Context, fn func(ctx context.Context
 		}
 
 		// Чекаємо перед наступною спробою з backoff
-		sleep(ctx, backoffDuration(attempt, r.maxBackoff))
+		sleep(ctx, backoffDuration(attempt, r.initialBackoff, r.maxBackoff))
 	}
 
 	// Контекст скасований під час retry

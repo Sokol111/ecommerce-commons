@@ -20,8 +20,9 @@ func sleep(ctx context.Context, d time.Duration) {
 }
 
 // backoffDuration розраховує тривалість затримки для експоненційного backoff
-func backoffDuration(attempt int, max time.Duration) time.Duration {
-	duration := time.Duration(math.Pow(2, float64(attempt))) * time.Second
+func backoffDuration(attempt int, initial, max time.Duration) time.Duration {
+	// Розраховуємо експоненційний backoff: initial * 2^(attempt-1)
+	duration := time.Duration(float64(initial) * math.Pow(2, float64(attempt-1)))
 	if duration > max {
 		return max
 	}

@@ -36,6 +36,10 @@ func RegisterHandlerAndConsumer(
 				consumerName,
 				fx.ResultTags(`name:"consumerName"`),
 			),
+			fx.Annotate(
+				typeMapping(typeMappingParam),
+				fx.As(new(typeMapping)),
+			),
 		),
 		fx.Provide(
 			fx.Annotate(
@@ -56,12 +60,6 @@ func RegisterHandlerAndConsumer(
 			fx.Annotate(
 				handlerConstructor,
 				fx.As(new(Handler)),
-			),
-			fx.Private,
-		),
-		fx.Provide(
-			fx.Annotate(
-				func() typeMapping { return typeMappingParam },
 			),
 			fx.Private,
 		),

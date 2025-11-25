@@ -5,7 +5,7 @@ import (
 	"fmt"
 
 	"github.com/Sokol111/ecommerce-commons/pkg/core/health"
-	"github.com/Sokol111/ecommerce-commons/pkg/messaging/kafka/avro"
+	"github.com/Sokol111/ecommerce-commons/pkg/messaging/kafka/avro/deserialization"
 	"github.com/Sokol111/ecommerce-commons/pkg/messaging/kafka/config"
 	"github.com/Sokol111/ecommerce-commons/pkg/messaging/kafka/producer"
 	"github.com/confluentinc/confluent-kafka-go/v2/kafka"
@@ -46,7 +46,7 @@ func provideProcessor(
 	kafkaConsumer *kafka.Consumer,
 	messagesChan chan *kafka.Message,
 	handler Handler,
-	deserializer avro.Deserializer,
+	deserializer deserialization.Deserializer,
 	logger *zap.Logger,
 	resultHandler *resultHandler,
 	retryExecutor RetryExecutor,

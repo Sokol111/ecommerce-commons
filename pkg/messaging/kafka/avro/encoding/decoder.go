@@ -1,4 +1,4 @@
-package avro
+package encoding
 
 import (
 	"fmt"
@@ -6,6 +6,12 @@ import (
 
 	hambavro "github.com/hamba/avro/v2"
 )
+
+// SchemaMetadata contains schema and type information for deserialization
+type SchemaMetadata struct {
+	Schema hambavro.Schema
+	GoType reflect.Type
+}
 
 // Decoder decodes Avro data to Go structs
 type Decoder interface {

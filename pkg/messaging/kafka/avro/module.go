@@ -1,21 +1,22 @@
 package avro
 
 import (
-	"github.com/confluentinc/confluent-kafka-go/v2/schemaregistry"
+	"github.com/Sokol111/ecommerce-commons/pkg/messaging/kafka/avro/deserialization"
+	"github.com/Sokol111/ecommerce-commons/pkg/messaging/kafka/avro/encoding"
+	"github.com/Sokol111/ecommerce-commons/pkg/messaging/kafka/avro/serialization"
 	"go.uber.org/fx"
 )
 
 // Module provides Avro deserialization components for dependency injection
 var Module = fx.Module("avro",
 	fx.Provide(
-		NewRegistrySchemaResolver,
-		NewDeserializer,
-		fx.Private,
+		encoding.NewConfluentWireFormatParser,
+		encoding.NewConfluentWireFormatBuilder,
+		encoding.NewHambaDecoder,
+		encoding.NewHambaEncoder,
+		deserialization.NewRegistrySchemaResolver,
+		serialization.NewTypeSchemaRegistry,
+		deserialization.NewDeserializer,
+		serialization.NewAvroSerializer,
 	),
 )
-
-// ProvideSchemaRegistryClient creates a Schema Registry client
-// This is a helper function that can be used in consumer modules
-func ProvideSchemaRegistryClient(url string) (schemaregistry.Client, error) {
-	return schemaregistry.NewClient(schemaregistry.NewConfig(url))
-}

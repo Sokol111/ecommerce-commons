@@ -1,8 +1,9 @@
-package avro
+package deserialization
 
 import (
 	"fmt"
-	"reflect"
+
+	"github.com/Sokol111/ecommerce-commons/pkg/messaging/kafka/avro/encoding"
 )
 
 // Deserializer deserializes Avro bytes to Go structs using Schema Registry
@@ -15,22 +16,19 @@ type Deserializer interface {
 	Deserialize(data []byte) (interface{}, error)
 }
 
-// TypeMapping maps Avro schema full names to Go types
-type TypeMapping map[string]reflect.Type
-
 type avroDeserializer struct {
-	parser   WireFormatParser
+	parser   encoding.WireFormatParser
 	resolver SchemaResolver
-	decoder  Decoder
+	decoder  encoding.Decoder
 }
 
 // NewDeserializer creates a new Avro deserializer with Schema Registry integration
 // Uses composition of specialized components for separation of concerns
-func NewDeserializer(resolver SchemaResolver) Deserializer {
+func NewDeserializer(parser encoding.WireFormatParser, resolver SchemaResolver, decoder encoding.Decoder) Deserializer {
 	return &avroDeserializer{
-		parser:   NewConfluentWireFormatParser(),
+		parser:   parser,
 		resolver: resolver,
-		decoder:  NewHambaDecoder(),
+		decoder:  decoder,
 	}
 }
 

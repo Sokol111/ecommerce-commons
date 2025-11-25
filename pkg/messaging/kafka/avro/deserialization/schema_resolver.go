@@ -1,31 +1,28 @@
-package avro
+package deserialization
 
 import (
 	"fmt"
 	"reflect"
 	"sync"
 
+	"github.com/Sokol111/ecommerce-commons/pkg/messaging/kafka/avro/encoding"
 	"github.com/confluentinc/confluent-kafka-go/v2/schemaregistry"
 	hambavro "github.com/hamba/avro/v2"
 )
 
-// SchemaMetadata contains schema and type information for deserialization
-type SchemaMetadata struct {
-	Schema     hambavro.Schema
-	SchemaName string
-	GoType     reflect.Type
-}
+// TypeMapping maps Avro schema full names to Go types
+type TypeMapping map[string]reflect.Type
 
 // SchemaResolver resolves schema IDs to schema metadata
 type SchemaResolver interface {
 	// Resolve returns schema metadata for a given schema ID
-	Resolve(schemaID int) (*SchemaMetadata, error)
+	Resolve(schemaID int) (*encoding.SchemaMetadata, error)
 }
 
 type registrySchemaResolver struct {
 	client      schemaregistry.Client
 	typeMapping TypeMapping
-	cache       map[int]*SchemaMetadata
+	cache       map[int]*encoding.SchemaMetadata
 	mu          sync.RWMutex
 }
 
@@ -34,11 +31,11 @@ func NewRegistrySchemaResolver(client schemaregistry.Client, typeMap TypeMapping
 	return &registrySchemaResolver{
 		client:      client,
 		typeMapping: typeMap,
-		cache:       make(map[int]*SchemaMetadata),
+		cache:       make(map[int]*encoding.SchemaMetadata),
 	}
 }
 
-func (r *registrySchemaResolver) Resolve(schemaID int) (*SchemaMetadata, error) {
+func (r *registrySchemaResolver) Resolve(schemaID int) (*encoding.SchemaMetadata, error) {
 	// Check cache first
 	r.mu.RLock()
 	cached, exists := r.cache[schemaID]
@@ -62,7 +59,7 @@ func (r *registrySchemaResolver) Resolve(schemaID int) (*SchemaMetadata, error) 
 	return metadata, nil
 }
 
-func (r *registrySchemaResolver) fetchAndParseSchema(schemaID int) (*SchemaMetadata, error) {
+func (r *registrySchemaResolver) fetchAndParseSchema(schemaID int) (*encoding.SchemaMetadata, error) {
 	// Fetch schema from Schema Registry
 	subjectVersions, err := r.client.GetSubjectsAndVersionsByID(schemaID)
 	if err != nil {
@@ -106,9 +103,8 @@ func (r *registrySchemaResolver) fetchAndParseSchema(schemaID int) (*SchemaMetad
 		return nil, fmt.Errorf("no Go type registered for schema: %s, registered types: %v", schemaName, registeredTypes)
 	}
 
-	return &SchemaMetadata{
-		Schema:     schema,
-		SchemaName: schemaName,
-		GoType:     goType,
+	return &encoding.SchemaMetadata{
+		Schema: schema,
+		GoType: goType,
 	}, nil
 }

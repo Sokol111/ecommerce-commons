@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"reflect"
 
-	"github.com/Sokol111/ecommerce-commons/pkg/messaging/kafka/avro"
+	"github.com/Sokol111/ecommerce-commons/pkg/messaging/kafka/avro/deserialization"
 	"github.com/Sokol111/ecommerce-commons/pkg/messaging/kafka/config"
 	"go.uber.org/fx"
 	"go.uber.org/zap"
@@ -42,8 +42,8 @@ func RegisterHandlerAndConsumer(
 				fx.ResultTags(`name:"consumerName"`),
 			),
 			fx.Annotate(
-				avro.TypeMapping(typeMappingParam),
-				fx.As(new(avro.TypeMapping)),
+				deserialization.TypeMapping(typeMappingParam),
+				fx.As(new(deserialization.TypeMapping)),
 			),
 			fx.Private,
 		),
@@ -57,8 +57,6 @@ func RegisterHandlerAndConsumer(
 				fx.As(new(Handler)),
 			),
 			provideKafkaConsumer,
-			avro.NewRegistrySchemaResolver,
-			avro.NewDeserializer,
 			provideProcessor,
 			provideInitializer,
 			newRetryExecutor,

@@ -12,7 +12,6 @@ import (
 func NewProducerModule() fx.Option {
 	return fx.Provide(
 		provideProducer,
-		newAvroSerializer,
 	)
 }
 

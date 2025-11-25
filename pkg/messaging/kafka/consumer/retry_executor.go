@@ -7,6 +7,7 @@ import (
 	"runtime/debug"
 	"time"
 
+	"github.com/Sokol111/ecommerce-commons/pkg/messaging/kafka/config"
 	"go.uber.org/zap"
 )
 
@@ -33,11 +34,11 @@ type retryExecutor struct {
 	log            *zap.Logger
 }
 
-func newRetryExecutor(maxAttempts int, initialBackoff, maxBackoff time.Duration, log *zap.Logger) RetryExecutor {
+func newRetryExecutor(consumerConf config.ConsumerConfig, log *zap.Logger) RetryExecutor {
 	return &retryExecutor{
-		maxAttempts:    maxAttempts,
-		initialBackoff: initialBackoff,
-		maxBackoff:     maxBackoff,
+		maxAttempts:    consumerConf.MaxRetryAttempts,
+		initialBackoff: consumerConf.InitialBackoff,
+		maxBackoff:     consumerConf.MaxBackoff,
 		log:            log,
 	}
 }

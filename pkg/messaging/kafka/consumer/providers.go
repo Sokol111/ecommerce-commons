@@ -6,6 +6,7 @@ import (
 
 	"github.com/Sokol111/ecommerce-commons/pkg/core/health"
 	"github.com/Sokol111/ecommerce-commons/pkg/messaging/kafka/config"
+	"github.com/Sokol111/ecommerce-commons/pkg/messaging/kafka/producer"
 	"github.com/confluentinc/confluent-kafka-go/v2/kafka"
 	"go.uber.org/fx"
 	"go.uber.org/zap"
@@ -15,13 +16,13 @@ func provideInitializer(
 	lc fx.Lifecycle,
 	consumer *kafka.Consumer,
 	consumerConf config.ConsumerConfig,
-	logger consumerLogger,
+	logger *zap.Logger,
 	componentMgr health.ComponentManager,
 ) *initializer {
 	initializer := newInitializer(
 		consumer,
 		consumerConf.Topic,
-		logger.Logger,
+		logger,
 		consumerConf.ReadinessTimeoutSeconds,
 		consumerConf.FailOnTopicError,
 	)
@@ -45,7 +46,7 @@ func provideProcessor(
 	messagesChan chan *kafka.Message,
 	handler Handler,
 	deserializer Deserializer,
-	logger consumerLogger,
+	logger *zap.Logger,
 	resultHandler *resultHandler,
 	retryExecutor RetryExecutor,
 	tracer MessageTracer,
@@ -55,7 +56,7 @@ func provideProcessor(
 		messagesChan,
 		handler,
 		deserializer,
-		logger.Logger,
+		logger,
 		resultHandler,
 		retryExecutor,
 		tracer,
@@ -79,10 +80,10 @@ func provideReader(
 	kafkaConsumer *kafka.Consumer,
 	consumerConf config.ConsumerConfig,
 	messagesChan chan *kafka.Message,
-	logger consumerLogger,
+	logger *zap.Logger,
 	readinessWaiter health.ReadinessWaiter,
 ) *reader {
-	reader := newReader(kafkaConsumer, consumerConf.Topic, messagesChan, logger.Logger, readinessWaiter)
+	reader := newReader(kafkaConsumer, consumerConf.Topic, messagesChan, logger, readinessWaiter)
 	lc.Append(fx.Hook{
 		OnStart: func(ctx context.Context) error {
 			reader.start()
@@ -96,9 +97,9 @@ func provideReader(
 	return reader
 }
 
-func provideKafkaConsumer(lc fx.Lifecycle, brokers string, consumerConf config.ConsumerConfig, log *zap.Logger) (*kafka.Consumer, error) {
+func provideKafkaConsumer(lc fx.Lifecycle, conf config.Config, consumerConf config.ConsumerConfig, log *zap.Logger) (*kafka.Consumer, error) {
 	kafkaConsumer, err := kafka.NewConsumer(&kafka.ConfigMap{
-		"bootstrap.servers":        brokers,
+		"bootstrap.servers":        conf.Brokers,
 		"group.id":                 consumerConf.GroupID,
 		"enable.auto.commit":       true,
 		"enable.auto.offset.store": false,
@@ -116,4 +117,15 @@ func provideKafkaConsumer(lc fx.Lifecycle, brokers string, consumerConf config.C
 	})
 
 	return kafkaConsumer, nil
+}
+
+func provideMessageChannel(consumerConf config.ConsumerConfig) chan *kafka.Message {
+	return make(chan *kafka.Message, consumerConf.ChannelBufferSize)
+}
+
+func provideDLQHandler(consumerConf config.ConsumerConfig, tracer MessageTracer, dlqProducer producer.Producer, logger *zap.Logger) DLQHandler {
+	if consumerConf.EnableDLQ {
+		return newDLQHandler(dlqProducer, consumerConf.DLQTopic, tracer, logger)
+	}
+	return newNoopDLQHandler(logger)
 }

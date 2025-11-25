@@ -31,11 +31,16 @@ func RegisterHandlerAndConsumer(
 ) fx.Option {
 	return fx.Module(
 		consumerName, // Unique module name
+		fx.Supply(
+			fx.Annotate(
+				consumerName,
+				fx.ResultTags(`name:"consumerName"`),
+			),
+		),
 		fx.Provide(
 			fx.Annotate(
-				func(conf config.Config) (config.ConsumerConfig, error) {
-					return getConsumerConfig(conf, consumerName)
-				},
+				getConsumerConfig,
+				fx.ParamTags(``, `name:"consumerName"`),
 			),
 			fx.Private,
 		),

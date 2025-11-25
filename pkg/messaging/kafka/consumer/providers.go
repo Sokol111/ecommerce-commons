@@ -5,6 +5,7 @@ import (
 	"fmt"
 
 	"github.com/Sokol111/ecommerce-commons/pkg/core/health"
+	"github.com/Sokol111/ecommerce-commons/pkg/messaging/kafka/avro"
 	"github.com/Sokol111/ecommerce-commons/pkg/messaging/kafka/config"
 	"github.com/Sokol111/ecommerce-commons/pkg/messaging/kafka/producer"
 	"github.com/confluentinc/confluent-kafka-go/v2/kafka"
@@ -41,11 +42,11 @@ func provideInitializer(
 
 func provideProcessor(
 	lc fx.Lifecycle,
-	_ *initializer,
+	initializer *initializer,
 	kafkaConsumer *kafka.Consumer,
 	messagesChan chan *kafka.Message,
 	handler Handler,
-	deserializer Deserializer,
+	deserializer avro.Deserializer,
 	logger *zap.Logger,
 	resultHandler *resultHandler,
 	retryExecutor RetryExecutor,
@@ -76,7 +77,7 @@ func provideProcessor(
 
 func provideReader(
 	lc fx.Lifecycle,
-	_ *initializer,
+	initializer *initializer,
 	kafkaConsumer *kafka.Consumer,
 	consumerConf config.ConsumerConfig,
 	messagesChan chan *kafka.Message,

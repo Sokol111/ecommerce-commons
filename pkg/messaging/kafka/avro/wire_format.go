@@ -1,4 +1,4 @@
-package consumer
+package avro
 
 import "fmt"
 
@@ -11,8 +11,8 @@ type WireFormatParser interface {
 
 type confluentWireFormatParser struct{}
 
-// newConfluentWireFormatParser creates a parser for Confluent wire format
-func newConfluentWireFormatParser() WireFormatParser {
+// NewConfluentWireFormatParser creates a parser for Confluent wire format
+func NewConfluentWireFormatParser() WireFormatParser {
 	return &confluentWireFormatParser{}
 }
 

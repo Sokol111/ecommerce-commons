@@ -1,4 +1,4 @@
-package consumer
+package avro
 
 import (
 	"fmt"
@@ -15,22 +15,22 @@ type Deserializer interface {
 	Deserialize(data []byte) (interface{}, error)
 }
 
-// typeMapping maps Avro schema full names to Go types
-type typeMapping map[string]reflect.Type
+// TypeMapping maps Avro schema full names to Go types
+type TypeMapping map[string]reflect.Type
 
 type avroDeserializer struct {
 	parser   WireFormatParser
 	resolver SchemaResolver
-	decoder  AvroDecoder
+	decoder  Decoder
 }
 
-// newAvroDeserializer creates a new Avro deserializer with Schema Registry integration
+// NewDeserializer creates a new Avro deserializer with Schema Registry integration
 // Uses composition of specialized components for separation of concerns
-func newAvroDeserializer(resolver SchemaResolver) Deserializer {
+func NewDeserializer(resolver SchemaResolver) Deserializer {
 	return &avroDeserializer{
-		parser:   newConfluentWireFormatParser(),
+		parser:   NewConfluentWireFormatParser(),
 		resolver: resolver,
-		decoder:  newHambaAvroDecoder(),
+		decoder:  NewHambaDecoder(),
 	}
 }
 

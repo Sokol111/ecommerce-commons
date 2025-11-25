@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"sync"
 
+	"github.com/Sokol111/ecommerce-commons/pkg/messaging/kafka/avro"
 	"github.com/confluentinc/confluent-kafka-go/v2/kafka"
 	"go.uber.org/zap"
 )
@@ -14,7 +15,7 @@ type processor struct {
 	consumer      *kafka.Consumer
 	messagesChan  <-chan *kafka.Message
 	handler       Handler
-	deserializer  Deserializer
+	deserializer  avro.Deserializer
 	log           *zap.Logger
 	resultHandler *resultHandler
 	retryExecutor RetryExecutor
@@ -29,7 +30,7 @@ func newProcessor(
 	consumer *kafka.Consumer,
 	messagesChan <-chan *kafka.Message,
 	handler Handler,
-	deserializer Deserializer,
+	deserializer avro.Deserializer,
 	log *zap.Logger,
 	resultHandler *resultHandler,
 	retryExecutor RetryExecutor,

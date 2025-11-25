@@ -1,4 +1,4 @@
-package consumer
+package avro
 
 import (
 	"fmt"
@@ -24,13 +24,13 @@ type SchemaResolver interface {
 
 type registrySchemaResolver struct {
 	client      schemaregistry.Client
-	typeMapping typeMapping
+	typeMapping TypeMapping
 	cache       map[int]*SchemaMetadata
 	mu          sync.RWMutex
 }
 
-// newRegistrySchemaResolver creates a Schema Registry-based resolver
-func newRegistrySchemaResolver(client schemaregistry.Client, typeMap typeMapping) SchemaResolver {
+// NewRegistrySchemaResolver creates a Schema Registry-based resolver
+func NewRegistrySchemaResolver(client schemaregistry.Client, typeMap TypeMapping) SchemaResolver {
 	return &registrySchemaResolver{
 		client:      client,
 		typeMapping: typeMap,

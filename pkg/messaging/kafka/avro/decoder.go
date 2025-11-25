@@ -1,4 +1,4 @@
-package consumer
+package avro
 
 import (
 	"fmt"
@@ -7,20 +7,20 @@ import (
 	hambavro "github.com/hamba/avro/v2"
 )
 
-// AvroDecoder decodes Avro data to Go structs
-type AvroDecoder interface {
+// Decoder decodes Avro data to Go structs
+type Decoder interface {
 	// Decode deserializes Avro bytes to a Go object based on schema metadata
 	Decode(payload []byte, metadata *SchemaMetadata) (interface{}, error)
 }
 
-type hambaAvroDecoder struct{}
+type hambaDecoder struct{}
 
-// newHambaAvroDecoder creates an Avro decoder using hamba/avro library
-func newHambaAvroDecoder() AvroDecoder {
-	return &hambaAvroDecoder{}
+// NewHambaDecoder creates an Avro decoder using hamba/avro library
+func NewHambaDecoder() Decoder {
+	return &hambaDecoder{}
 }
 
-func (d *hambaAvroDecoder) Decode(payload []byte, metadata *SchemaMetadata) (interface{}, error) {
+func (d *hambaDecoder) Decode(payload []byte, metadata *SchemaMetadata) (interface{}, error) {
 	// Create new instance of the target type
 	// If goType is ProductCreatedEvent, reflect.New creates *ProductCreatedEvent
 	targetPtr := reflect.New(metadata.GoType)

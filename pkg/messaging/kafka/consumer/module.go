@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"reflect"
 
+	"github.com/Sokol111/ecommerce-commons/pkg/messaging/kafka/avro"
 	"github.com/Sokol111/ecommerce-commons/pkg/messaging/kafka/config"
 	"go.uber.org/fx"
 	"go.uber.org/zap"
@@ -41,8 +42,8 @@ func RegisterHandlerAndConsumer(
 				fx.ResultTags(`name:"consumerName"`),
 			),
 			fx.Annotate(
-				typeMapping(typeMappingParam),
-				fx.As(new(typeMapping)),
+				avro.TypeMapping(typeMappingParam),
+				fx.As(new(avro.TypeMapping)),
 			),
 			fx.Private,
 		),
@@ -56,8 +57,8 @@ func RegisterHandlerAndConsumer(
 				fx.As(new(Handler)),
 			),
 			provideKafkaConsumer,
-			newRegistrySchemaResolver,
-			newAvroDeserializer,
+			avro.NewRegistrySchemaResolver,
+			avro.NewDeserializer,
 			provideProcessor,
 			provideInitializer,
 			newRetryExecutor,
@@ -68,5 +69,6 @@ func RegisterHandlerAndConsumer(
 			provideDLQHandler,
 			fx.Private,
 		),
+		fx.Invoke(func(*initializer, *processor, *reader) {}),
 	)
 }

@@ -39,14 +39,14 @@ func (d *avroDeserializer) Deserialize(data []byte) (interface{}, error) {
 		return nil, fmt.Errorf("failed to parse wire format: %w", err)
 	}
 
-	// Resolve schema metadata
-	metadata, err := d.resolver.Resolve(schemaID)
+	// Resolve schema and Go type by schema ID
+	schema, goType, err := d.resolver.Resolve(schemaID)
 	if err != nil {
 		return nil, fmt.Errorf("failed to resolve schema for ID %d: %w", schemaID, err)
 	}
 
 	// Decode Avro payload
-	result, err := d.decoder.Decode(payload, metadata)
+	result, err := d.decoder.Decode(payload, schema, goType)
 	if err != nil {
 		return nil, fmt.Errorf("failed to decode avro data: %w", err)
 	}

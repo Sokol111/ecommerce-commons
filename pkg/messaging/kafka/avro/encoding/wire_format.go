@@ -19,13 +19,9 @@ type WireFormatBuilder interface {
 type confluentWireFormat struct{}
 
 // NewConfluentWireFormatParser creates a parser for Confluent wire format
-func NewConfluentWireFormatParser() WireFormatParser {
-	return &confluentWireFormat{}
-}
-
-// NewConfluentWireFormatBuilder creates a builder for Confluent wire format
-func NewConfluentWireFormatBuilder() WireFormatBuilder {
-	return &confluentWireFormat{}
+func NewConfluentWireFormat() (WireFormatParser, WireFormatBuilder) {
+	f := &confluentWireFormat{}
+	return f, f
 }
 
 func (w *confluentWireFormat) Parse(data []byte) (int, []byte, error) {

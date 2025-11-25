@@ -5,8 +5,7 @@ import (
 	"reflect"
 	"sync"
 
-	"github.com/Sokol111/ecommerce-commons/pkg/messaging/kafka/avro/encoding"
-	"github.com/confluentinc/confluent-kafka-go/v2/schemaregistry"
+	schemaregistry "github.com/confluentinc/confluent-kafka-go/v2/schemaregistry"
 	hambavro "github.com/hamba/avro/v2"
 )
 
@@ -15,14 +14,19 @@ type TypeMapping map[string]reflect.Type
 
 // SchemaResolver resolves schema IDs to schema metadata
 type SchemaResolver interface {
-	// Resolve returns schema metadata for a given schema ID
-	Resolve(schemaID int) (*encoding.SchemaMetadata, error)
+	// Resolve returns schema and Go type for a given schema ID
+	Resolve(schemaID int) (schema hambavro.Schema, goType reflect.Type, err error)
+}
+
+type schemaCache struct {
+	schema hambavro.Schema
+	goType reflect.Type
 }
 
 type registrySchemaResolver struct {
 	client      schemaregistry.Client
 	typeMapping TypeMapping
-	cache       map[int]*encoding.SchemaMetadata
+	cache       map[int]*schemaCache
 	mu          sync.RWMutex
 }
 
@@ -31,43 +35,46 @@ func NewRegistrySchemaResolver(client schemaregistry.Client, typeMap TypeMapping
 	return &registrySchemaResolver{
 		client:      client,
 		typeMapping: typeMap,
-		cache:       make(map[int]*encoding.SchemaMetadata),
+		cache:       make(map[int]*schemaCache),
 	}
 }
 
-func (r *registrySchemaResolver) Resolve(schemaID int) (*encoding.SchemaMetadata, error) {
+func (r *registrySchemaResolver) Resolve(schemaID int) (hambavro.Schema, reflect.Type, error) {
 	// Check cache first
 	r.mu.RLock()
 	cached, exists := r.cache[schemaID]
 	r.mu.RUnlock()
 
 	if exists {
-		return cached, nil
+		return cached.schema, cached.goType, nil
 	}
 
 	// Fetch and parse schema
-	metadata, err := r.fetchAndParseSchema(schemaID)
+	schema, goType, err := r.fetchAndParseSchema(schemaID)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
 	// Cache the result
 	r.mu.Lock()
-	r.cache[schemaID] = metadata
+	r.cache[schemaID] = &schemaCache{
+		schema: schema,
+		goType: goType,
+	}
 	r.mu.Unlock()
 
-	return metadata, nil
+	return schema, goType, nil
 }
 
-func (r *registrySchemaResolver) fetchAndParseSchema(schemaID int) (*encoding.SchemaMetadata, error) {
+func (r *registrySchemaResolver) fetchAndParseSchema(schemaID int) (hambavro.Schema, reflect.Type, error) {
 	// Fetch schema from Schema Registry
 	subjectVersions, err := r.client.GetSubjectsAndVersionsByID(schemaID)
 	if err != nil {
-		return nil, fmt.Errorf("failed to get subjects for schema ID: %w", err)
+		return nil, nil, fmt.Errorf("failed to get subjects for schema ID: %w", err)
 	}
 
 	if len(subjectVersions) == 0 {
-		return nil, fmt.Errorf("no subjects found for schema ID %d", schemaID)
+		return nil, nil, fmt.Errorf("no subjects found for schema ID %d", schemaID)
 	}
 
 	// Use the first subject (typically there's only one for value schemas)
@@ -76,19 +83,19 @@ func (r *registrySchemaResolver) fetchAndParseSchema(schemaID int) (*encoding.Sc
 	// Get schema metadata from registry
 	schemaMetadata, err := r.client.GetBySubjectAndID(subject, schemaID)
 	if err != nil {
-		return nil, fmt.Errorf("failed to fetch schema from registry: %w", err)
+		return nil, nil, fmt.Errorf("failed to fetch schema from registry: %w", err)
 	}
 
 	// Parse Avro schema
 	schema, err := hambavro.Parse(schemaMetadata.Schema)
 	if err != nil {
-		return nil, fmt.Errorf("failed to parse avro schema: %w", err)
+		return nil, nil, fmt.Errorf("failed to parse avro schema: %w", err)
 	}
 
 	// Get schema full name (namespace.name)
 	namedSchema, ok := schema.(hambavro.NamedSchema)
 	if !ok {
-		return nil, fmt.Errorf("schema is not a NamedSchema (record/enum/fixed)")
+		return nil, nil, fmt.Errorf("schema is not a NamedSchema (record/enum/fixed)")
 	}
 	schemaName := namedSchema.FullName()
 
@@ -100,11 +107,8 @@ func (r *registrySchemaResolver) fetchAndParseSchema(schemaID int) (*encoding.Sc
 		for name := range r.typeMapping {
 			registeredTypes = append(registeredTypes, name)
 		}
-		return nil, fmt.Errorf("no Go type registered for schema: %s, registered types: %v", schemaName, registeredTypes)
+		return nil, nil, fmt.Errorf("no Go type registered for schema: %s, registered types: %v", schemaName, registeredTypes)
 	}
 
-	return &encoding.SchemaMetadata{
-		Schema: schema,
-		GoType: goType,
-	}, nil
+	return schema, goType, nil
 }

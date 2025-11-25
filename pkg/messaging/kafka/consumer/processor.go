@@ -7,18 +7,16 @@ import (
 	"sync"
 
 	"github.com/confluentinc/confluent-kafka-go/v2/kafka"
-	"go.opentelemetry.io/otel/codes"
 	"go.uber.org/zap"
 )
 
 type processor struct {
-	consumer     *kafka.Consumer
-	messagesChan <-chan *kafka.Message
-	handler      Handler
-	deserializer Deserializer
-	log          *zap.Logger
-
-	dlqHandler    DLQHandler
+	consumer      *kafka.Consumer
+	messagesChan  <-chan *kafka.Message
+	handler       Handler
+	deserializer  Deserializer
+	log           *zap.Logger
+	resultHandler *resultHandler
 	retryExecutor RetryExecutor
 	tracer        MessageTracer
 
@@ -33,7 +31,7 @@ func newProcessor(
 	handler Handler,
 	deserializer Deserializer,
 	log *zap.Logger,
-	dlqHandler DLQHandler,
+	resultHandler *resultHandler,
 	retryExecutor RetryExecutor,
 	tracer MessageTracer,
 ) *processor {
@@ -43,7 +41,7 @@ func newProcessor(
 		handler:       handler,
 		deserializer:  deserializer,
 		log:           log,
-		dlqHandler:    dlqHandler,
+		resultHandler: resultHandler,
 		retryExecutor: retryExecutor,
 		tracer:        tracer,
 	}
@@ -106,49 +104,8 @@ func (p *processor) processMessage(message *kafka.Message) {
 	// Обробляємо повідомлення з retry логікою
 	err := p.handleMessage(ctx, message)
 
-	// Аналізуємо помилку та приймаємо рішення
-	if err == nil {
-		// Успіх - зберігаємо offset
-		span.SetStatus(codes.Ok, "message processed successfully")
-		p.storeOffset(message)
-		return
-	}
-
-	// Перевіряємо тип помилки
-	if errors.Is(err, ErrSkipMessage) {
-		// Пропускаємо повідомлення та комітимо offset
-		span.SetStatus(codes.Ok, "message skipped")
-		p.log.Info("skipping message",
-			zap.String("key", string(message.Key)),
-			zap.Int32("partition", message.TopicPartition.Partition),
-			zap.Int32("offset", int32(message.TopicPartition.Offset)))
-		p.storeOffset(message)
-		return
-	}
-
-	if errors.Is(err, ErrPermanent) {
-		// Перманентна помилка - відправляємо в DLQ
-		span.SetStatus(codes.Error, "permanent error - sending to DLQ")
-		p.log.Error("permanent error - sending message to DLQ",
-			zap.String("key", string(message.Key)),
-			zap.Int32("partition", message.TopicPartition.Partition),
-			zap.Int32("offset", int32(message.TopicPartition.Offset)),
-			zap.Error(err))
-		p.dlqHandler.SendToDLQ(ctx, message, err)
-		p.storeOffset(message)
-		return
-	}
-
-	// Контекст скасовано або вичерпані retry спроби - відправляємо в DLQ
-	span.RecordError(err)
-	span.SetStatus(codes.Error, "message processing failed - sending to DLQ")
-	p.log.Error("message processing failed after retries - sending to DLQ",
-		zap.String("key", string(message.Key)),
-		zap.Int32("partition", message.TopicPartition.Partition),
-		zap.Int32("offset", int32(message.TopicPartition.Offset)),
-		zap.Error(err))
-	p.dlqHandler.SendToDLQ(ctx, message, err)
-	p.storeOffset(message)
+	// Класифікуємо результат та застосовуємо відповідну стратегію
+	p.resultHandler.classifyAndHandle(ctx, err, message, span)
 }
 
 func (p *processor) handleMessage(ctx context.Context, message *kafka.Message) error {
@@ -163,15 +120,4 @@ func (p *processor) handleMessage(ctx context.Context, message *kafka.Message) e
 	return p.retryExecutor.Execute(ctx, func(ctx context.Context) error {
 		return p.handler.Process(ctx, event)
 	})
-}
-
-func (p *processor) storeOffset(message *kafka.Message) {
-	_, err := p.consumer.StoreMessage(message)
-	if err != nil {
-		p.log.Error("failed to store offset",
-			zap.String("key", string(message.Key)),
-			zap.Int32("partition", message.TopicPartition.Partition),
-			zap.Int32("offset", int32(message.TopicPartition.Offset)),
-			zap.Error(err))
-	}
 }

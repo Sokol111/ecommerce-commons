@@ -2,7 +2,6 @@ package consumer
 
 import (
 	"context"
-	"errors"
 	"sync"
 	"time"
 
@@ -11,12 +10,6 @@ import (
 	"go.uber.org/zap"
 )
 
-type errorTracker struct {
-	count     int
-	firstSeen time.Time
-	lastWarn  time.Time
-}
-
 type reader struct {
 	consumer     *kafka.Consumer
 	topic        string
@@ -24,10 +17,10 @@ type reader struct {
 	log          *zap.Logger
 	readiness    health.ReadinessWaiter
 
-	ctx           context.Context
-	cancelFunc    context.CancelFunc
-	wg            sync.WaitGroup
-	errorCounters map[string]*errorTracker
+	ctx          context.Context
+	cancelFunc   context.CancelFunc
+	wg           sync.WaitGroup
+	errorTracker *errorTracker
 }
 
 func newReader(
@@ -43,6 +36,7 @@ func newReader(
 		messagesChan: messagesChan,
 		log:          log,
 		readiness:    readiness,
+		errorTracker: newErrorTracker(log),
 	}
 }
 
@@ -62,30 +56,6 @@ func (r *reader) stop() {
 	r.wg.Wait()
 }
 
-func (r *reader) logRetriableError(errorType string, msg string, fields ...zap.Field) {
-	if r.errorCounters == nil {
-		r.errorCounters = make(map[string]*errorTracker)
-	}
-
-	tracker, exists := r.errorCounters[errorType]
-	if !exists {
-		tracker = &errorTracker{firstSeen: time.Now()}
-		r.errorCounters[errorType] = tracker
-	}
-	tracker.count++
-
-	shouldWarn := tracker.lastWarn.IsZero() || time.Since(tracker.lastWarn) > 5*time.Minute
-
-	if shouldWarn {
-		r.log.Warn(msg, append(fields,
-			zap.Int("attempts", tracker.count),
-			zap.Duration("duration", time.Since(tracker.firstSeen)))...)
-		tracker.lastWarn = time.Now()
-	} else {
-		r.log.Debug(msg, fields...)
-	}
-}
-
 func (r *reader) run() {
 	defer func() {
 		r.log.Info("reader worker stopped")
@@ -95,7 +65,7 @@ func (r *reader) run() {
 	// Wait for traffic readiness before starting to read messages
 	r.log.Info("waiting for traffic readiness before reading messages")
 	if err := r.readiness.WaitForTrafficReady(r.ctx); err != nil {
-		r.log.Info("context cancelled while waiting for traffic readiness")
+		r.log.Error("context cancelled while waiting for traffic readiness")
 		return
 	}
 	r.log.Info("traffic readiness achieved, starting to read messages")
@@ -106,60 +76,40 @@ func (r *reader) run() {
 			return
 		default:
 			msg, err := r.consumer.ReadMessage(30 * time.Second)
-			if err != nil {
-				var kafkaErr kafka.Error
-				if errors.As(err, &kafkaErr) {
-					switch {
-					case kafkaErr.IsTimeout():
-						continue
 
-					case kafkaErr.IsFatal():
-						r.log.Error("fatal kafka error - consumer instance is no longer operable",
-							zap.Error(err),
-							zap.String("error_code", kafkaErr.Code().String()))
-						r.cancelFunc()
-						return
+			// Classify the error
+			readerErr := wrapReaderError(err)
 
-					case kafkaErr.Code() == kafka.ErrUnknownTopicOrPart:
-						// Topic doesn't exist yet - wait longer before retrying
-						r.logRetriableError("topic_not_found", "topic not available, waiting for topic creation")
-						continue
-
-					case kafkaErr.Code() == kafka.ErrTransport ||
-						kafkaErr.Code() == kafka.ErrAllBrokersDown ||
-						kafkaErr.Code() == kafka.ErrNetworkException:
-						// Connection issues - these are usually temporary
-						r.logRetriableError("broker_connection", "broker connection issue, retrying", zap.Error(err))
-						continue
-
-					case kafkaErr.Code() == kafka.ErrLeaderNotAvailable ||
-						kafkaErr.Code() == kafka.ErrNotLeaderForPartition:
-						// Leader election or rebalance in progress
-						r.logRetriableError("leader_election", "partition leader changing, retrying")
-						continue
-
-					case kafkaErr.IsRetriable():
-						// Всі інші retriable помилки
-						r.logRetriableError("retriable_error",
-							"retriable kafka error, retrying",
-							zap.String("error_code", kafkaErr.Code().String()),
-							zap.Error(err))
-						continue
-					}
+			// Success - no error
+			if readerErr == nil {
+				select {
+				case <-r.ctx.Done():
+					return
+				case r.messagesChan <- msg:
 				}
-
-				// All other errors - log as error
-				r.log.Error("failed to read message", zap.Error(err))
 				continue
 			}
 
-			// Успішно прочитали повідомлення - скидаємо всі лічильники помилок
-			r.errorCounters = nil
-
-			select {
-			case <-r.ctx.Done():
+			switch {
+			case readerErr.isFatal():
+				// Fatal error - stop consumer
+				r.log.Error(readerErr.description, zap.Error(readerErr))
+				r.cancelFunc()
 				return
-			case r.messagesChan <- msg:
+
+			case readerErr.isTimeout():
+				// Timeout - silent retry
+				continue
+
+			case readerErr.isTemporary():
+				// Temporary error - log and retry
+				r.errorTracker.logReaderError(readerErr)
+				continue
+
+			default:
+				// Non-Kafka or unknown error - log and continue
+				r.log.Error("failed to read message", zap.Error(readerErr))
+				continue
 			}
 		}
 	}

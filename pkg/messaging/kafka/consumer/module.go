@@ -118,6 +118,14 @@ func RegisterHandlerAndConsumer(
 		),
 		fx.Provide(
 			fx.Annotate(
+				func(logger consumerLogger, dlqHandler DLQHandler, consumer *kafka.Consumer) *resultHandler {
+					return newResultHandler(logger.Logger, dlqHandler, consumer)
+				},
+			),
+			fx.Private,
+		),
+		fx.Provide(
+			fx.Annotate(
 				func(
 					log *zap.Logger,
 					consumerConf config.ConsumerConfig,
@@ -178,7 +186,7 @@ func provideProcessor(
 	handler Handler,
 	deserializer Deserializer,
 	logger consumerLogger,
-	dlqHandler DLQHandler,
+	resultHandler *resultHandler,
 	retryExecutor RetryExecutor,
 	tracer MessageTracer,
 ) *processor {
@@ -188,7 +196,7 @@ func provideProcessor(
 		handler,
 		deserializer,
 		logger.Logger,
-		dlqHandler,
+		resultHandler,
 		retryExecutor,
 		tracer,
 	)

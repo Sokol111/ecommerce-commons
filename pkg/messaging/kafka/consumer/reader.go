@@ -142,7 +142,6 @@ func (r *reader) run() {
 						// Всі інші retriable помилки
 						r.logRetriableError("retriable_error",
 							"retriable kafka error, retrying",
-							zap.String("topic", r.topic),
 							zap.String("error_code", kafkaErr.Code().String()),
 							zap.Error(err))
 						continue

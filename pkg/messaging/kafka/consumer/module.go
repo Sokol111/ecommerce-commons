@@ -64,6 +64,13 @@ func RegisterHandlerAndConsumer(
 		),
 		fx.Provide(
 			fx.Annotate(
+				newRegistrySchemaResolver,
+				fx.As(new(SchemaResolver)),
+			),
+			fx.Private,
+		),
+		fx.Provide(
+			fx.Annotate(
 				newAvroDeserializer,
 				fx.As(new(Deserializer)),
 			),

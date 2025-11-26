@@ -10,47 +10,76 @@ import (
 	"go.uber.org/zap"
 )
 
+const (
+	// Default values
+	defaultSchemaRegistryCacheCapacity = 1000
+	defaultMaxRetryAttempts            = 3
+	defaultInitialBackoff              = 1 * time.Second
+	defaultMaxBackoff                  = 30 * time.Second
+	defaultChannelBufferSize           = 100
+	defaultConsumerReadinessTimeout    = 60
+	defaultProducerReadinessTimeout    = 30
+
+	// Validation bounds
+	minMaxRetryAttempts    = 1
+	maxMaxRetryAttempts    = 100
+	minInitialBackoff      = 100 * time.Millisecond
+	maxInitialBackoff      = 30 * time.Second
+	minMaxBackoff          = 1 * time.Second
+	maxMaxBackoffDuration  = 5 * time.Minute
+	minChannelBufferSize   = 10
+	maxChannelBufferSize   = 10000
+	minSchemaCacheCapacity = 100
+	maxSchemaCacheCapacity = 100000
+	maxReadinessTimeout    = 600 // 10 minutes in seconds
+)
+
+// Config represents the main Kafka configuration
 type Config struct {
-	Brokers         string               `mapstructure:"brokers"`
-	SchemaRegistry  SchemaRegistryConfig `mapstructure:"schema-registry"`
-	ConsumersConfig ConsumersConfig      `mapstructure:"consumers-config"`
-	ProducerConfig  ProducerConfig       `mapstructure:"producer-config"`
+	Brokers         string               `mapstructure:"brokers"`          // Comma-separated list of Kafka broker addresses (e.g., "localhost:9092,localhost:9093")
+	SchemaRegistry  SchemaRegistryConfig `mapstructure:"schema-registry"`  // Schema Registry configuration for Avro serialization/deserialization
+	ConsumersConfig ConsumersConfig      `mapstructure:"consumers-config"` // Global and individual consumer configurations
+	ProducerConfig  ProducerConfig       `mapstructure:"producer-config"`  // Producer-specific configuration
 }
 
+// ConsumersConfig holds global default settings and individual consumer configurations
 type ConsumersConfig struct {
-	DefaultGroupID           string           `mapstructure:"default-group-id"`
-	DefaultAutoOffsetReset   string           `mapstructure:"default-auto-offset-reset"`
-	DefaultMaxRetryAttempts  int              `mapstructure:"default-max-retry-attempts"`
-	DefaultInitialBackoff    time.Duration    `mapstructure:"default-initial-backoff"`
-	DefaultMaxBackoff        time.Duration    `mapstructure:"default-max-backoff"`
-	DefaultChannelBufferSize int              `mapstructure:"default-channel-buffer-size"`
-	ConsumerConfig           []ConsumerConfig `mapstructure:"consumers"`
+	DefaultGroupID           string           `mapstructure:"default-group-id"`            // Default consumer group ID (applied to consumers without explicit group-id)
+	DefaultAutoOffsetReset   string           `mapstructure:"default-auto-offset-reset"`   // Default offset reset policy: "earliest" or "latest"
+	DefaultMaxRetryAttempts  int              `mapstructure:"default-max-retry-attempts"`  // Default maximum retry attempts for message processing (1-100)
+	DefaultInitialBackoff    time.Duration    `mapstructure:"default-initial-backoff"`     // Default initial backoff duration for retries (100ms-30s)
+	DefaultMaxBackoff        time.Duration    `mapstructure:"default-max-backoff"`         // Default maximum backoff duration for retries (1s-5m)
+	DefaultChannelBufferSize int              `mapstructure:"default-channel-buffer-size"` // Default internal message channel buffer size (10-10000)
+	ConsumerConfig           []ConsumerConfig `mapstructure:"consumers"`                   // Individual consumer configurations
 }
 
+// ConsumerConfig represents configuration for an individual Kafka consumer
 type ConsumerConfig struct {
-	Name                    string        `mapstructure:"name"`
-	Topic                   string        `mapstructure:"topic"`
-	GroupID                 string        `mapstructure:"group-id"`
-	AutoOffsetReset         string        `mapstructure:"auto-offset-reset"`
-	EnableDLQ               bool          `mapstructure:"enable-dlq"`
-	DLQTopic                string        `mapstructure:"dlq-topic"`
-	ReadinessTimeoutSeconds int           `mapstructure:"readiness-timeout-seconds"` // Timeout for waiting topic readiness (0 = no timeout)
-	FailOnTopicError        bool          `mapstructure:"fail-on-topic-error"`       // Whether to fail startup if topic is not available
-	MaxRetryAttempts        int           `mapstructure:"max-retry-attempts"`        // Maximum number of retry attempts for message processing
-	InitialBackoff          time.Duration `mapstructure:"initial-backoff"`           // Initial backoff duration between retries
-	MaxBackoff              time.Duration `mapstructure:"max-backoff"`               // Maximum backoff duration between retries
-	ChannelBufferSize       int           `mapstructure:"channel-buffer-size"`       // Size of the internal message channel buffer
+	Name                    string        `mapstructure:"name"`                      // Unique consumer name/identifier (required)
+	Topic                   string        `mapstructure:"topic"`                     // Kafka topic to consume from (required)
+	GroupID                 string        `mapstructure:"group-id"`                  // Consumer group ID (defaults to DefaultGroupID)
+	AutoOffsetReset         string        `mapstructure:"auto-offset-reset"`         // Offset reset policy: "earliest" or "latest" (defaults to DefaultAutoOffsetReset)
+	EnableDLQ               bool          `mapstructure:"enable-dlq"`                // Enable Dead Letter Queue for failed messages
+	DLQTopic                string        `mapstructure:"dlq-topic"`                 // DLQ topic name (defaults to "{topic}.dlq" if EnableDLQ is true)
+	ReadinessTimeoutSeconds int           `mapstructure:"readiness-timeout-seconds"` // Timeout in seconds for waiting topic readiness (0 = no timeout, max 600s)
+	FailOnTopicError        bool          `mapstructure:"fail-on-topic-error"`       // Whether to fail application startup if topic is not available
+	MaxRetryAttempts        int           `mapstructure:"max-retry-attempts"`        // Maximum retry attempts for message processing (1-100, defaults to DefaultMaxRetryAttempts)
+	InitialBackoff          time.Duration `mapstructure:"initial-backoff"`           // Initial backoff duration between retries (100ms-30s, defaults to DefaultInitialBackoff)
+	MaxBackoff              time.Duration `mapstructure:"max-backoff"`               // Maximum backoff duration between retries (1s-5m, defaults to DefaultMaxBackoff)
+	ChannelBufferSize       int           `mapstructure:"channel-buffer-size"`       // Internal message channel buffer size (10-10000, defaults to DefaultChannelBufferSize)
 }
 
+// ProducerConfig represents configuration for Kafka producer
 type ProducerConfig struct {
-	ReadinessTimeoutSeconds int  `mapstructure:"readiness-timeout-seconds"` // Timeout for waiting brokers readiness (0 = no timeout)
-	FailOnBrokerError       bool `mapstructure:"fail-on-broker-error"`      // Whether to fail startup if brokers are not available
+	ReadinessTimeoutSeconds int  `mapstructure:"readiness-timeout-seconds"` // Timeout in seconds for waiting brokers readiness (0 = no timeout, max 600s, default 30s)
+	FailOnBrokerError       bool `mapstructure:"fail-on-broker-error"`      // Whether to fail application startup if brokers are not available (default false)
 }
 
+// SchemaRegistryConfig represents Confluent Schema Registry configuration
 type SchemaRegistryConfig struct {
-	URL                 string `mapstructure:"url"`
-	CacheCapacity       int    `mapstructure:"cache-capacity"`
-	AutoRegisterSchemas bool   `mapstructure:"auto_register_schemas"`
+	URL                 string `mapstructure:"url"`                   // Schema Registry URL (required, e.g., "http://schema-registry:8081")
+	CacheCapacity       int    `mapstructure:"cache-capacity"`        // Schema cache capacity (100-100000, default 1000)
+	AutoRegisterSchemas bool   `mapstructure:"auto_register_schemas"` // Automatically register schemas on startup
 }
 
 func NewKafkaConfigModule() fx.Option {
@@ -72,21 +101,21 @@ func newConfig(v *viper.Viper, logger *zap.Logger) (Config, error) {
 
 	// Apply defaults
 	if cfg.SchemaRegistry.CacheCapacity == 0 {
-		cfg.SchemaRegistry.CacheCapacity = 1000
+		cfg.SchemaRegistry.CacheCapacity = defaultSchemaRegistryCacheCapacity
 	}
 
 	// Apply defaults for global consumer config
 	if cfg.ConsumersConfig.DefaultMaxRetryAttempts == 0 {
-		cfg.ConsumersConfig.DefaultMaxRetryAttempts = 5
+		cfg.ConsumersConfig.DefaultMaxRetryAttempts = defaultMaxRetryAttempts
 	}
 	if cfg.ConsumersConfig.DefaultInitialBackoff == 0 {
-		cfg.ConsumersConfig.DefaultInitialBackoff = 1 * time.Second
+		cfg.ConsumersConfig.DefaultInitialBackoff = defaultInitialBackoff
 	}
 	if cfg.ConsumersConfig.DefaultMaxBackoff == 0 {
-		cfg.ConsumersConfig.DefaultMaxBackoff = 10 * time.Second
+		cfg.ConsumersConfig.DefaultMaxBackoff = defaultMaxBackoff
 	}
 	if cfg.ConsumersConfig.DefaultChannelBufferSize == 0 {
-		cfg.ConsumersConfig.DefaultChannelBufferSize = 100
+		cfg.ConsumersConfig.DefaultChannelBufferSize = defaultChannelBufferSize
 	}
 
 	// Apply defaults from global consumer config to individual consumers
@@ -102,9 +131,9 @@ func newConfig(v *viper.Viper, logger *zap.Logger) (Config, error) {
 		if consumer.EnableDLQ && consumer.DLQTopic == "" {
 			consumer.DLQTopic = consumer.Topic + ".dlq"
 		}
-		// Apply default readiness timeout: 60 seconds
+		// Apply default readiness timeout
 		if consumer.ReadinessTimeoutSeconds == 0 {
-			consumer.ReadinessTimeoutSeconds = 60
+			consumer.ReadinessTimeoutSeconds = defaultConsumerReadinessTimeout
 		}
 		// Apply default max retry attempts from global config
 		if consumer.MaxRetryAttempts == 0 {
@@ -126,7 +155,7 @@ func newConfig(v *viper.Viper, logger *zap.Logger) (Config, error) {
 
 	// Apply default producer config settings
 	if cfg.ProducerConfig.ReadinessTimeoutSeconds == 0 {
-		cfg.ProducerConfig.ReadinessTimeoutSeconds = 60
+		cfg.ProducerConfig.ReadinessTimeoutSeconds = defaultProducerReadinessTimeout
 	}
 
 	logger.Info("loaded kafka config")
@@ -145,25 +174,25 @@ func validateConfig(cfg *Config) error {
 	}
 
 	// Validate schema registry cache capacity
-	if cfg.SchemaRegistry.CacheCapacity < 0 {
-		return fmt.Errorf("schema registry cache capacity cannot be negative, got: %d", cfg.SchemaRegistry.CacheCapacity)
+	if cfg.SchemaRegistry.CacheCapacity < minSchemaCacheCapacity || cfg.SchemaRegistry.CacheCapacity > maxSchemaCacheCapacity {
+		return fmt.Errorf("schema registry cache capacity must be between %d and %d, got: %d", minSchemaCacheCapacity, maxSchemaCacheCapacity, cfg.SchemaRegistry.CacheCapacity)
 	}
 
 	// Validate global consumer config
-	if cfg.ConsumersConfig.DefaultMaxRetryAttempts < 0 {
-		return fmt.Errorf("default max retry attempts cannot be negative, got: %d", cfg.ConsumersConfig.DefaultMaxRetryAttempts)
+	if cfg.ConsumersConfig.DefaultMaxRetryAttempts > 0 && (cfg.ConsumersConfig.DefaultMaxRetryAttempts < minMaxRetryAttempts || cfg.ConsumersConfig.DefaultMaxRetryAttempts > maxMaxRetryAttempts) {
+		return fmt.Errorf("default max retry attempts must be between %d and %d, got: %d", minMaxRetryAttempts, maxMaxRetryAttempts, cfg.ConsumersConfig.DefaultMaxRetryAttempts)
 	}
-	if cfg.ConsumersConfig.DefaultInitialBackoff < 0 {
-		return fmt.Errorf("default initial backoff cannot be negative, got: %v", cfg.ConsumersConfig.DefaultInitialBackoff)
+	if cfg.ConsumersConfig.DefaultInitialBackoff > 0 && (cfg.ConsumersConfig.DefaultInitialBackoff < minInitialBackoff || cfg.ConsumersConfig.DefaultInitialBackoff > maxInitialBackoff) {
+		return fmt.Errorf("default initial backoff must be between %v and %v, got: %v", minInitialBackoff, maxInitialBackoff, cfg.ConsumersConfig.DefaultInitialBackoff)
 	}
-	if cfg.ConsumersConfig.DefaultMaxBackoff < 0 {
-		return fmt.Errorf("default max backoff cannot be negative, got: %v", cfg.ConsumersConfig.DefaultMaxBackoff)
+	if cfg.ConsumersConfig.DefaultMaxBackoff > 0 && (cfg.ConsumersConfig.DefaultMaxBackoff < minMaxBackoff || cfg.ConsumersConfig.DefaultMaxBackoff > maxMaxBackoffDuration) {
+		return fmt.Errorf("default max backoff must be between %v and %v, got: %v", minMaxBackoff, maxMaxBackoffDuration, cfg.ConsumersConfig.DefaultMaxBackoff)
 	}
 	if cfg.ConsumersConfig.DefaultMaxBackoff > 0 && cfg.ConsumersConfig.DefaultInitialBackoff > cfg.ConsumersConfig.DefaultMaxBackoff {
 		return fmt.Errorf("default initial backoff (%v) cannot be greater than max backoff (%v)", cfg.ConsumersConfig.DefaultInitialBackoff, cfg.ConsumersConfig.DefaultMaxBackoff)
 	}
-	if cfg.ConsumersConfig.DefaultChannelBufferSize < 0 {
-		return fmt.Errorf("default channel buffer size cannot be negative, got: %d", cfg.ConsumersConfig.DefaultChannelBufferSize)
+	if cfg.ConsumersConfig.DefaultChannelBufferSize > 0 && (cfg.ConsumersConfig.DefaultChannelBufferSize < minChannelBufferSize || cfg.ConsumersConfig.DefaultChannelBufferSize > maxChannelBufferSize) {
+		return fmt.Errorf("default channel buffer size must be between %d and %d, got: %d", minChannelBufferSize, maxChannelBufferSize, cfg.ConsumersConfig.DefaultChannelBufferSize)
 	}
 
 	// Validate individual consumers
@@ -177,23 +206,23 @@ func validateConfig(cfg *Config) error {
 		if consumer.AutoOffsetReset != "" && consumer.AutoOffsetReset != "earliest" && consumer.AutoOffsetReset != "latest" {
 			return fmt.Errorf("consumer[%d] (%s): auto offset reset must be 'earliest' or 'latest', got: %s", i, consumer.Name, consumer.AutoOffsetReset)
 		}
-		if consumer.ReadinessTimeoutSeconds < 0 {
-			return fmt.Errorf("consumer[%d] (%s): readiness timeout cannot be negative, got: %d", i, consumer.Name, consumer.ReadinessTimeoutSeconds)
+		if consumer.ReadinessTimeoutSeconds > maxReadinessTimeout {
+			return fmt.Errorf("consumer[%d] (%s): readiness timeout cannot exceed %d seconds, got: %d", i, consumer.Name, maxReadinessTimeout, consumer.ReadinessTimeoutSeconds)
 		}
-		if consumer.MaxRetryAttempts < 0 {
-			return fmt.Errorf("consumer[%d] (%s): max retry attempts cannot be negative, got: %d", i, consumer.Name, consumer.MaxRetryAttempts)
+		if consumer.MaxRetryAttempts > 0 && (consumer.MaxRetryAttempts < minMaxRetryAttempts || consumer.MaxRetryAttempts > maxMaxRetryAttempts) {
+			return fmt.Errorf("consumer[%d] (%s): max retry attempts must be between %d and %d, got: %d", i, consumer.Name, minMaxRetryAttempts, maxMaxRetryAttempts, consumer.MaxRetryAttempts)
 		}
-		if consumer.InitialBackoff < 0 {
-			return fmt.Errorf("consumer[%d] (%s): initial backoff cannot be negative, got: %v", i, consumer.Name, consumer.InitialBackoff)
+		if consumer.InitialBackoff > 0 && (consumer.InitialBackoff < minInitialBackoff || consumer.InitialBackoff > maxInitialBackoff) {
+			return fmt.Errorf("consumer[%d] (%s): initial backoff must be between %v and %v, got: %v", i, consumer.Name, minInitialBackoff, maxInitialBackoff, consumer.InitialBackoff)
 		}
-		if consumer.MaxBackoff < 0 {
-			return fmt.Errorf("consumer[%d] (%s): max backoff cannot be negative, got: %v", i, consumer.Name, consumer.MaxBackoff)
+		if consumer.MaxBackoff > 0 && (consumer.MaxBackoff < minMaxBackoff || consumer.MaxBackoff > maxMaxBackoffDuration) {
+			return fmt.Errorf("consumer[%d] (%s): max backoff must be between %v and %v, got: %v", i, consumer.Name, minMaxBackoff, maxMaxBackoffDuration, consumer.MaxBackoff)
 		}
 		if consumer.MaxBackoff > 0 && consumer.InitialBackoff > consumer.MaxBackoff {
 			return fmt.Errorf("consumer[%d] (%s): initial backoff (%v) cannot be greater than max backoff (%v)", i, consumer.Name, consumer.InitialBackoff, consumer.MaxBackoff)
 		}
-		if consumer.ChannelBufferSize < 0 {
-			return fmt.Errorf("consumer[%d] (%s): channel buffer size cannot be negative, got: %d", i, consumer.Name, consumer.ChannelBufferSize)
+		if consumer.ChannelBufferSize > 0 && (consumer.ChannelBufferSize < minChannelBufferSize || consumer.ChannelBufferSize > maxChannelBufferSize) {
+			return fmt.Errorf("consumer[%d] (%s): channel buffer size must be between %d and %d, got: %d", i, consumer.Name, minChannelBufferSize, maxChannelBufferSize, consumer.ChannelBufferSize)
 		}
 		if consumer.EnableDLQ && strings.TrimSpace(consumer.DLQTopic) != "" && consumer.DLQTopic == consumer.Topic {
 			return fmt.Errorf("consumer[%d] (%s): DLQ topic cannot be the same as main topic", i, consumer.Name)
@@ -201,8 +230,8 @@ func validateConfig(cfg *Config) error {
 	}
 
 	// Validate producer config
-	if cfg.ProducerConfig.ReadinessTimeoutSeconds < 0 {
-		return fmt.Errorf("producer readiness timeout cannot be negative, got: %d", cfg.ProducerConfig.ReadinessTimeoutSeconds)
+	if cfg.ProducerConfig.ReadinessTimeoutSeconds > maxReadinessTimeout {
+		return fmt.Errorf("producer readiness timeout cannot exceed %d seconds, got: %d", maxReadinessTimeout, cfg.ProducerConfig.ReadinessTimeoutSeconds)
 	}
 
 	return nil

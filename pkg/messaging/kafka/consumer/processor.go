@@ -106,7 +106,7 @@ func (p *processor) processMessage(message *kafka.Message) {
 	err := p.handleMessage(ctx, message)
 
 	// Класифікуємо результат та застосовуємо відповідну стратегію
-	p.resultHandler.classifyAndHandle(ctx, err, message, span)
+	p.resultHandler.handle(ctx, err, message, span)
 }
 
 func (p *processor) handleMessage(ctx context.Context, message *kafka.Message) error {

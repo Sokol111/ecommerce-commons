@@ -2,6 +2,7 @@ package config
 
 import (
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/spf13/viper"
@@ -42,8 +43,8 @@ type ConsumerConfig struct {
 }
 
 type ProducerConfig struct {
-	ReadinessTimeoutSeconds int   `mapstructure:"readiness-timeout-seconds"` // Timeout for waiting brokers readiness (0 = no timeout)
-	FailOnBrokerError       *bool `mapstructure:"fail-on-broker-error"`      // Whether to fail startup if brokers are not available
+	ReadinessTimeoutSeconds int  `mapstructure:"readiness-timeout-seconds"` // Timeout for waiting brokers readiness (0 = no timeout)
+	FailOnBrokerError       bool `mapstructure:"fail-on-broker-error"`      // Whether to fail startup if brokers are not available
 }
 
 type SchemaRegistryConfig struct {
@@ -64,6 +65,12 @@ func newConfig(v *viper.Viper, logger *zap.Logger) (Config, error) {
 		return cfg, fmt.Errorf("failed to load kafka config: %w", err)
 	}
 
+	// Validate required fields
+	if err := validateConfig(&cfg); err != nil {
+		return cfg, err
+	}
+
+	// Apply defaults
 	if cfg.SchemaRegistry.CacheCapacity == 0 {
 		cfg.SchemaRegistry.CacheCapacity = 1000
 	}
@@ -121,12 +128,82 @@ func newConfig(v *viper.Viper, logger *zap.Logger) (Config, error) {
 	if cfg.ProducerConfig.ReadinessTimeoutSeconds == 0 {
 		cfg.ProducerConfig.ReadinessTimeoutSeconds = 60
 	}
-	// Apply default fail-on-broker-error: true
-	if cfg.ProducerConfig.FailOnBrokerError == nil {
-		defaultFailOnBrokerError := true
-		cfg.ProducerConfig.FailOnBrokerError = &defaultFailOnBrokerError
+
+	logger.Info("loaded kafka config")
+	return cfg, nil
+}
+
+func validateConfig(cfg *Config) error {
+	// Validate brokers
+	if strings.TrimSpace(cfg.Brokers) == "" {
+		return fmt.Errorf("kafka brokers cannot be empty")
 	}
 
-	logger.Info("loaded kafka config", zap.Any("config", cfg))
-	return cfg, nil
+	// Validate schema registry URL
+	if strings.TrimSpace(cfg.SchemaRegistry.URL) == "" {
+		return fmt.Errorf("schema registry URL cannot be empty")
+	}
+
+	// Validate schema registry cache capacity
+	if cfg.SchemaRegistry.CacheCapacity < 0 {
+		return fmt.Errorf("schema registry cache capacity cannot be negative, got: %d", cfg.SchemaRegistry.CacheCapacity)
+	}
+
+	// Validate global consumer config
+	if cfg.ConsumersConfig.DefaultMaxRetryAttempts < 0 {
+		return fmt.Errorf("default max retry attempts cannot be negative, got: %d", cfg.ConsumersConfig.DefaultMaxRetryAttempts)
+	}
+	if cfg.ConsumersConfig.DefaultInitialBackoff < 0 {
+		return fmt.Errorf("default initial backoff cannot be negative, got: %v", cfg.ConsumersConfig.DefaultInitialBackoff)
+	}
+	if cfg.ConsumersConfig.DefaultMaxBackoff < 0 {
+		return fmt.Errorf("default max backoff cannot be negative, got: %v", cfg.ConsumersConfig.DefaultMaxBackoff)
+	}
+	if cfg.ConsumersConfig.DefaultMaxBackoff > 0 && cfg.ConsumersConfig.DefaultInitialBackoff > cfg.ConsumersConfig.DefaultMaxBackoff {
+		return fmt.Errorf("default initial backoff (%v) cannot be greater than max backoff (%v)", cfg.ConsumersConfig.DefaultInitialBackoff, cfg.ConsumersConfig.DefaultMaxBackoff)
+	}
+	if cfg.ConsumersConfig.DefaultChannelBufferSize < 0 {
+		return fmt.Errorf("default channel buffer size cannot be negative, got: %d", cfg.ConsumersConfig.DefaultChannelBufferSize)
+	}
+
+	// Validate individual consumers
+	for i, consumer := range cfg.ConsumersConfig.ConsumerConfig {
+		if strings.TrimSpace(consumer.Name) == "" {
+			return fmt.Errorf("consumer[%d]: name cannot be empty", i)
+		}
+		if strings.TrimSpace(consumer.Topic) == "" {
+			return fmt.Errorf("consumer[%d] (%s): topic cannot be empty", i, consumer.Name)
+		}
+		if consumer.AutoOffsetReset != "" && consumer.AutoOffsetReset != "earliest" && consumer.AutoOffsetReset != "latest" {
+			return fmt.Errorf("consumer[%d] (%s): auto offset reset must be 'earliest' or 'latest', got: %s", i, consumer.Name, consumer.AutoOffsetReset)
+		}
+		if consumer.ReadinessTimeoutSeconds < 0 {
+			return fmt.Errorf("consumer[%d] (%s): readiness timeout cannot be negative, got: %d", i, consumer.Name, consumer.ReadinessTimeoutSeconds)
+		}
+		if consumer.MaxRetryAttempts < 0 {
+			return fmt.Errorf("consumer[%d] (%s): max retry attempts cannot be negative, got: %d", i, consumer.Name, consumer.MaxRetryAttempts)
+		}
+		if consumer.InitialBackoff < 0 {
+			return fmt.Errorf("consumer[%d] (%s): initial backoff cannot be negative, got: %v", i, consumer.Name, consumer.InitialBackoff)
+		}
+		if consumer.MaxBackoff < 0 {
+			return fmt.Errorf("consumer[%d] (%s): max backoff cannot be negative, got: %v", i, consumer.Name, consumer.MaxBackoff)
+		}
+		if consumer.MaxBackoff > 0 && consumer.InitialBackoff > consumer.MaxBackoff {
+			return fmt.Errorf("consumer[%d] (%s): initial backoff (%v) cannot be greater than max backoff (%v)", i, consumer.Name, consumer.InitialBackoff, consumer.MaxBackoff)
+		}
+		if consumer.ChannelBufferSize < 0 {
+			return fmt.Errorf("consumer[%d] (%s): channel buffer size cannot be negative, got: %d", i, consumer.Name, consumer.ChannelBufferSize)
+		}
+		if consumer.EnableDLQ && strings.TrimSpace(consumer.DLQTopic) != "" && consumer.DLQTopic == consumer.Topic {
+			return fmt.Errorf("consumer[%d] (%s): DLQ topic cannot be the same as main topic", i, consumer.Name)
+		}
+	}
+
+	// Validate producer config
+	if cfg.ProducerConfig.ReadinessTimeoutSeconds < 0 {
+		return fmt.Errorf("producer readiness timeout cannot be negative, got: %d", cfg.ProducerConfig.ReadinessTimeoutSeconds)
+	}
+
+	return nil
 }

@@ -18,13 +18,13 @@ type Deserializer interface {
 
 type avroDeserializer struct {
 	parser   encoding.WireFormatParser
-	resolver SchemaResolver
+	resolver WriterSchemaResolver
 	decoder  encoding.Decoder
 }
 
 // NewDeserializer creates a new Avro deserializer with Schema Registry integration
 // Uses composition of specialized components for separation of concerns
-func NewDeserializer(parser encoding.WireFormatParser, resolver SchemaResolver, decoder encoding.Decoder) Deserializer {
+func NewDeserializer(parser encoding.WireFormatParser, resolver WriterSchemaResolver, decoder encoding.Decoder) Deserializer {
 	return &avroDeserializer{
 		parser:   parser,
 		resolver: resolver,
@@ -39,14 +39,16 @@ func (d *avroDeserializer) Deserialize(data []byte) (interface{}, error) {
 		return nil, fmt.Errorf("failed to parse wire format: %w", err)
 	}
 
-	// Resolve schema and Go type by schema ID
-	schema, goType, err := d.resolver.Resolve(schemaID)
+	// Resolve schema metadata (parsed writer schema and name) by schema ID
+	// Writer schema is parsed once and cached by WriterSchemaResolver
+	writerSchema, schemaName, err := d.resolver.Resolve(schemaID)
 	if err != nil {
 		return nil, fmt.Errorf("failed to resolve schema for ID %d: %w", schemaID, err)
 	}
 
-	// Decode Avro payload
-	result, err := d.decoder.Decode(payload, schema, goType)
+	// Decode Avro payload using writer schema from Registry
+	// This ensures we deserialize with the schema that was used to write the data
+	result, err := d.decoder.Decode(payload, writerSchema, schemaName)
 	if err != nil {
 		return nil, fmt.Errorf("failed to decode avro data: %w", err)
 	}

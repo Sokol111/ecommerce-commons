@@ -2,9 +2,7 @@ package consumer
 
 import (
 	"fmt"
-	"reflect"
 
-	"github.com/Sokol111/ecommerce-commons/pkg/messaging/kafka/avro/deserialization"
 	"github.com/Sokol111/ecommerce-commons/pkg/messaging/kafka/config"
 	"go.uber.org/fx"
 	"go.uber.org/zap"
@@ -22,7 +20,6 @@ func getConsumerConfig(conf config.Config, consumerName string) (config.Consumer
 func RegisterHandlerAndConsumer(
 	consumerName string,
 	handlerConstructor any,
-	typeMappingParam map[string]reflect.Type,
 ) fx.Option {
 	return fx.Module(
 		consumerName, // Unique module name
@@ -40,10 +37,6 @@ func RegisterHandlerAndConsumer(
 			fx.Annotate(
 				consumerName,
 				fx.ResultTags(`name:"consumerName"`),
-			),
-			fx.Annotate(
-				deserialization.TypeMapping(typeMappingParam),
-				fx.As(new(deserialization.TypeMapping)),
 			),
 			fx.Private,
 		),

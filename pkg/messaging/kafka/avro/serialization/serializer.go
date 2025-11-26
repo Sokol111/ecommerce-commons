@@ -2,60 +2,58 @@ package serialization
 
 import (
 	"fmt"
-	"reflect"
 
 	"github.com/Sokol111/ecommerce-commons/pkg/messaging/kafka/avro/encoding"
+	"github.com/Sokol111/ecommerce-commons/pkg/messaging/kafka/avro/mapping"
 )
 
-// Serializer serializes Go structs to Avro bytes with Schema Registry integration
+// Serializer serializes Go structs to Avro bytes with Confluent Schema Registry integration
 type Serializer interface {
-	// Serialize serializes a Go struct to Avro bytes with Schema Registry integration
-	//
-	// The topic parameter determines the schema subject in Schema Registry.
-	// Subject is automatically formed as "{topic}-value" for message values.
-	// The msg parameter must be a type registered in TypeMapping.
+	// Serialize serializes a Go struct to Avro bytes using topic from schema binding
+	// The msg parameter must be a type registered in TypeMapping with topic configured
 	//
 	// Returns bytes in format: [0x00][schema_id (4 bytes)][avro_data]
-	Serialize(topic string, msg interface{}) ([]byte, error)
+	Serialize(msg interface{}) ([]byte, error)
 }
 
-type avroSerializer struct {
-	registry SchemaRegistry
-	encoder  encoding.Encoder
-	builder  encoding.WireFormatBuilder
+type serializer struct {
+	typeMapping       *mapping.TypeMapping
+	confluentRegistry ConfluentRegistry
+	encoder           encoding.Encoder
+	builder           encoding.WireFormatBuilder
 }
 
-// NewAvroSerializer creates a new Avro serializer with Schema Registry integration
+// NewSerializer creates a new Avro serializer with Confluent Schema Registry integration
 // Uses composition of specialized components for separation of concerns
-func NewAvroSerializer(registry SchemaRegistry, encoder encoding.Encoder, builder encoding.WireFormatBuilder) Serializer {
-	return &avroSerializer{
-		registry: registry,
-		encoder:  encoder,
-		builder:  builder,
+func NewSerializer(
+	typeMapping *mapping.TypeMapping,
+	confluentRegistry ConfluentRegistry,
+	encoder encoding.Encoder,
+	builder encoding.WireFormatBuilder,
+) Serializer {
+	return &serializer{
+		typeMapping:       typeMapping,
+		confluentRegistry: confluentRegistry,
+		encoder:           encoder,
+		builder:           builder,
 	}
 }
 
-func (s *avroSerializer) Serialize(topic string, msg interface{}) ([]byte, error) {
-	// Get Go type from message
-	msgType := reflect.TypeOf(msg)
-	if msgType.Kind() == reflect.Ptr {
-		msgType = msgType.Elem()
-	}
-
-	// Get schema from registry by type
-	schema, err := s.registry.GetSchemaByType(msgType)
+func (s *serializer) Serialize(msg interface{}) ([]byte, error) {
+	// Get schema binding directly from type mapping
+	binding, err := s.typeMapping.GetByValue(msg)
 	if err != nil {
-		return nil, fmt.Errorf("failed to get schema for type %s: %w", msgType, err)
+		return nil, fmt.Errorf("failed to get schema binding: %w", err)
 	}
 
-	// Register or get schema ID from Schema Registry
-	schemaID, err := s.registry.RegisterSchema(topic+"-value", schema.String())
+	// Register or get schema ID from Confluent Schema Registry
+	schemaID, err := s.confluentRegistry.RegisterSchema(binding)
 	if err != nil {
-		return nil, fmt.Errorf("failed to register schema: %w", err)
+		return nil, fmt.Errorf("failed to register schema in Confluent: %w", err)
 	}
 
-	// Encode message using encoder
-	avroData, err := s.encoder.Encode(msg, schema)
+	// Encode message using encoder with cached parsed schema
+	avroData, err := s.encoder.Encode(msg, binding.ParsedSchema)
 	if err != nil {
 		return nil, fmt.Errorf("failed to encode avro data: %w", err)
 	}

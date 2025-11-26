@@ -33,7 +33,7 @@ func provideProducer(lc fx.Lifecycle, log *zap.Logger, conf config.Config, readi
 	readiness.AddComponent("kafka-producer")
 	lc.Append(fx.Hook{
 		OnStart: func(ctx context.Context) error {
-			if err := init.Initialize(ctx); err != nil {
+			if err := init.initialize(ctx); err != nil {
 				return err
 			}
 			// Signal readiness after successful producer initialization

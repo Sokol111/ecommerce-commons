@@ -32,7 +32,10 @@ func NewAvroModule() fx.Option {
 }
 
 func provideSchemaRegistryClient(lc fx.Lifecycle, kafkaConf config.Config, log *zap.Logger) (schemaregistry.Client, error) {
-	client, err := schemaregistry.NewClient(schemaregistry.NewConfig(kafkaConf.SchemaRegistry.URL))
+	config := schemaregistry.NewConfig(kafkaConf.SchemaRegistry.URL)
+	config.RequestTimeoutMs = 5000 // 5 seconds timeout for Schema Registry requests
+
+	client, err := schemaregistry.NewClient(config)
 	if err != nil {
 		return nil, err
 	}
@@ -52,7 +55,7 @@ func provideConfluentRegistry(lc fx.Lifecycle, client schemaregistry.Client, typ
 
 	cm.AddComponent("confluent_schema_registry")
 	lc.Append(fx.Hook{
-		OnStop: func(ctx context.Context) error {
+		OnStart: func(ctx context.Context) error {
 			err := registry.RegisterAllSchemasAtStartup()
 			if err != nil {
 				return err

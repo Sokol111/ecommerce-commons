@@ -17,6 +17,13 @@ func NewZapLoggingModule() fx.Option {
 			newConfig,
 			provideLogger,
 		),
+		fx.Invoke(func(log *zap.Logger, conf Config) {
+			log.Info("Logger initialized",
+				zap.String("level", conf.Level.String()),
+				zap.Bool("development", conf.Development),
+				zap.String("stacktraceLevel", conf.StacktraceLevel.String()),
+			)
+		}),
 		fx.WithLogger(func(log *zap.Logger, conf Config) fxevent.Logger {
 			zapLogger := &fxevent.ZapLogger{Logger: log}
 

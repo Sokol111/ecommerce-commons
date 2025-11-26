@@ -132,7 +132,6 @@ func (i *initializer) waitUntilReady(ctx context.Context) error {
 		metadata, err := i.consumer.GetMetadata(&i.topic, false, int(timeout.Milliseconds()))
 		if err != nil {
 			if lastErr == nil || time.Since(lastLogTime) > 30*time.Second {
-				lastErr = err
 				lastLogTime = time.Now()
 				i.log.Debug("failed to get topic metadata, retrying", zap.Error(err))
 			}
@@ -145,7 +144,6 @@ func (i *initializer) waitUntilReady(ctx context.Context) error {
 		if !ok {
 			err := fmt.Errorf("topic not found in metadata")
 			if lastErr == nil || time.Since(lastLogTime) > 30*time.Second {
-				lastErr = err
 				lastLogTime = time.Now()
 				i.log.Debug("topic not found in metadata, retrying")
 			}
@@ -157,7 +155,6 @@ func (i *initializer) waitUntilReady(ctx context.Context) error {
 		if topicMeta.Error.Code() != kafka.ErrNoError {
 			err := topicMeta.Error
 			if lastErr == nil || time.Since(lastLogTime) > 30*time.Second {
-				lastErr = err
 				lastLogTime = time.Now()
 				i.log.Debug("topic has error, retrying", zap.String("error", topicMeta.Error.String()))
 			}
@@ -169,7 +166,6 @@ func (i *initializer) waitUntilReady(ctx context.Context) error {
 		if len(topicMeta.Partitions) == 0 {
 			err := fmt.Errorf("topic has no partitions")
 			if lastErr == nil || time.Since(lastLogTime) > 30*time.Second {
-				lastErr = err
 				lastLogTime = time.Now()
 				i.log.Debug("topic has no partitions, retrying")
 			}

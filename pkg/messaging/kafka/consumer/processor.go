@@ -3,19 +3,16 @@ package consumer
 import (
 	"context"
 	"errors"
-	"fmt"
 	"sync"
 
-	"github.com/Sokol111/ecommerce-commons/pkg/messaging/kafka/avro/deserialization"
 	"github.com/confluentinc/confluent-kafka-go/v2/kafka"
 	"go.uber.org/zap"
 )
 
 type processor struct {
 	consumer      *kafka.Consumer
-	messagesChan  <-chan *kafka.Message
+	envelopeChan  <-chan *MessageEnvelope
 	handler       Handler
-	deserializer  deserialization.Deserializer
 	log           *zap.Logger
 	resultHandler *resultHandler
 	retryExecutor RetryExecutor
@@ -28,9 +25,8 @@ type processor struct {
 
 func newProcessor(
 	consumer *kafka.Consumer,
-	messagesChan <-chan *kafka.Message,
+	envelopeChan <-chan *MessageEnvelope,
 	handler Handler,
-	deserializer deserialization.Deserializer,
 	log *zap.Logger,
 	resultHandler *resultHandler,
 	retryExecutor RetryExecutor,
@@ -38,9 +34,8 @@ func newProcessor(
 ) *processor {
 	return &processor{
 		consumer:      consumer,
-		messagesChan:  messagesChan,
+		envelopeChan:  envelopeChan,
 		handler:       handler,
-		deserializer:  deserializer,
 		log:           log,
 		resultHandler: resultHandler,
 		retryExecutor: retryExecutor,
@@ -85,40 +80,28 @@ func (p *processor) run() {
 		select {
 		case <-p.ctx.Done():
 			return
-		case msg := <-p.messagesChan:
+		case envelope := <-p.envelopeChan:
 			if p.ctx.Err() != nil {
 				return
 			}
-			p.processMessage(msg)
+			p.processMessage(envelope)
 		}
 	}
 }
 
-func (p *processor) processMessage(message *kafka.Message) {
+func (p *processor) processMessage(envelope *MessageEnvelope) {
 	// Витягуємо trace context з Kafka headers
-	ctx := p.tracer.ExtractContext(p.ctx, message)
+	ctx := p.tracer.ExtractContext(p.ctx, envelope.Message)
 
 	// Створюємо span для обробки повідомлення
-	ctx, span := p.tracer.StartConsumerSpan(ctx, message)
+	ctx, span := p.tracer.StartConsumerSpan(ctx, envelope.Message)
 	defer span.End()
 
 	// Обробляємо повідомлення з retry логікою
-	err := p.handleMessage(ctx, message)
+	err := p.retryExecutor.Execute(ctx, func(ctx context.Context) error {
+		return p.handler.Process(ctx, envelope.Event)
+	})
 
 	// Класифікуємо результат та застосовуємо відповідну стратегію
-	p.resultHandler.handle(ctx, err, message, span)
-}
-
-func (p *processor) handleMessage(ctx context.Context, message *kafka.Message) error {
-	// Десеріалізуємо повідомлення один раз перед retry циклом
-	event, err := p.deserializer.Deserialize(message.Value)
-	if err != nil {
-		// Помилка десеріалізації - перманентна, не можна retry
-		return fmt.Errorf("%w: deserialization failed: %v", ErrPermanent, err)
-	}
-
-	// Використовуємо RetryExecutor для обробки з повторними спробами
-	return p.retryExecutor.Execute(ctx, func(ctx context.Context) error {
-		return p.handler.Process(ctx, event)
-	})
+	p.resultHandler.handle(ctx, err, envelope.Message, span)
 }

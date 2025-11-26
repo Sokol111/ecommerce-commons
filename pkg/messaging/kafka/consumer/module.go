@@ -51,15 +51,17 @@ func RegisterHandlerAndConsumer(
 			),
 			provideKafkaConsumer,
 			provideProcessor,
+			provideMessageDeserializer,
 			provideInitializer,
 			newRetryExecutor,
 			newMessageTracer,
 			newResultHandler,
 			provideReader,
 			provideMessageChannel,
+			provideEnvelopeChannel,
 			provideDLQHandler,
 			fx.Private,
 		),
-		fx.Invoke(func(*initializer, *processor, *reader) {}),
+		fx.Invoke(func(*initializer, *messageDeserializer, *processor, *reader) {}),
 	)
 }

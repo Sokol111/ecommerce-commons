@@ -44,9 +44,8 @@ func provideProcessor(
 	lc fx.Lifecycle,
 	initializer *initializer,
 	kafkaConsumer *kafka.Consumer,
-	messagesChan chan *kafka.Message,
+	envelopeChan chan *MessageEnvelope,
 	handler Handler,
-	deserializer deserialization.Deserializer,
 	logger *zap.Logger,
 	resultHandler *resultHandler,
 	retryExecutor RetryExecutor,
@@ -54,9 +53,8 @@ func provideProcessor(
 ) *processor {
 	processor := newProcessor(
 		kafkaConsumer,
-		messagesChan,
+		envelopeChan,
 		handler,
-		deserializer,
 		logger,
 		resultHandler,
 		retryExecutor,
@@ -73,6 +71,37 @@ func provideProcessor(
 		},
 	})
 	return processor
+}
+
+func provideMessageDeserializer(
+	lc fx.Lifecycle,
+	initializer *initializer,
+	messagesChan chan *kafka.Message,
+	envelopeChan chan *MessageEnvelope,
+	deserializer deserialization.Deserializer,
+	logger *zap.Logger,
+	tracer MessageTracer,
+	dlqHandler DLQHandler,
+) *messageDeserializer {
+	msgDeserializer := newMessageDeserializer(
+		messagesChan,
+		envelopeChan,
+		deserializer,
+		logger,
+		tracer,
+		dlqHandler,
+	)
+	lc.Append(fx.Hook{
+		OnStart: func(ctx context.Context) error {
+			msgDeserializer.start()
+			return nil
+		},
+		OnStop: func(ctx context.Context) error {
+			msgDeserializer.stop()
+			return nil
+		},
+	})
+	return msgDeserializer
 }
 
 func provideReader(
@@ -122,6 +151,10 @@ func provideKafkaConsumer(lc fx.Lifecycle, conf config.Config, consumerConf conf
 
 func provideMessageChannel(consumerConf config.ConsumerConfig) chan *kafka.Message {
 	return make(chan *kafka.Message, consumerConf.ChannelBufferSize)
+}
+
+func provideEnvelopeChannel(consumerConf config.ConsumerConfig) chan *MessageEnvelope {
+	return make(chan *MessageEnvelope, consumerConf.ChannelBufferSize)
 }
 
 func provideDLQHandler(consumerConf config.ConsumerConfig, tracer MessageTracer, dlqProducer producer.Producer, logger *zap.Logger) DLQHandler {

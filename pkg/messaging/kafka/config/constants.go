@@ -8,6 +8,7 @@ const (
 	defaultMaxRetryAttempts            = 3
 	defaultInitialBackoff              = 1 * time.Second
 	defaultMaxBackoff                  = 30 * time.Second
+	defaultProcessingTimeout           = 30 * time.Second
 	defaultChannelBufferSize           = 100
 	defaultConsumerReadinessTimeout    = 60
 	defaultProducerReadinessTimeout    = 30
@@ -19,6 +20,8 @@ const (
 	maxInitialBackoff      = 30 * time.Second
 	minMaxBackoff          = 1 * time.Second
 	maxMaxBackoffDuration  = 5 * time.Minute
+	minProcessingTimeout   = 1 * time.Second
+	maxProcessingTimeout   = 10 * time.Minute
 	minChannelBufferSize   = 10
 	maxChannelBufferSize   = 10000
 	minSchemaCacheCapacity = 100

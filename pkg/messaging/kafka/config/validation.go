@@ -66,6 +66,11 @@ func validateGlobalConsumerConfig(cfg *ConsumersConfig) error {
 		return fmt.Errorf("default initial backoff (%v) cannot be greater than max backoff (%v)",
 			cfg.DefaultInitialBackoff, cfg.DefaultMaxBackoff)
 	}
+	if cfg.DefaultProcessingTimeout > 0 &&
+		(cfg.DefaultProcessingTimeout < minProcessingTimeout || cfg.DefaultProcessingTimeout > maxProcessingTimeout) {
+		return fmt.Errorf("default processing timeout must be between %v and %v, got: %v",
+			minProcessingTimeout, maxProcessingTimeout, cfg.DefaultProcessingTimeout)
+	}
 	if cfg.DefaultChannelBufferSize > 0 &&
 		(cfg.DefaultChannelBufferSize < minChannelBufferSize || cfg.DefaultChannelBufferSize > maxChannelBufferSize) {
 		return fmt.Errorf("default channel buffer size must be between %d and %d, got: %d",
@@ -118,6 +123,11 @@ func validateConsumer(index int, consumer *ConsumerConfig) error {
 	if consumer.MaxBackoff > 0 && consumer.InitialBackoff > consumer.MaxBackoff {
 		return fmt.Errorf("consumer[%d] (%s): initial backoff (%v) cannot be greater than max backoff (%v)",
 			index, consumer.Name, consumer.InitialBackoff, consumer.MaxBackoff)
+	}
+	if consumer.ProcessingTimeout > 0 &&
+		(consumer.ProcessingTimeout < minProcessingTimeout || consumer.ProcessingTimeout > maxProcessingTimeout) {
+		return fmt.Errorf("consumer[%d] (%s): processing timeout must be between %v and %v, got: %v",
+			index, consumer.Name, minProcessingTimeout, maxProcessingTimeout, consumer.ProcessingTimeout)
 	}
 	if consumer.ChannelBufferSize > 0 &&
 		(consumer.ChannelBufferSize < minChannelBufferSize || consumer.ChannelBufferSize > maxChannelBufferSize) {

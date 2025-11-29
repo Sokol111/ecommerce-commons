@@ -17,6 +17,9 @@ func applyDefaults(cfg *Config) {
 	if cfg.ConsumersConfig.DefaultMaxBackoff == 0 {
 		cfg.ConsumersConfig.DefaultMaxBackoff = defaultMaxBackoff
 	}
+	if cfg.ConsumersConfig.DefaultProcessingTimeout == 0 {
+		cfg.ConsumersConfig.DefaultProcessingTimeout = defaultProcessingTimeout
+	}
 	if cfg.ConsumersConfig.DefaultChannelBufferSize == 0 {
 		cfg.ConsumersConfig.DefaultChannelBufferSize = defaultChannelBufferSize
 	}
@@ -59,6 +62,10 @@ func applyConsumerDefaults(consumer *ConsumerConfig, globalConfig *ConsumersConf
 	// Apply default max backoff from global config
 	if consumer.MaxBackoff == 0 {
 		consumer.MaxBackoff = globalConfig.DefaultMaxBackoff
+	}
+	// Apply default processing timeout from global config
+	if consumer.ProcessingTimeout == 0 {
+		consumer.ProcessingTimeout = globalConfig.DefaultProcessingTimeout
 	}
 	// Apply default channel buffer size from global config
 	if consumer.ChannelBufferSize == 0 {

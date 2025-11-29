@@ -2,10 +2,10 @@ package consumer
 
 import (
 	"context"
+	"errors"
 	"fmt"
 
 	"github.com/Sokol111/ecommerce-commons/pkg/core/health"
-	"github.com/Sokol111/ecommerce-commons/pkg/messaging/kafka/avro/deserialization"
 	"github.com/Sokol111/ecommerce-commons/pkg/messaging/kafka/config"
 	"github.com/Sokol111/ecommerce-commons/pkg/messaging/kafka/producer"
 	"github.com/confluentinc/confluent-kafka-go/v2/kafka"
@@ -40,93 +40,6 @@ func provideInitializer(
 	return initializer
 }
 
-func provideProcessor(
-	lc fx.Lifecycle,
-	initializer *initializer,
-	kafkaConsumer *kafka.Consumer,
-	envelopeChan chan *MessageEnvelope,
-	handler Handler,
-	logger *zap.Logger,
-	resultHandler *resultHandler,
-	retryExecutor RetryExecutor,
-	tracer MessageTracer,
-) *processor {
-	processor := newProcessor(
-		kafkaConsumer,
-		envelopeChan,
-		handler,
-		logger,
-		resultHandler,
-		retryExecutor,
-		tracer,
-	)
-	lc.Append(fx.Hook{
-		OnStart: func(ctx context.Context) error {
-			processor.start()
-			return nil
-		},
-		OnStop: func(ctx context.Context) error {
-			processor.stop()
-			return nil
-		},
-	})
-	return processor
-}
-
-func provideMessageDeserializer(
-	lc fx.Lifecycle,
-	initializer *initializer,
-	messagesChan chan *kafka.Message,
-	envelopeChan chan *MessageEnvelope,
-	deserializer deserialization.Deserializer,
-	logger *zap.Logger,
-	tracer MessageTracer,
-	dlqHandler DLQHandler,
-) *messageDeserializer {
-	msgDeserializer := newMessageDeserializer(
-		messagesChan,
-		envelopeChan,
-		deserializer,
-		logger,
-		tracer,
-		dlqHandler,
-	)
-	lc.Append(fx.Hook{
-		OnStart: func(ctx context.Context) error {
-			msgDeserializer.start()
-			return nil
-		},
-		OnStop: func(ctx context.Context) error {
-			msgDeserializer.stop()
-			return nil
-		},
-	})
-	return msgDeserializer
-}
-
-func provideReader(
-	lc fx.Lifecycle,
-	initializer *initializer,
-	kafkaConsumer *kafka.Consumer,
-	consumerConf config.ConsumerConfig,
-	messagesChan chan *kafka.Message,
-	logger *zap.Logger,
-	readinessWaiter health.ReadinessWaiter,
-) *reader {
-	reader := newReader(kafkaConsumer, consumerConf.Topic, messagesChan, logger, readinessWaiter)
-	lc.Append(fx.Hook{
-		OnStart: func(ctx context.Context) error {
-			reader.start()
-			return nil
-		},
-		OnStop: func(ctx context.Context) error {
-			reader.stop()
-			return nil
-		},
-	})
-	return reader
-}
-
 func provideKafkaConsumer(lc fx.Lifecycle, conf config.Config, consumerConf config.ConsumerConfig, log *zap.Logger) (*kafka.Consumer, error) {
 	kafkaConsumer, err := kafka.NewConsumer(&kafka.ConfigMap{
 		"bootstrap.servers":        conf.Brokers,
@@ -141,6 +54,16 @@ func provideKafkaConsumer(lc fx.Lifecycle, conf config.Config, consumerConf conf
 	}
 	lc.Append(fx.Hook{
 		OnStop: func(ctx context.Context) error {
+			// Final commit before closing
+			if _, commitErr := kafkaConsumer.Commit(); commitErr != nil {
+				var kafkaErr kafka.Error
+				if !errors.As(commitErr, &kafkaErr) || kafkaErr.Code() != kafka.ErrNoOffset {
+					log.Warn("failed to commit offsets on shutdown", zap.Error(commitErr))
+				}
+			} else {
+				log.Debug("final commit successful")
+			}
+
 			log.Info("closing kafka consumer")
 			return kafkaConsumer.Close()
 		},

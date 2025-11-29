@@ -1,6 +1,7 @@
 package consumer
 
 import (
+	"context"
 	"fmt"
 
 	"github.com/Sokol111/ecommerce-commons/pkg/messaging/kafka/config"
@@ -50,18 +51,54 @@ func RegisterHandlerAndConsumer(
 				fx.As(new(Handler)),
 			),
 			provideKafkaConsumer,
-			provideProcessor,
-			provideMessageDeserializer,
+			newProcessor,
+			newMessageDeserializer,
 			provideInitializer,
-			newRetryExecutor,
 			newMessageTracer,
 			newResultHandler,
-			provideReader,
+			newReader,
 			provideMessageChannel,
 			provideEnvelopeChannel,
 			provideDLQHandler,
+			fx.Annotate(
+				func(i *initializer, lc fx.Lifecycle, log *zap.Logger, r *reader) Worker {
+					w := newBaseWorker("reader", log, r.run)
+					registerWorker(lc, w)
+					return w
+				},
+				fx.ResultTags(`group:"workers"`),
+			),
+			fx.Annotate(
+				func(i *initializer, lc fx.Lifecycle, log *zap.Logger, d *messageDeserializer) Worker {
+					w := newBaseWorker("deserializer", log, d.run)
+					registerWorker(lc, w)
+					return w
+				},
+				fx.ResultTags(`group:"workers"`),
+			),
+			fx.Annotate(
+				func(i *initializer, lc fx.Lifecycle, log *zap.Logger, p *processor) Worker {
+					w := newBaseWorker("processor", log, p.run)
+					registerWorker(lc, w)
+					return w
+				},
+				fx.ResultTags(`group:"workers"`),
+			),
 			fx.Private,
 		),
-		fx.Invoke(func(*initializer, *messageDeserializer, *processor, *reader) {}),
+		fx.Invoke(func(*initializer) {}),
 	)
+}
+
+func registerWorker(lc fx.Lifecycle, worker Worker) {
+	lc.Append(fx.Hook{
+		OnStart: func(ctx context.Context) error {
+			worker.Start()
+			return nil
+		},
+		OnStop: func(ctx context.Context) error {
+			worker.Stop()
+			return nil
+		},
+	})
 }

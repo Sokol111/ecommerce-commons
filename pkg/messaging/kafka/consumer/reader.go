@@ -2,7 +2,6 @@ package consumer
 
 import (
 	"context"
-	"sync"
 	"time"
 
 	"github.com/Sokol111/ecommerce-commons/pkg/core/health"
@@ -16,10 +15,6 @@ type reader struct {
 	messagesChan chan<- *kafka.Message
 	log          *zap.Logger
 	readiness    health.ReadinessWaiter
-
-	ctx          context.Context
-	cancelFunc   context.CancelFunc
-	wg           sync.WaitGroup
 	errorTracker *errorTracker
 }
 
@@ -40,31 +35,10 @@ func newReader(
 	}
 }
 
-func (r *reader) start() {
-	r.log.Info("starting reader")
-
-	r.ctx, r.cancelFunc = context.WithCancel(context.Background())
-	r.wg.Add(1)
-	go r.run()
-}
-
-func (r *reader) stop() {
-	r.log.Info("stopping reader")
-	if r.cancelFunc != nil {
-		r.cancelFunc()
-	}
-	r.wg.Wait()
-}
-
-func (r *reader) run() {
-	defer func() {
-		r.log.Info("reader worker stopped")
-		r.wg.Done()
-	}()
-
+func (r *reader) run(ctx context.Context) {
 	// Wait for traffic readiness before starting to read messages
 	r.log.Info("waiting for traffic readiness before reading messages")
-	if err := r.readiness.WaitForTrafficReady(r.ctx); err != nil {
+	if err := r.readiness.WaitForTrafficReady(ctx); err != nil {
 		r.log.Error("context cancelled while waiting for traffic readiness")
 		return
 	}
@@ -72,7 +46,7 @@ func (r *reader) run() {
 
 	for {
 		select {
-		case <-r.ctx.Done():
+		case <-ctx.Done():
 			return
 		default:
 			msg, err := r.consumer.ReadMessage(30 * time.Second)
@@ -83,7 +57,7 @@ func (r *reader) run() {
 			// Success - no error
 			if readerErr == nil {
 				select {
-				case <-r.ctx.Done():
+				case <-ctx.Done():
 					return
 				case r.messagesChan <- msg:
 				}
@@ -94,7 +68,6 @@ func (r *reader) run() {
 			case readerErr.isFatal():
 				// Fatal error - stop consumer
 				r.log.Error(readerErr.description, zap.Error(readerErr))
-				r.cancelFunc()
 				return
 
 			case readerErr.isTimeout():

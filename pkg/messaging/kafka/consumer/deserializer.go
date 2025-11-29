@@ -3,7 +3,6 @@ package consumer
 import (
 	"context"
 	"fmt"
-	"sync"
 
 	"github.com/Sokol111/ecommerce-commons/pkg/messaging/kafka/avro/deserialization"
 	"github.com/confluentinc/confluent-kafka-go/v2/kafka"
@@ -24,10 +23,6 @@ type messageDeserializer struct {
 	log          *zap.Logger
 	tracer       MessageTracer
 	dlqHandler   DLQHandler
-
-	ctx        context.Context
-	cancelFunc context.CancelFunc
-	wg         sync.WaitGroup
 }
 
 func newMessageDeserializer(
@@ -48,42 +43,21 @@ func newMessageDeserializer(
 	}
 }
 
-func (d *messageDeserializer) start() {
-	d.log.Info("starting message deserializer")
-	d.ctx, d.cancelFunc = context.WithCancel(context.Background())
-	d.wg.Add(1)
-	go d.run()
-}
-
-func (d *messageDeserializer) stop() {
-	d.log.Info("stopping message deserializer")
-	if d.cancelFunc != nil {
-		d.cancelFunc()
-	}
-	d.wg.Wait()
-	d.log.Info("message deserializer stopped")
-}
-
-func (d *messageDeserializer) run() {
-	defer func() {
-		d.log.Info("message deserializer worker stopped")
-		d.wg.Done()
-	}()
-
+func (d *messageDeserializer) run(ctx context.Context) {
 	for {
 		select {
-		case <-d.ctx.Done():
+		case <-ctx.Done():
 			return
 		case msg := <-d.inputChan:
-			if d.ctx.Err() != nil {
+			if ctx.Err() != nil {
 				return
 			}
-			d.deserializeAndSend(msg)
+			d.deserializeAndSend(ctx, msg)
 		}
 	}
 }
 
-func (d *messageDeserializer) deserializeAndSend(message *kafka.Message) {
+func (d *messageDeserializer) deserializeAndSend(ctx context.Context, message *kafka.Message) {
 	event, err := d.deserializer.Deserialize(message.Value)
 	if err != nil {
 		// Deserialization error is permanent - send to DLQ
@@ -93,8 +67,8 @@ func (d *messageDeserializer) deserializeAndSend(message *kafka.Message) {
 			zap.Int64("offset", int64(message.TopicPartition.Offset)),
 			zap.Error(err))
 
-		ctx := d.tracer.ExtractContext(d.ctx, message)
-		d.dlqHandler.SendToDLQ(ctx, message, fmt.Errorf("deserialization failed: %w", err))
+		tracedCtx := d.tracer.ExtractContext(ctx, message)
+		d.dlqHandler.SendToDLQ(tracedCtx, message, fmt.Errorf("deserialization failed: %w", err))
 		return
 	}
 
@@ -104,7 +78,7 @@ func (d *messageDeserializer) deserializeAndSend(message *kafka.Message) {
 	}
 
 	select {
-	case <-d.ctx.Done():
+	case <-ctx.Done():
 		return
 	case d.outputChan <- envelope:
 	}

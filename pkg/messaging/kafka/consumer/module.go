@@ -5,6 +5,7 @@ import (
 	"fmt"
 
 	"github.com/Sokol111/ecommerce-commons/pkg/messaging/kafka/config"
+	"github.com/confluentinc/confluent-kafka-go/v2/kafka"
 	"go.uber.org/fx"
 	"go.uber.org/zap"
 )
@@ -69,7 +70,7 @@ func RegisterHandlerAndConsumer(
 				fx.ResultTags(`group:"workers"`),
 			),
 			fx.Annotate(
-				func(i *initializer, lc fx.Lifecycle, log *zap.Logger, d *messageDeserializer) Worker {
+				func(lc fx.Lifecycle, log *zap.Logger, d *messageDeserializer) Worker {
 					w := newBaseWorker("deserializer", log, d.run)
 					registerWorker(lc, w)
 					return w
@@ -77,7 +78,7 @@ func RegisterHandlerAndConsumer(
 				fx.ResultTags(`group:"workers"`),
 			),
 			fx.Annotate(
-				func(i *initializer, lc fx.Lifecycle, log *zap.Logger, p *processor) Worker {
+				func(c *kafka.Consumer, lc fx.Lifecycle, log *zap.Logger, p *processor) Worker {
 					w := newBaseWorker("processor", log, p.run)
 					registerWorker(lc, w)
 					return w

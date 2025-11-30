@@ -11,15 +11,20 @@ import (
 	"github.com/Sokol111/ecommerce-commons/pkg/core/logger"
 )
 
+// messageReader is an interface for reading messages from Kafka
+type messageReader interface {
+	ReadMessage(timeout time.Duration) (*kafka.Message, error)
+}
+
 type reader struct {
-	consumer     *kafka.Consumer
+	consumer     messageReader
 	messagesChan chan<- *kafka.Message
 	log          *zap.Logger
 	throttler    *logger.LogThrottler
 }
 
 func newReader(
-	consumer *kafka.Consumer,
+	consumer messageReader,
 	messagesChan chan<- *kafka.Message,
 	log *zap.Logger,
 ) *reader {

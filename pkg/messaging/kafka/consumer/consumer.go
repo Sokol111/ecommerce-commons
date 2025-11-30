@@ -12,7 +12,7 @@ import (
 	"go.uber.org/zap"
 )
 
-func provideKafkaConsumer(lc fx.Lifecycle, conf config.Config, consumerConf config.ConsumerConfig, log *zap.Logger, componentMgr health.ComponentManager) (*kafka.Consumer, error) {
+func provideKafkaConsumer(lc fx.Lifecycle, conf config.Config, consumerConf config.ConsumerConfig, log *zap.Logger, componentMgr health.ComponentManager) (*kafka.Consumer, messageReader, offsetStorer, error) {
 	kafkaConsumer, err := kafka.NewConsumer(&kafka.ConfigMap{
 		"bootstrap.servers":        conf.Brokers,
 		"group.id":                 consumerConf.GroupID,
@@ -22,7 +22,7 @@ func provideKafkaConsumer(lc fx.Lifecycle, conf config.Config, consumerConf conf
 		"auto.offset.reset":        consumerConf.AutoOffsetReset,
 	})
 	if err != nil {
-		return nil, fmt.Errorf("failed to create kafka consumer, name: %s: %w", consumerConf.Name, err)
+		return nil, nil, nil, fmt.Errorf("failed to create kafka consumer, name: %s: %w", consumerConf.Name, err)
 	}
 
 	componentName := "kafka-consumer-" + consumerConf.Name
@@ -74,7 +74,7 @@ func provideKafkaConsumer(lc fx.Lifecycle, conf config.Config, consumerConf conf
 		},
 	})
 
-	return kafkaConsumer, nil
+	return kafkaConsumer, kafkaConsumer, kafkaConsumer, nil
 }
 
 func logPartitionEvent(log *zap.Logger, event string, partitions []kafka.TopicPartition) {

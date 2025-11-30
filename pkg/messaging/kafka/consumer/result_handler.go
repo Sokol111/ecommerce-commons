@@ -10,17 +10,22 @@ import (
 	"go.uber.org/zap"
 )
 
+// offsetStorer is an interface for storing message offsets
+type offsetStorer interface {
+	StoreMessage(m *kafka.Message) (storedOffsets []kafka.TopicPartition, err error)
+}
+
 // resultHandler handles message processing results
 type resultHandler struct {
 	log        *zap.Logger
 	dlqHandler DLQHandler
-	consumer   *kafka.Consumer
+	consumer   offsetStorer
 }
 
 func newResultHandler(
 	log *zap.Logger,
 	dlqHandler DLQHandler,
-	consumer *kafka.Consumer,
+	consumer offsetStorer,
 ) *resultHandler {
 	return &resultHandler{
 		log:        log,

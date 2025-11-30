@@ -5,6 +5,7 @@ import (
 	"fmt"
 
 	"github.com/Sokol111/ecommerce-commons/pkg/messaging/kafka/config"
+	"github.com/Sokol111/ecommerce-commons/pkg/messaging/kafka/producer"
 	"github.com/confluentinc/confluent-kafka-go/v2/kafka"
 	"go.uber.org/fx"
 	"go.uber.org/zap"
@@ -54,7 +55,6 @@ func RegisterHandlerAndConsumer(
 			provideKafkaConsumer,
 			newProcessor,
 			newMessageDeserializer,
-			provideInitializer,
 			newMessageTracer,
 			newResultHandler,
 			newReader,
@@ -62,7 +62,7 @@ func RegisterHandlerAndConsumer(
 			provideEnvelopeChannel,
 			provideDLQHandler,
 			fx.Annotate(
-				func(i *initializer, lc fx.Lifecycle, log *zap.Logger, r *reader) Worker {
+				func(c *kafka.Consumer, lc fx.Lifecycle, log *zap.Logger, r *reader) Worker {
 					w := newBaseWorker("reader", log, r.run)
 					registerWorker(lc, w)
 					return w
@@ -70,7 +70,7 @@ func RegisterHandlerAndConsumer(
 				fx.ResultTags(`group:"workers"`),
 			),
 			fx.Annotate(
-				func(lc fx.Lifecycle, log *zap.Logger, d *messageDeserializer) Worker {
+				func(c *kafka.Consumer, lc fx.Lifecycle, log *zap.Logger, d *messageDeserializer) Worker {
 					w := newBaseWorker("deserializer", log, d.run)
 					registerWorker(lc, w)
 					return w
@@ -87,8 +87,23 @@ func RegisterHandlerAndConsumer(
 			),
 			fx.Private,
 		),
-		fx.Invoke(func(*initializer) {}),
+		fx.Invoke(func(c *kafka.Consumer) {}),
 	)
+}
+
+func provideMessageChannel(consumerConf config.ConsumerConfig) chan *kafka.Message {
+	return make(chan *kafka.Message, consumerConf.ChannelBufferSize)
+}
+
+func provideEnvelopeChannel(consumerConf config.ConsumerConfig) chan *MessageEnvelope {
+	return make(chan *MessageEnvelope, consumerConf.ChannelBufferSize)
+}
+
+func provideDLQHandler(consumerConf config.ConsumerConfig, tracer MessageTracer, dlqProducer producer.Producer, logger *zap.Logger) DLQHandler {
+	if consumerConf.EnableDLQ {
+		return newDLQHandler(dlqProducer, consumerConf.DLQTopic, tracer, logger)
+	}
+	return newNoopDLQHandler(logger)
 }
 
 func registerWorker(lc fx.Lifecycle, worker Worker) {

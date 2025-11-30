@@ -127,7 +127,7 @@ func (p *processor) executeWithRetry(ctx context.Context, event any) error {
 	}, b)
 }
 
-// safeProcess executes the handler with panic recovery
+// process executes the handler with panic recovery
 func (p *processor) process(ctx context.Context, event any) (err error) {
 	// Apply processing timeout to prevent hanging
 	ctx, cancel := context.WithTimeout(ctx, p.processingTimeout)

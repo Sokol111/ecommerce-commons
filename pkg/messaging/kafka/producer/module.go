@@ -2,44 +2,32 @@ package producer
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/Sokol111/ecommerce-commons/pkg/core/health"
 	"github.com/Sokol111/ecommerce-commons/pkg/messaging/kafka/config"
+	"github.com/confluentinc/confluent-kafka-go/v2/kafka"
 	"go.uber.org/fx"
 	"go.uber.org/zap"
 )
 
 func NewProducerModule() fx.Option {
-	return fx.Provide(
-		provideProducer,
+	return fx.Options(
+		fx.Provide(
+			provideKafkaProducer,
+			provideProducer,
+		),
+		fx.Invoke(invokeInitializer),
 	)
 }
 
-func provideProducer(lc fx.Lifecycle, log *zap.Logger, conf config.Config, readiness health.ComponentManager) (Producer, error) {
-	p, err := newProducer(conf, log.With(zap.String("component", "producer")))
-
+func provideKafkaProducer(lc fx.Lifecycle, conf config.Config) (*kafka.Producer, error) {
+	p, err := kafka.NewProducer(&kafka.ConfigMap{"bootstrap.servers": conf.Brokers})
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to create producer: %w", err)
 	}
 
-	// Create initializer separately
-	init := newInitializer(
-		p.(*producer).producer,
-		log.With(zap.String("component", "producer")),
-		conf.ProducerConfig.ReadinessTimeoutSeconds,
-		conf.ProducerConfig.FailOnBrokerError,
-	)
-
-	readiness.AddComponent("kafka-producer")
 	lc.Append(fx.Hook{
-		OnStart: func(ctx context.Context) error {
-			if err := init.initialize(ctx); err != nil {
-				return err
-			}
-			// Signal readiness after successful producer initialization
-			readiness.MarkReady("kafka-producer")
-			return nil
-		},
 		OnStop: func(ctx context.Context) error {
 			p.Close()
 			return nil
@@ -47,4 +35,21 @@ func provideProducer(lc fx.Lifecycle, log *zap.Logger, conf config.Config, readi
 	})
 
 	return p, nil
+}
+
+func invokeInitializer(lc fx.Lifecycle, readiness health.ComponentManager, p *kafka.Producer, log *zap.Logger, conf config.Config) {
+	readiness.AddComponent("kafka-producer")
+	lc.Append(fx.Hook{
+		OnStart: func(ctx context.Context) error {
+			if err := waitForBrokers(ctx, p, log.With(zap.String("component", "producer")), conf.ProducerConfig.ReadinessTimeoutSeconds, conf.ProducerConfig.FailOnBrokerError); err != nil {
+				return err
+			}
+			readiness.MarkReady("kafka-producer")
+			return nil
+		},
+	})
+}
+
+func provideProducer(kafkaProducer *kafka.Producer, log *zap.Logger) Producer {
+	return newProducer(kafkaProducer, log.With(zap.String("component", "producer")))
 }

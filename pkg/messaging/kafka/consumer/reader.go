@@ -2,20 +2,22 @@ package consumer
 
 import (
 	"context"
+	"sync"
 	"time"
 
 	"github.com/Sokol111/ecommerce-commons/pkg/core/health"
 	"github.com/confluentinc/confluent-kafka-go/v2/kafka"
 	"go.uber.org/zap"
+	"golang.org/x/time/rate"
 )
 
 type reader struct {
-	consumer     *kafka.Consumer
-	topic        string
-	messagesChan chan<- *kafka.Message
-	log          *zap.Logger
-	readiness    health.ReadinessWaiter
-	errorTracker *errorTracker
+	consumer      *kafka.Consumer
+	topic         string
+	messagesChan  chan<- *kafka.Message
+	log           *zap.Logger
+	readiness     health.ReadinessWaiter
+	errorLimiters sync.Map // map[string]*rate.Limiter
 }
 
 func newReader(
@@ -31,7 +33,6 @@ func newReader(
 		messagesChan: messagesChan,
 		log:          log,
 		readiness:    readiness,
-		errorTracker: newErrorTracker(log),
 	}
 }
 
@@ -76,7 +77,7 @@ func (r *reader) run(ctx context.Context) {
 
 			case readerErr.isTemporary():
 				// Temporary error - log and retry
-				r.errorTracker.logReaderError(readerErr)
+				r.logThrottled(readerErr.errorKey, readerErr.description, readerErr)
 				continue
 
 			default:
@@ -86,4 +87,26 @@ func (r *reader) run(ctx context.Context) {
 			}
 		}
 	}
+}
+
+// logThrottled logs as WARN once per 5 minutes per key, DEBUG otherwise
+func (r *reader) logThrottled(key string, msg string, err error) {
+	limiter := r.getErrorLimiter(key)
+
+	if limiter.Allow() {
+		r.log.Warn(msg, zap.Error(err))
+	} else {
+		r.log.Debug(msg, zap.Error(err))
+	}
+}
+
+func (r *reader) getErrorLimiter(key string) *rate.Limiter {
+	if limiter, ok := r.errorLimiters.Load(key); ok {
+		return limiter.(*rate.Limiter)
+	}
+
+	// 1 event per 5 minutes, no burst
+	limiter := rate.NewLimiter(rate.Every(5*60), 1)
+	actual, _ := r.errorLimiters.LoadOrStore(key, limiter)
+	return actual.(*rate.Limiter)
 }

@@ -8,7 +8,12 @@ import (
 	"go.uber.org/zap"
 )
 
-func waitForBrokers(ctx context.Context, p *kafka.Producer, log *zap.Logger, timeoutSec int, failOnError bool) error {
+// metadataProvider is the interface for getting Kafka metadata.
+type metadataProvider interface {
+	GetMetadata(topic *string, allTopics bool, timeoutMs int) (*kafka.Metadata, error)
+}
+
+func waitForBrokers(ctx context.Context, p metadataProvider, log *zap.Logger, timeoutSec int, failOnError bool) error {
 	log.Info("waiting for kafka brokers", zap.Int("timeout_seconds", timeoutSec))
 
 	if timeoutSec > 0 {
@@ -28,7 +33,7 @@ func waitForBrokers(ctx context.Context, p *kafka.Producer, log *zap.Logger, tim
 	return nil
 }
 
-func pollBrokers(ctx context.Context, p *kafka.Producer) error {
+func pollBrokers(ctx context.Context, p metadataProvider) error {
 	for {
 		select {
 		case <-ctx.Done():
@@ -39,6 +44,5 @@ func pollBrokers(ctx context.Context, p *kafka.Producer) error {
 		if meta, err := p.GetMetadata(nil, false, 5000); err == nil && len(meta.Brokers) > 0 {
 			return nil
 		}
-		time.Sleep(500 * time.Millisecond)
 	}
 }

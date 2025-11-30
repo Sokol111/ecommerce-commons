@@ -7,21 +7,27 @@ import (
 	"go.uber.org/zap"
 )
 
+// Producer is the interface for sending messages to Kafka.
 type Producer interface {
 	Produce(message *kafka.Message, deliveryChan chan kafka.Event) error
 }
 
-type producer struct {
-	producer *kafka.Producer
-	log      *zap.Logger
+// kafkaProducer is the interface that wraps the Produce method of kafka.Producer.
+type kafkaProducer interface {
+	Produce(msg *kafka.Message, deliveryChan chan kafka.Event) error
 }
 
-func newProducer(kafkaProducer *kafka.Producer, log *zap.Logger) Producer {
-	return &producer{producer: kafkaProducer, log: log}
+type producer struct {
+	kafkaProducer kafkaProducer
+	log           *zap.Logger
+}
+
+func newProducer(kafkaProducer kafkaProducer, log *zap.Logger) Producer {
+	return &producer{kafkaProducer: kafkaProducer, log: log}
 }
 
 func (p *producer) Produce(message *kafka.Message, deliveryChan chan kafka.Event) error {
-	err := p.producer.Produce(message, deliveryChan)
+	err := p.kafkaProducer.Produce(message, deliveryChan)
 	if err != nil {
 		return fmt.Errorf("failed to send message to topic %s: %w", message.TopicPartition, err)
 	}

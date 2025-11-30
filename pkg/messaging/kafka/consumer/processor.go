@@ -57,15 +57,12 @@ func newProcessor(
 	}
 }
 
-func (p *processor) run(ctx context.Context) {
+func (p *processor) Run(ctx context.Context) error {
 	for {
 		select {
 		case <-ctx.Done():
-			return
+			return nil
 		case envelope := <-p.envelopeChan:
-			if ctx.Err() != nil {
-				return
-			}
 			p.processMessage(ctx, envelope)
 		}
 	}

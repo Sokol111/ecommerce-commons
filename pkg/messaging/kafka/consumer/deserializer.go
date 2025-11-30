@@ -43,15 +43,12 @@ func newMessageDeserializer(
 	}
 }
 
-func (d *messageDeserializer) run(ctx context.Context) {
+func (d *messageDeserializer) Run(ctx context.Context) error {
 	for {
 		select {
 		case <-ctx.Done():
-			return
+			return nil
 		case msg := <-d.inputChan:
-			if ctx.Err() != nil {
-				return
-			}
 			d.deserializeAndSend(ctx, msg)
 		}
 	}

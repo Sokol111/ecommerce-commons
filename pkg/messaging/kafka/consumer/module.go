@@ -1,9 +1,9 @@
 package consumer
 
 import (
-	"context"
 	"fmt"
 
+	"github.com/Sokol111/ecommerce-commons/pkg/core/worker"
 	"github.com/Sokol111/ecommerce-commons/pkg/messaging/kafka/config"
 	"github.com/Sokol111/ecommerce-commons/pkg/messaging/kafka/producer"
 	"github.com/confluentinc/confluent-kafka-go/v2/kafka"
@@ -61,30 +61,9 @@ func RegisterHandlerAndConsumer(
 			provideMessageChannel,
 			provideEnvelopeChannel,
 			provideDLQHandler,
-			fx.Annotate(
-				func(c *kafka.Consumer, lc fx.Lifecycle, log *zap.Logger, r *reader) Worker {
-					w := newBaseWorker("reader", log, r.run)
-					registerWorker(lc, w)
-					return w
-				},
-				fx.ResultTags(`group:"workers"`),
-			),
-			fx.Annotate(
-				func(c *kafka.Consumer, lc fx.Lifecycle, log *zap.Logger, d *messageDeserializer) Worker {
-					w := newBaseWorker("deserializer", log, d.run)
-					registerWorker(lc, w)
-					return w
-				},
-				fx.ResultTags(`group:"workers"`),
-			),
-			fx.Annotate(
-				func(c *kafka.Consumer, lc fx.Lifecycle, log *zap.Logger, p *processor) Worker {
-					w := newBaseWorker("processor", log, p.run)
-					registerWorker(lc, w)
-					return w
-				},
-				fx.ResultTags(`group:"workers"`),
-			),
+			worker.Register[*reader]("reader", worker.WithReadiness(), worker.WithShutdown()),
+			worker.Register[*messageDeserializer]("deserializer"),
+			worker.Register[*processor]("processor"),
 			fx.Private,
 		),
 		fx.Invoke(func(c *kafka.Consumer) {}),
@@ -104,17 +83,4 @@ func provideDLQHandler(consumerConf config.ConsumerConfig, tracer MessageTracer,
 		return newDLQHandler(dlqProducer, consumerConf.DLQTopic, tracer, logger)
 	}
 	return newNoopDLQHandler(logger)
-}
-
-func registerWorker(lc fx.Lifecycle, worker Worker) {
-	lc.Append(fx.Hook{
-		OnStart: func(ctx context.Context) error {
-			worker.Start()
-			return nil
-		},
-		OnStop: func(ctx context.Context) error {
-			worker.Stop()
-			return nil
-		},
-	})
 }

@@ -61,7 +61,7 @@ func RegisterHandlerAndConsumer(
 			provideMessageChannel,
 			provideEnvelopeChannel,
 			provideDLQHandler,
-			worker.Register[*reader]("reader", worker.WithReadiness(), worker.WithShutdown()),
+			worker.Register[*reader]("reader", worker.WithTrafficReady(), worker.WithShutdown()),
 			worker.Register[*messageDeserializer]("deserializer"),
 			worker.Register[*processor]("processor"),
 			fx.Private,

@@ -7,7 +7,6 @@ import (
 	"time"
 
 	"github.com/confluentinc/confluent-kafka-go/v2/kafka"
-	"go.uber.org/fx"
 	"go.uber.org/zap"
 )
 
@@ -15,10 +14,7 @@ type confirmer struct {
 	store        Store
 	deliveryChan <-chan kafka.Event
 	logger       *zap.Logger
-
-	ctx        context.Context
-	cancelFunc context.CancelFunc
-	wg         sync.WaitGroup
+	wg           sync.WaitGroup
 }
 
 func newConfirmer(
@@ -29,46 +25,11 @@ func newConfirmer(
 	return &confirmer{
 		store:        store,
 		deliveryChan: deliveryChan,
-		logger:       logger.With(zap.String("component", "outbox")),
+		logger:       logger,
 	}
 }
 
-func provideConfirmer(lc fx.Lifecycle, store Store, channels *channels, logger *zap.Logger) *confirmer {
-	c := newConfirmer(store, channels.delivery, logger)
-
-	lc.Append(fx.Hook{
-		OnStart: func(ctx context.Context) error {
-			c.start()
-			return nil
-		},
-		OnStop: func(ctx context.Context) error {
-			c.stop()
-			return nil
-		},
-	})
-
-	return c
-}
-
-func (c *confirmer) start() {
-	c.logger.Info("starting confirmer")
-	c.ctx, c.cancelFunc = context.WithCancel(context.Background())
-	c.wg.Add(1)
-	go c.run()
-}
-
-func (c *confirmer) stop() {
-	c.logger.Info("stopping confirmer")
-	if c.cancelFunc != nil {
-		c.cancelFunc()
-	}
-	c.wg.Wait()
-	c.logger.Info("confirmer stopped")
-}
-
-func (c *confirmer) run() {
-	defer c.wg.Done()
-
+func (c *confirmer) Run(ctx context.Context) error {
 	events := make([]kafka.Event, 0, 100)
 
 	flush := func() {
@@ -78,7 +39,7 @@ func (c *confirmer) run() {
 		copySlice := make([]kafka.Event, len(events))
 		copy(copySlice, events)
 		c.wg.Add(1)
-		go c.handleConfirmation(copySlice)
+		go c.handleConfirmation(ctx, copySlice)
 		events = events[:0]
 	}
 
@@ -87,16 +48,16 @@ func (c *confirmer) run() {
 
 	for {
 		select {
-		case <-c.ctx.Done():
+		case <-ctx.Done():
 			flush()
-			return
+			return nil
 		default:
 		}
 
 		select {
-		case <-c.ctx.Done():
+		case <-ctx.Done():
 			flush()
-			return
+			return nil
 		case event := <-c.deliveryChan:
 			events = append(events, event)
 			if len(events) == 100 {
@@ -108,7 +69,7 @@ func (c *confirmer) run() {
 	}
 }
 
-func (c *confirmer) handleConfirmation(events []kafka.Event) {
+func (c *confirmer) handleConfirmation(ctx context.Context, events []kafka.Event) {
 	defer c.wg.Done()
 
 	ids := make([]string, 0, len(events))
@@ -144,7 +105,7 @@ func (c *confirmer) handleConfirmation(events []kafka.Event) {
 		return
 	}
 
-	err := c.store.UpdateAsSentByIds(c.ctx, ids)
+	err := c.store.UpdateAsSentByIds(ctx, ids)
 	if err != nil {
 		c.logger.Error("failed to update confirmation", zap.Error(err))
 		return

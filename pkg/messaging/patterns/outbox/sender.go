@@ -10,7 +10,6 @@ import (
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/propagation"
 	"go.opentelemetry.io/otel/trace"
-	"go.uber.org/fx"
 	"go.uber.org/zap"
 )
 
@@ -19,9 +18,6 @@ type sender struct {
 	entitiesChan <-chan *outboxEntity
 	deliveryChan chan kafka.Event
 	logger       *zap.Logger
-
-	ctx        context.Context
-	cancelFunc context.CancelFunc
 }
 
 func newSender(
@@ -34,53 +30,23 @@ func newSender(
 		producer:     producer,
 		entitiesChan: entitiesChan,
 		deliveryChan: deliveryChan,
-		logger:       logger.With(zap.String("component", "outbox")),
+		logger:       logger,
 	}
 }
 
-func provideSender(lc fx.Lifecycle, producer producer.Producer, channels *channels, logger *zap.Logger) *sender {
-	s := newSender(producer, channels.entities, channels.delivery, logger)
-
-	lc.Append(fx.Hook{
-		OnStart: func(ctx context.Context) error {
-			s.start()
-			return nil
-		},
-		OnStop: func(ctx context.Context) error {
-			s.stop()
-			return nil
-		},
-	})
-
-	return s
-}
-
-func (s *sender) start() {
-	s.logger.Info("starting sender")
-	s.ctx, s.cancelFunc = context.WithCancel(context.Background())
-	go s.run()
-}
-
-func (s *sender) stop() {
-	s.logger.Info("stopping sender")
-	if s.cancelFunc != nil {
-		s.cancelFunc()
-	}
-}
-
-func (s *sender) run() {
+func (s *sender) Run(ctx context.Context) error {
 	defer s.logger.Info("sender worker stopped")
 
 	for {
 		select {
-		case <-s.ctx.Done():
-			return
+		case <-ctx.Done():
+			return nil
 		default:
 		}
 
 		select {
-		case <-s.ctx.Done():
-			return
+		case <-ctx.Done():
+			return nil
 		case entity := <-s.entitiesChan:
 			if err := s.send(entity); err != nil {
 				s.logger.Error("failed to send outbox message",

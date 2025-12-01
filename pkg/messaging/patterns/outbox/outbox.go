@@ -6,16 +6,17 @@ import (
 	"time"
 
 	"github.com/Sokol111/ecommerce-commons/pkg/core/logger"
+	"github.com/Sokol111/ecommerce-commons/pkg/messaging/kafka/avro/mapping"
+	"github.com/Sokol111/ecommerce-commons/pkg/messaging/kafka/avro/serialization"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/propagation"
 	"go.uber.org/zap"
 )
 
 type OutboxMessage struct {
-	Payload []byte            // Pre-serialized event bytes (e.g., Avro, Protobuf, JSON) - ready to send to Kafka
+	Message any               // The actual message payload to be sent
 	EventID string            // Unique event identifier - used as outbox record ID for idempotency (prevents duplicate messages)
 	Key     string            // Kafka partition key for ordering guarantees
-	Topic   string            // Kafka topic name
 	Headers map[string]string // Kafka headers for trace propagation, event_type, etc.
 }
 
@@ -27,13 +28,17 @@ type outbox struct {
 	store        Store
 	logger       *zap.Logger
 	entitiesChan chan<- *outboxEntity
+	typeMapping  *mapping.TypeMapping
+	serializer   serialization.Serializer
 }
 
-func newOutbox(logger *zap.Logger, store Store, entitiesChan chan<- *outboxEntity) Outbox {
+func newOutbox(logger *zap.Logger, store Store, entitiesChan chan<- *outboxEntity, typeMapping *mapping.TypeMapping, serializer serialization.Serializer) Outbox {
 	return &outbox{
 		store:        store,
-		logger:       logger.With(zap.String("component", "outbox")),
+		logger:       logger,
 		entitiesChan: entitiesChan,
+		typeMapping:  typeMapping,
+		serializer:   serializer,
 	}
 }
 
@@ -41,9 +46,19 @@ type SendFunc func(ctx context.Context) error
 
 func (o *outbox) Create(ctx context.Context, msg OutboxMessage) (SendFunc, error) {
 	// Extract trace context from ctx and inject into headers
-	headers := o.injectTraceContext(ctx, msg.Headers)
+	msg.Headers = o.injectTraceContext(ctx, msg.Headers)
 
-	entity, err := o.store.Create(ctx, msg.Payload, msg.EventID, msg.Key, msg.Topic, headers)
+	mapping, err := o.typeMapping.GetByValue(msg.Message)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get type mapping for outbox message: %w", err)
+	}
+
+	serializedMsg, err := o.serializer.Serialize(msg.Message)
+	if err != nil {
+		return nil, fmt.Errorf("failed to serialize outbox message: %w", err)
+	}
+
+	entity, err := o.store.Create(ctx, serializedMsg, msg.EventID, msg.Key, mapping.Topic, msg.Headers)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create outbox message: %w", err)
 	}

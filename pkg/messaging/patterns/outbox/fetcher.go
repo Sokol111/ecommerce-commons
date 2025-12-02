@@ -9,16 +9,16 @@ import (
 )
 
 type fetcher struct {
-	store        Store
-	entitiesChan chan<- *outboxEntity
-	logger       *zap.Logger
+	outboxRepository repository
+	entitiesChan     chan<- *outboxEntity
+	logger           *zap.Logger
 }
 
-func newFetcher(store Store, entitiesChan chan<- *outboxEntity, logger *zap.Logger) *fetcher {
+func newFetcher(outboxRepository repository, entitiesChan chan<- *outboxEntity, logger *zap.Logger) *fetcher {
 	return &fetcher{
-		store:        store,
-		entitiesChan: entitiesChan,
-		logger:       logger,
+		outboxRepository: outboxRepository,
+		entitiesChan:     entitiesChan,
+		logger:           logger,
 	}
 }
 
@@ -28,17 +28,31 @@ func (f *fetcher) Run(ctx context.Context) error {
 		case <-ctx.Done():
 			return nil
 		default:
-			entity, err := f.store.FetchAndLock(ctx)
-			if err != nil {
-				if errors.Is(err, errEntityNotFound) {
-					time.Sleep(2 * time.Second)
-					continue
+		}
+
+		entity, err := f.outboxRepository.FetchAndLock(ctx)
+		if err != nil {
+			if errors.Is(err, errEntityNotFound) {
+				select {
+				case <-ctx.Done():
+					return nil
+				case <-time.After(2 * time.Second):
 				}
-				f.logger.Error("failed to get outbox entity", zap.Error(err))
-				time.Sleep(5 * time.Second)
 				continue
 			}
-			f.entitiesChan <- entity
+			f.logger.Error("failed to get outbox entity", zap.Error(err))
+			select {
+			case <-ctx.Done():
+				return nil
+			case <-time.After(5 * time.Second):
+			}
+			continue
+		}
+
+		select {
+		case <-ctx.Done():
+			return nil
+		case f.entitiesChan <- entity:
 		}
 	}
 }

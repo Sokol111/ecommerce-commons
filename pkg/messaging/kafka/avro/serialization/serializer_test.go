@@ -496,3 +496,215 @@ func TestSerializer_Serialize_IntegrationWithRealComponents(t *testing.T) {
 
 	mockRegistry.AssertExpectations(t)
 }
+
+func TestSerializer_SerializeWithTopic_Success(t *testing.T) {
+	// Arrange
+	tm := createTestTypeMapping(t)
+	mockRegistry := new(MockConfluentRegistry)
+	mockEncoder := new(MockEncoder)
+	mockBuilder := new(MockWireFormatBuilder)
+
+	msg := &TestProduct{ID: "123", Name: "Test Product"}
+	schemaID := 42
+	avroData := []byte{0x06, 0x31, 0x32, 0x33}
+	expectedWireFormat := []byte{0x00, 0x00, 0x00, 0x00, 0x2A, 0x06, 0x31, 0x32, 0x33}
+
+	binding, err := tm.GetByValue(msg)
+	require.NoError(t, err)
+
+	mockRegistry.On("RegisterSchema", binding).Return(schemaID, nil)
+	mockEncoder.On("Encode", msg, binding.ParsedSchema).Return(avroData, nil)
+	mockBuilder.On("Build", schemaID, avroData).Return(expectedWireFormat)
+
+	serializer := NewSerializer(tm, mockRegistry, mockEncoder, mockBuilder)
+
+	// Act
+	result, topic, err := serializer.SerializeWithTopic(msg)
+
+	// Assert
+	require.NoError(t, err)
+	assert.Equal(t, expectedWireFormat, result)
+	assert.Equal(t, "test-product-events", topic)
+	mockRegistry.AssertExpectations(t)
+	mockEncoder.AssertExpectations(t)
+	mockBuilder.AssertExpectations(t)
+}
+
+func TestSerializer_SerializeWithTopic_TypeNotRegistered(t *testing.T) {
+	// Arrange
+	tm := mapping.NewTypeMapping() // Empty type mapping
+	mockRegistry := new(MockConfluentRegistry)
+	mockEncoder := new(MockEncoder)
+	mockBuilder := new(MockWireFormatBuilder)
+
+	msg := &TestProduct{ID: "123", Name: "Test Product"}
+
+	serializer := NewSerializer(tm, mockRegistry, mockEncoder, mockBuilder)
+
+	// Act
+	result, topic, err := serializer.SerializeWithTopic(msg)
+
+	// Assert
+	assert.Error(t, err)
+	assert.Nil(t, result)
+	assert.Empty(t, topic)
+	assert.Contains(t, err.Error(), "failed to get schema binding")
+	mockRegistry.AssertNotCalled(t, "RegisterSchema")
+	mockEncoder.AssertNotCalled(t, "Encode")
+	mockBuilder.AssertNotCalled(t, "Build")
+}
+
+func TestSerializer_SerializeWithTopic_RegistryError(t *testing.T) {
+	// Arrange
+	tm := createTestTypeMapping(t)
+	mockRegistry := new(MockConfluentRegistry)
+	mockEncoder := new(MockEncoder)
+	mockBuilder := new(MockWireFormatBuilder)
+
+	msg := &TestProduct{ID: "123", Name: "Test Product"}
+	registryError := errors.New("schema registry unavailable")
+
+	binding, err := tm.GetByValue(msg)
+	require.NoError(t, err)
+
+	mockRegistry.On("RegisterSchema", binding).Return(0, registryError)
+
+	serializer := NewSerializer(tm, mockRegistry, mockEncoder, mockBuilder)
+
+	// Act
+	result, topic, err := serializer.SerializeWithTopic(msg)
+
+	// Assert
+	assert.Error(t, err)
+	assert.Nil(t, result)
+	assert.Empty(t, topic)
+	assert.Contains(t, err.Error(), "failed to register schema in Confluent")
+	mockRegistry.AssertExpectations(t)
+	mockEncoder.AssertNotCalled(t, "Encode")
+	mockBuilder.AssertNotCalled(t, "Build")
+}
+
+func TestSerializer_SerializeWithTopic_EncoderError(t *testing.T) {
+	// Arrange
+	tm := createTestTypeMapping(t)
+	mockRegistry := new(MockConfluentRegistry)
+	mockEncoder := new(MockEncoder)
+	mockBuilder := new(MockWireFormatBuilder)
+
+	msg := &TestProduct{ID: "123", Name: "Test Product"}
+	schemaID := 42
+	encoderError := errors.New("encoding failed")
+
+	binding, err := tm.GetByValue(msg)
+	require.NoError(t, err)
+
+	mockRegistry.On("RegisterSchema", binding).Return(schemaID, nil)
+	mockEncoder.On("Encode", msg, binding.ParsedSchema).Return(nil, encoderError)
+
+	serializer := NewSerializer(tm, mockRegistry, mockEncoder, mockBuilder)
+
+	// Act
+	result, topic, err := serializer.SerializeWithTopic(msg)
+
+	// Assert
+	assert.Error(t, err)
+	assert.Nil(t, result)
+	assert.Empty(t, topic)
+	assert.Contains(t, err.Error(), "failed to encode avro data")
+	mockRegistry.AssertExpectations(t)
+	mockEncoder.AssertExpectations(t)
+	mockBuilder.AssertNotCalled(t, "Build")
+}
+
+func TestSerializer_SerializeWithTopic_DifferentTypes(t *testing.T) {
+	// Arrange
+	tm := createTestTypeMapping(t)
+	mockRegistry := new(MockConfluentRegistry)
+	mockEncoder := new(MockEncoder)
+	mockBuilder := new(MockWireFormatBuilder)
+
+	product := &TestProduct{ID: "p1", Name: "Product"}
+	category := &TestCategory{ID: "c1", Name: "Category"}
+
+	productBinding, err := tm.GetByValue(product)
+	require.NoError(t, err)
+	categoryBinding, err := tm.GetByValue(category)
+	require.NoError(t, err)
+
+	productSchemaID := 100
+	categorySchemaID := 200
+
+	mockRegistry.On("RegisterSchema", productBinding).Return(productSchemaID, nil)
+	mockRegistry.On("RegisterSchema", categoryBinding).Return(categorySchemaID, nil)
+
+	productAvroData := []byte{0x01}
+	categoryAvroData := []byte{0x02}
+
+	mockEncoder.On("Encode", product, productBinding.ParsedSchema).Return(productAvroData, nil)
+	mockEncoder.On("Encode", category, categoryBinding.ParsedSchema).Return(categoryAvroData, nil)
+
+	mockBuilder.On("Build", productSchemaID, productAvroData).Return([]byte{0x00, 0x00, 0x00, 0x00, 0x64, 0x01})
+	mockBuilder.On("Build", categorySchemaID, categoryAvroData).Return([]byte{0x00, 0x00, 0x00, 0x00, 0xC8, 0x02})
+
+	serializer := NewSerializer(tm, mockRegistry, mockEncoder, mockBuilder)
+
+	// Act
+	productResult, productTopic, err1 := serializer.SerializeWithTopic(product)
+	categoryResult, categoryTopic, err2 := serializer.SerializeWithTopic(category)
+
+	// Assert
+	require.NoError(t, err1)
+	require.NoError(t, err2)
+	assert.NotNil(t, productResult)
+	assert.NotNil(t, categoryResult)
+	assert.Equal(t, "test-product-events", productTopic)
+	assert.Equal(t, "test-category-events", categoryTopic)
+	assert.NotEqual(t, productResult, categoryResult)
+	mockRegistry.AssertExpectations(t)
+	mockEncoder.AssertExpectations(t)
+	mockBuilder.AssertExpectations(t)
+}
+
+func TestSerializer_Serialize_DelegatesToSerializeWithTopic(t *testing.T) {
+	// Verify that Serialize properly delegates to SerializeWithTopic
+	// Arrange
+	tm := createTestTypeMapping(t)
+	mockRegistry := new(MockConfluentRegistry)
+	mockEncoder := new(MockEncoder)
+	mockBuilder := new(MockWireFormatBuilder)
+
+	msg := &TestProduct{ID: "123", Name: "Test Product"}
+	schemaID := 42
+	avroData := []byte{0x06, 0x31, 0x32, 0x33}
+	expectedWireFormat := []byte{0x00, 0x00, 0x00, 0x00, 0x2A, 0x06, 0x31, 0x32, 0x33}
+
+	binding, err := tm.GetByValue(msg)
+	require.NoError(t, err)
+
+	mockRegistry.On("RegisterSchema", binding).Return(schemaID, nil)
+	mockEncoder.On("Encode", msg, binding.ParsedSchema).Return(avroData, nil)
+	mockBuilder.On("Build", schemaID, avroData).Return(expectedWireFormat)
+
+	serializer := NewSerializer(tm, mockRegistry, mockEncoder, mockBuilder)
+
+	// Act - call both methods and verify they return consistent results
+	serializeResult, serializeErr := serializer.Serialize(msg)
+
+	// Reset mocks for second call
+	mockRegistry2 := new(MockConfluentRegistry)
+	mockEncoder2 := new(MockEncoder)
+	mockBuilder2 := new(MockWireFormatBuilder)
+
+	mockRegistry2.On("RegisterSchema", binding).Return(schemaID, nil)
+	mockEncoder2.On("Encode", msg, binding.ParsedSchema).Return(avroData, nil)
+	mockBuilder2.On("Build", schemaID, avroData).Return(expectedWireFormat)
+
+	serializer2 := NewSerializer(tm, mockRegistry2, mockEncoder2, mockBuilder2)
+	serializeWithTopicResult, topic, serializeWithTopicErr := serializer2.SerializeWithTopic(msg)
+
+	// Assert
+	require.NoError(t, serializeErr)
+	require.NoError(t, serializeWithTopicErr)
+	assert.Equal(t, serializeResult, serializeWithTopicResult)
+	assert.Equal(t, "test-product-events", topic)
+}

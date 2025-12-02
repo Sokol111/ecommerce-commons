@@ -14,6 +14,13 @@ type Serializer interface {
 	//
 	// Returns bytes in format: [0x00][schema_id (4 bytes)][avro_data]
 	Serialize(msg interface{}) ([]byte, error)
+
+	// SerializeWithTopic serializes a Go struct to Avro bytes and returns the associated topic
+	// This is useful when the caller needs both the serialized data and topic in a single call
+	// to avoid duplicate TypeMapping lookups
+	//
+	// Returns bytes in format: [0x00][schema_id (4 bytes)][avro_data] and the Kafka topic
+	SerializeWithTopic(msg interface{}) (data []byte, topic string, err error)
 }
 
 type serializer struct {
@@ -40,24 +47,29 @@ func NewSerializer(
 }
 
 func (s *serializer) Serialize(msg interface{}) ([]byte, error) {
+	data, _, err := s.SerializeWithTopic(msg)
+	return data, err
+}
+
+func (s *serializer) SerializeWithTopic(msg interface{}) ([]byte, string, error) {
 	// Get schema binding directly from type mapping
 	binding, err := s.typeMapping.GetByValue(msg)
 	if err != nil {
-		return nil, fmt.Errorf("failed to get schema binding: %w", err)
+		return nil, "", fmt.Errorf("failed to get schema binding: %w", err)
 	}
 
 	// Register or get schema ID from Confluent Schema Registry
 	schemaID, err := s.confluentRegistry.RegisterSchema(binding)
 	if err != nil {
-		return nil, fmt.Errorf("failed to register schema in Confluent: %w", err)
+		return nil, "", fmt.Errorf("failed to register schema in Confluent: %w", err)
 	}
 
 	// Encode message using encoder with cached parsed schema
 	avroData, err := s.encoder.Encode(msg, binding.ParsedSchema)
 	if err != nil {
-		return nil, fmt.Errorf("failed to encode avro data: %w", err)
+		return nil, "", fmt.Errorf("failed to encode avro data: %w", err)
 	}
 
 	// Build Confluent wire format
-	return s.builder.Build(schemaID, avroData), nil
+	return s.builder.Build(schemaID, avroData), binding.Topic, nil
 }

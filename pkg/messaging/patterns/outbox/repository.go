@@ -14,7 +14,7 @@ import (
 
 var errEntityNotFound = errors.New("entity not found in database")
 
-type Store interface {
+type repository interface {
 
 	// can return errEntityNotFound
 	FetchAndLock(ctx context.Context) (*outboxEntity, error)
@@ -24,17 +24,17 @@ type Store interface {
 	UpdateAsSentByIds(ctx context.Context, ids []string) error
 }
 
-type store struct {
+type outboxRepository struct {
 	coll mongo.Collection
 }
 
-func newStore(m mongo.Mongo) Store {
-	return &store{
+func newOutboxRepository(m mongo.Mongo) repository {
+	return &outboxRepository{
 		coll: m.GetCollectionWrapper("outbox"),
 	}
 }
 
-func (r *store) FetchAndLock(ctx context.Context) (*outboxEntity, error) {
+func (r *outboxRepository) FetchAndLock(ctx context.Context) (*outboxEntity, error) {
 	var entity outboxEntity
 
 	opts := options.FindOneAndUpdate().SetSort(bson.D{
@@ -69,7 +69,7 @@ func (r *store) FetchAndLock(ctx context.Context) (*outboxEntity, error) {
 	return &entity, nil
 }
 
-func (r *store) Create(ctx context.Context, payload []byte, id string, key string, topic string, headers map[string]string) (*outboxEntity, error) {
+func (r *outboxRepository) Create(ctx context.Context, payload []byte, id string, key string, topic string, headers map[string]string) (*outboxEntity, error) {
 	entity := outboxEntity{
 		ID:             id,
 		Payload:        payload,
@@ -88,7 +88,7 @@ func (r *store) Create(ctx context.Context, payload []byte, id string, key strin
 	return &entity, nil
 }
 
-func (r *store) UpdateAsSentByIds(ctx context.Context, ids []string) error {
+func (r *outboxRepository) UpdateAsSentByIds(ctx context.Context, ids []string) error {
 	_, err := r.coll.UpdateMany(ctx,
 		bson.M{"_id": bson.M{"$in": ids}},
 		bson.M{

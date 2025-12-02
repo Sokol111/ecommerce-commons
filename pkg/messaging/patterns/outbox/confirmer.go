@@ -11,25 +11,27 @@ import (
 )
 
 type confirmer struct {
-	store        Store
-	deliveryChan <-chan kafka.Event
-	logger       *zap.Logger
-	wg           sync.WaitGroup
+	outboxRepository repository
+	deliveryChan     <-chan kafka.Event
+	logger           *zap.Logger
+	wg               sync.WaitGroup
 }
 
 func newConfirmer(
-	store Store,
+	outboxRepository repository,
 	deliveryChan <-chan kafka.Event,
 	logger *zap.Logger,
 ) *confirmer {
 	return &confirmer{
-		store:        store,
-		deliveryChan: deliveryChan,
-		logger:       logger,
+		outboxRepository: outboxRepository,
+		deliveryChan:     deliveryChan,
+		logger:           logger,
 	}
 }
 
 func (c *confirmer) Run(ctx context.Context) error {
+	defer c.wg.Wait()
+
 	events := make([]kafka.Event, 0, 100)
 
 	flush := func() {
@@ -105,7 +107,7 @@ func (c *confirmer) handleConfirmation(ctx context.Context, events []kafka.Event
 		return
 	}
 
-	err := c.store.UpdateAsSentByIds(ctx, ids)
+	err := c.outboxRepository.UpdateAsSentByIds(ctx, ids)
 	if err != nil {
 		c.logger.Error("failed to update confirmation", zap.Error(err))
 		return

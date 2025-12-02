@@ -23,11 +23,12 @@ func NewOutboxModule() fx.Option {
 			},
 		),
 		fx.Provide(
-			newStore,
+			newOutboxRepository,
 			newFetcher,
 			newSender,
 			newConfirmer,
 			newOutbox,
+			newTracePropagator,
 			provideEntitiesChannel,
 			provideDeliveryChannel,
 			worker.Register[*fetcher]("outbox-fetcher", worker.WithTrafficReady()),

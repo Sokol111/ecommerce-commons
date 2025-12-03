@@ -28,8 +28,14 @@ type Config struct {
 
 // TracingConfig holds tracing-specific configuration.
 type TracingConfig struct {
-	Enabled bool `mapstructure:"enabled"`
+	Enabled     bool    `mapstructure:"enabled"`
+	SampleRatio float64 `mapstructure:"sample-ratio"`
 }
+
+const (
+	// DefaultSampleRatio is the default sampling ratio (100% for local development).
+	DefaultSampleRatio = 1.0
+)
 
 // MetricsConfig holds metrics-specific configuration.
 type MetricsConfig struct {

@@ -33,4 +33,7 @@ func applyDefaults(cfg *Config) {
 	if cfg.Metrics.Interval == 0 {
 		cfg.Metrics.Interval = DefaultMetricsInterval
 	}
+	if cfg.Tracing.SampleRatio == 0 {
+		cfg.Tracing.SampleRatio = DefaultSampleRatio
+	}
 }

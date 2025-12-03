@@ -64,7 +64,7 @@ func NewTracingModule() fx.Option {
 }
 
 func provideTracerProvider(p providerParams) (trace.TracerProvider, error) {
-	tp, err := newTracerProvider(context.Background(), p.Log, p.Cfg.OtelCollectorEndpoint, p.AppCfg)
+	tp, err := newTracerProvider(context.Background(), p.Log, p.Cfg, p.AppCfg)
 	if err != nil {
 		return nil, err
 	}

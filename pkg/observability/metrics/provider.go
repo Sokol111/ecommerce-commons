@@ -9,11 +9,10 @@ import (
 	otelinternal "github.com/Sokol111/ecommerce-commons/pkg/observability/internal"
 	"go.opentelemetry.io/otel/exporters/otlp/otlpmetric/otlpmetricgrpc"
 	sdkmetric "go.opentelemetry.io/otel/sdk/metric"
-	"go.uber.org/zap"
 )
 
 // newProvider creates a new metrics Provider.
-func newProvider(ctx context.Context, log *zap.Logger, endpoint string, interval time.Duration, appCfg appconfig.AppConfig) (*sdkmetric.MeterProvider, error) {
+func newProvider(ctx context.Context, endpoint string, interval time.Duration, appCfg appconfig.AppConfig) (*sdkmetric.MeterProvider, error) {
 	if endpoint == "" {
 		return nil, fmt.Errorf("metrics: otel-collector-endpoint is required")
 	}

@@ -10,7 +10,7 @@ const (
 	DefaultShutdownTimeout = 5 * time.Second
 
 	// DefaultRuntimeStatsInterval is the default interval for runtime stats.
-	DefaultRuntimeStatsInterval = time.Second
+	DefaultRuntimeStatsInterval = 10 * time.Second
 
 	// TracingComponentName is the name used for health check registration.
 	TracingComponentName = "tracing"

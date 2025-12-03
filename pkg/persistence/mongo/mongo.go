@@ -7,6 +7,7 @@ import (
 
 	mongodriver "go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
+	"go.opentelemetry.io/contrib/instrumentation/go.mongodb.org/mongo-driver/mongo/otelmongo"
 	"go.uber.org/zap"
 )
 
@@ -43,7 +44,8 @@ func newMongo(log *zap.Logger, conf Config) (Mongo, error) {
 		SetMaxPoolSize(conf.MaxPoolSize).
 		SetMinPoolSize(conf.MinPoolSize).
 		SetMaxConnIdleTime(conf.MaxConnIdleTime).
-		SetServerSelectionTimeout(conf.ServerSelectTimeout)
+		SetServerSelectionTimeout(conf.ServerSelectTimeout).
+		SetMonitor(otelmongo.NewMonitor()) // OpenTelemetry tracing
 
 	// Create client and database reference
 	// Client is initialized here to avoid nil pointer errors in GetCollection* methods

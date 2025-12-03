@@ -7,9 +7,5 @@ import (
 
 // NewObservabilityModule provides observability functionality: tracing, metrics
 func NewObservabilityModule() fx.Option {
-	return fx.Options(
-		observability.NewTracingModule(),
-		observability.NewMetricsModule(),
-		observability.NewHTTPTelemetryModule(),
-	)
+	return observability.NewObservabilityModule()
 }

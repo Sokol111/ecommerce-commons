@@ -36,7 +36,7 @@ func (f *fetcher) Run(ctx context.Context) error {
 				select {
 				case <-ctx.Done():
 					return nil
-				case <-time.After(2 * time.Second):
+				case <-time.After(5 * time.Second):
 				}
 				continue
 			}
@@ -44,7 +44,7 @@ func (f *fetcher) Run(ctx context.Context) error {
 			select {
 			case <-ctx.Done():
 				return nil
-			case <-time.After(5 * time.Second):
+			case <-time.After(10 * time.Second):
 			}
 			continue
 		}

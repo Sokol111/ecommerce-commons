@@ -11,7 +11,7 @@ import (
 	"github.com/Sokol111/ecommerce-commons/pkg/core/logger"
 )
 
-// messageReader is an interface for reading messages from Kafka
+// messageReader is an interface for reading messages from Kafka.
 type messageReader interface {
 	ReadMessage(timeout time.Duration) (*kafka.Message, error)
 }

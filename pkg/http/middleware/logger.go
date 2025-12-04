@@ -9,7 +9,7 @@ import (
 	"go.uber.org/zap"
 )
 
-// loggerMiddleware logs incoming HTTP requests
+// loggerMiddleware logs incoming HTTP requests.
 func loggerMiddleware() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		path := c.Request.URL.Path

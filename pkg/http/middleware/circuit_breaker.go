@@ -15,7 +15,7 @@ import (
 
 var ErrCircuitBreakerOpen = errors.New("circuit breaker is open")
 
-// newCircuitBreaker creates a configured circuit breaker instance
+// newCircuitBreaker creates a configured circuit breaker instance.
 func newCircuitBreaker(
 	maxRequests uint32,
 	interval time.Duration,
@@ -44,7 +44,7 @@ func newCircuitBreaker(
 	return gobreaker.NewCircuitBreaker(settings)
 }
 
-// newCircuitBreakerMiddleware creates a circuit breaker middleware using sony/gobreaker
+// newCircuitBreakerMiddleware creates a circuit breaker middleware using sony/gobreaker.
 func newCircuitBreakerMiddleware(cb *gobreaker.CircuitBreaker) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		// Allow health checks without circuit breaker

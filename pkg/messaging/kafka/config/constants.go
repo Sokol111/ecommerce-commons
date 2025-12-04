@@ -3,7 +3,7 @@ package config
 import "time"
 
 const (
-	// Default values
+	// Default values.
 	defaultSchemaRegistryCacheCapacity = 1000
 	defaultMaxRetryAttempts            = 3
 	defaultInitialBackoff              = 1 * time.Second
@@ -13,7 +13,7 @@ const (
 	defaultConsumerReadinessTimeout    = 60
 	defaultProducerReadinessTimeout    = 30
 
-	// Validation bounds
+	// Validation bounds.
 	minMaxRetryAttempts    = 1
 	maxMaxRetryAttempts    = 100
 	minInitialBackoff      = 100 * time.Millisecond

@@ -86,11 +86,6 @@ issues:
     - path: ".*\\.gen\\.go$"
       linters:
         - all
-    
-    # Allow stuttering for public types that are part of the API
-    - linters:
-        - revive
-      text: "stutters"
       
     - path: vendor/
       linters:

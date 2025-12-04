@@ -36,7 +36,6 @@ func provideMigrator(lc fx.Lifecycle, log *zap.Logger, conf Config, m mongo.Mong
 					zap.Duration("locking-timeout", conf.GetLockingTimeoutDuration()))
 
 				if err := migrator.Up(conf.CollectionName, conf.MigrationsPath); err != nil {
-					readiness.MarkReady("migrations-module") // Mark ready even on error to unblock health checks
 					return fmt.Errorf("failed to run migrations: %w", err)
 				}
 

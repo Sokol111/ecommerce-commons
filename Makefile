@@ -72,6 +72,45 @@ staticcheck: ## Run staticcheck
 		echo "$(COLOR_YELLOW)staticcheck not installed. Install: go install honnef.co/go/tools/cmd/staticcheck@latest$(COLOR_RESET)"; \
 	fi
 
+.PHONY: errcheck
+errcheck: ## Check for unchecked errors
+	@echo "$(COLOR_GREEN)Checking for unchecked errors...$(COLOR_RESET)"
+	@if command -v errcheck >/dev/null 2>&1; then \
+		errcheck ./...; \
+	else \
+		echo "$(COLOR_YELLOW)errcheck not installed. Install: go install github.com/kisielk/errcheck@latest$(COLOR_RESET)"; \
+	fi
+
+.PHONY: ineffassign
+ineffassign: ## Check for ineffectual assignments
+	@echo "$(COLOR_GREEN)Checking for ineffectual assignments...$(COLOR_RESET)"
+	@if command -v ineffassign >/dev/null 2>&1; then \
+		ineffassign ./...; \
+	else \
+		echo "$(COLOR_YELLOW)ineffassign not installed. Install: go install github.com/gordonklaus/ineffassign@latest$(COLOR_RESET)"; \
+	fi
+
+.PHONY: misspell
+misspell: ## Check for misspelled words in comments
+	@echo "$(COLOR_GREEN)Checking for misspelled words...$(COLOR_RESET)"
+	@if command -v misspell >/dev/null 2>&1; then \
+		misspell -error .; \
+	else \
+		echo "$(COLOR_YELLOW)misspell not installed. Install: go install github.com/client9/misspell/cmd/misspell@latest$(COLOR_RESET)"; \
+	fi
+
+.PHONY: gocyclo
+gocyclo: ## Check cyclomatic complexity (threshold: 15)
+	@echo "$(COLOR_GREEN)Checking cyclomatic complexity...$(COLOR_RESET)"
+	@if command -v gocyclo >/dev/null 2>&1; then \
+		gocyclo -over 15 .; \
+	else \
+		echo "$(COLOR_YELLOW)gocyclo not installed. Install: go install github.com/fzipp/gocyclo/cmd/gocyclo@latest$(COLOR_RESET)"; \
+	fi
+
+.PHONY: check-all
+check-all: fmt vet lint staticcheck errcheck ineffassign misspell ## Run all code quality checks
+
 # =============================================================================
 # Testing
 # =============================================================================
@@ -101,6 +140,16 @@ test-coverage: test ## Generate and open coverage report
 test-coverage-func: test ## Show coverage per function
 	go tool cover -func=$(COVERAGE_FILE)
 
+.PHONY: test-coverage-check
+test-coverage-check: test ## Check if coverage meets minimum threshold (default: 60%)
+	@COVERAGE=$$(go tool cover -func=$(COVERAGE_FILE) | grep total | awk '{print $$3}' | sed 's/%//'); \
+	MIN_COVERAGE=$${MIN_COVERAGE:-60}; \
+	echo "$(COLOR_BLUE)Coverage: $${COVERAGE}% (minimum: $${MIN_COVERAGE}%)$(COLOR_RESET)"; \
+	if [ $$(echo "$${COVERAGE} < $${MIN_COVERAGE}" | bc -l) -eq 1 ]; then \
+		echo "$(COLOR_YELLOW)Coverage is below minimum threshold!$(COLOR_RESET)"; \
+		exit 1; \
+	fi
+
 .PHONY: bench
 bench: ## Run benchmarks
 	@echo "$(COLOR_GREEN)Running benchmarks...$(COLOR_RESET)"
@@ -114,6 +163,11 @@ bench: ## Run benchmarks
 generate-mocks: ## Generate mocks using mockery
 	@echo "$(COLOR_GREEN)Generating mocks...$(COLOR_RESET)"
 	mockery
+
+.PHONY: generate
+generate: ## Run go generate
+	@echo "$(COLOR_GREEN)Running go generate...$(COLOR_RESET)"
+	go generate ./...
 
 # =============================================================================
 # Security
@@ -138,7 +192,34 @@ sec-scan: ## Run security scanner (gosec)
 		echo "$(COLOR_YELLOW)gosec not installed. Install: go install github.com/securego/gosec/v2/cmd/gosec@latest$(COLOR_RESET)"; \
 	fi
 
+.PHONY: license-check
+license-check: ## Check licenses of dependencies
+	@echo "$(COLOR_GREEN)Checking licenses...$(COLOR_RESET)"
+	@if command -v go-licenses >/dev/null 2>&1; then \
+		go-licenses check ./... 2>/dev/null || true; \
+	else \
+		echo "$(COLOR_YELLOW)go-licenses not installed. Install: go install github.com/google/go-licenses@latest$(COLOR_RESET)"; \
+	fi
 
+# =============================================================================
+# Tools Installation
+# =============================================================================
+
+.PHONY: install-tools
+install-tools: ## Install all development tools
+	@echo "$(COLOR_GREEN)Installing development tools...$(COLOR_RESET)"
+	go install github.com/golangci/golangci-lint/cmd/golangci-lint@latest
+	go install honnef.co/go/tools/cmd/staticcheck@latest
+	go install golang.org/x/vuln/cmd/govulncheck@latest
+	go install github.com/securego/gosec/v2/cmd/gosec@latest
+	go install github.com/kisielk/errcheck@latest
+	go install github.com/gordonklaus/ineffassign@latest
+	go install github.com/client9/misspell/cmd/misspell@latest
+	go install github.com/fzipp/gocyclo/cmd/gocyclo@latest
+	go install github.com/psampaz/go-mod-outdated@latest
+	go install golang.org/x/tools/cmd/goimports@latest
+	go install github.com/vektra/mockery/v2@latest
+	@echo "$(COLOR_BLUE)All tools installed!$(COLOR_RESET)"
 
 # =============================================================================
 # Git & Hooks
@@ -146,6 +227,9 @@ sec-scan: ## Run security scanner (gosec)
 
 .PHONY: pre-commit
 pre-commit: fmt lint vet test-unit ## Run pre-commit checks
+
+.PHONY: pre-push
+pre-push: check-all test vuln-check ## Run pre-push checks (more thorough)
 
 .PHONY: install-hooks
 install-hooks: ## Install git pre-commit hooks
@@ -160,7 +244,7 @@ install-hooks: ## Install git pre-commit hooks
 # =============================================================================
 
 .PHONY: ci
-ci: deps fmt lint vet test vuln-check ## Run full CI pipeline
+ci: deps fmt check-all test vuln-check ## Run full CI pipeline
 
 .PHONY: ci-local
 ci-local: clean ci ## Run CI pipeline locally with clean state

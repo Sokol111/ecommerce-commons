@@ -1,0 +1,274 @@
+package outbox
+
+import (
+	"context"
+	"errors"
+	"testing"
+
+	"github.com/Sokol111/ecommerce-commons/pkg/core/logger"
+	"github.com/confluentinc/confluent-kafka-go/v2/kafka"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+	"go.opentelemetry.io/otel/trace"
+	"go.uber.org/zap"
+)
+
+// mockSerializer is a mock implementation of serialization.Serializer
+type mockSerializer struct {
+	serializeWithTopicFunc func(msg interface{}) ([]byte, string, error)
+}
+
+func (m *mockSerializer) Serialize(msg interface{}) ([]byte, error) {
+	data, _, err := m.SerializeWithTopic(msg)
+	return data, err
+}
+
+func (m *mockSerializer) SerializeWithTopic(msg interface{}) ([]byte, string, error) {
+	if m.serializeWithTopicFunc != nil {
+		return m.serializeWithTopicFunc(msg)
+	}
+	return []byte("serialized"), "test-topic", nil
+}
+
+// mockTracePropagator is a mock implementation of tracePropagator
+type mockTracePropagator struct {
+	saveTraceContextFunc func(ctx context.Context, headers map[string]string) map[string]string
+}
+
+func (m *mockTracePropagator) SaveTraceContext(ctx context.Context, headers map[string]string) map[string]string {
+	if m.saveTraceContextFunc != nil {
+		return m.saveTraceContextFunc(ctx, headers)
+	}
+	if headers == nil {
+		headers = make(map[string]string)
+	}
+	headers["traceparent"] = "00-test-trace-id-00"
+	return headers
+}
+
+func (m *mockTracePropagator) StartKafkaProducerSpan(headers map[string]string, topic, messageID string) (context.Context, trace.Span, []kafka.Header) {
+	return context.Background(), noopTestSpan{}, nil
+}
+
+// noopTestSpan implements trace.Span for testing
+type noopTestSpan struct {
+	trace.Span
+}
+
+func (n noopTestSpan) End(options ...trace.SpanEndOption) {}
+
+func TestOutbox_Create(t *testing.T) {
+	t.Run("successfully creates outbox message", func(t *testing.T) {
+		repo := newMockRepository()
+		entitiesChan := make(chan *outboxEntity, 10)
+		serializer := &mockSerializer{}
+		propagator := &mockTracePropagator{}
+		log := zap.NewNop()
+
+		o := newOutbox(log, repo, entitiesChan, serializer, propagator)
+
+		msg := OutboxMessage{
+			Message: "test-message",
+			EventID: "event-123",
+			Key:     "partition-key",
+			Headers: map[string]string{"custom": "header"},
+		}
+
+		ctx := logger.With(context.Background(), log)
+		sendFunc, err := o.Create(ctx, msg)
+
+		require.NoError(t, err)
+		assert.NotNil(t, sendFunc)
+		assert.Len(t, repo.created, 1)
+		assert.Equal(t, "event-123", repo.created[0].ID)
+		assert.Equal(t, "partition-key", repo.created[0].Key)
+		assert.Equal(t, "test-topic", repo.created[0].Topic)
+	})
+
+	t.Run("serialization error returns error", func(t *testing.T) {
+		repo := newMockRepository()
+		entitiesChan := make(chan *outboxEntity, 10)
+		serializer := &mockSerializer{
+			serializeWithTopicFunc: func(msg interface{}) ([]byte, string, error) {
+				return nil, "", errors.New("serialization failed")
+			},
+		}
+		propagator := &mockTracePropagator{}
+		log := zap.NewNop()
+
+		o := newOutbox(log, repo, entitiesChan, serializer, propagator)
+
+		msg := OutboxMessage{
+			Message: "test-message",
+			EventID: "event-123",
+		}
+
+		ctx := logger.With(context.Background(), log)
+		sendFunc, err := o.Create(ctx, msg)
+
+		assert.Error(t, err)
+		assert.Nil(t, sendFunc)
+		assert.Contains(t, err.Error(), "failed to serialize outbox message")
+	})
+
+	t.Run("repository error returns error", func(t *testing.T) {
+		repo := newMockRepository()
+		repo.createErr = errors.New("database error")
+		entitiesChan := make(chan *outboxEntity, 10)
+		serializer := &mockSerializer{}
+		propagator := &mockTracePropagator{}
+		log := zap.NewNop()
+
+		o := newOutbox(log, repo, entitiesChan, serializer, propagator)
+
+		msg := OutboxMessage{
+			Message: "test-message",
+			EventID: "event-123",
+		}
+
+		ctx := logger.With(context.Background(), log)
+		sendFunc, err := o.Create(ctx, msg)
+
+		assert.Error(t, err)
+		assert.Nil(t, sendFunc)
+		assert.Contains(t, err.Error(), "failed to create outbox message")
+	})
+
+	t.Run("headers are propagated with trace context", func(t *testing.T) {
+		repo := newMockRepository()
+		entitiesChan := make(chan *outboxEntity, 10)
+		serializer := &mockSerializer{}
+		propagator := &mockTracePropagator{
+			saveTraceContextFunc: func(ctx context.Context, headers map[string]string) map[string]string {
+				if headers == nil {
+					headers = make(map[string]string)
+				}
+				headers["traceparent"] = "injected-trace"
+				return headers
+			},
+		}
+		log := zap.NewNop()
+
+		o := newOutbox(log, repo, entitiesChan, serializer, propagator)
+
+		msg := OutboxMessage{
+			Message: "test-message",
+			EventID: "event-123",
+			Headers: map[string]string{"existing": "header"},
+		}
+
+		ctx := logger.With(context.Background(), log)
+		_, err := o.Create(ctx, msg)
+
+		require.NoError(t, err)
+		assert.Contains(t, repo.created[0].Headers, "traceparent")
+		assert.Equal(t, "injected-trace", repo.created[0].Headers["traceparent"])
+		assert.Equal(t, "header", repo.created[0].Headers["existing"])
+	})
+}
+
+func TestOutbox_SendFunc(t *testing.T) {
+	t.Run("sends entity to channel", func(t *testing.T) {
+		repo := newMockRepository()
+		entitiesChan := make(chan *outboxEntity, 10)
+		serializer := &mockSerializer{}
+		propagator := &mockTracePropagator{}
+		log := zap.NewNop()
+
+		o := newOutbox(log, repo, entitiesChan, serializer, propagator)
+
+		msg := OutboxMessage{
+			Message: "test-message",
+			EventID: "event-123",
+		}
+
+		ctx := logger.With(context.Background(), log)
+		sendFunc, err := o.Create(ctx, msg)
+		require.NoError(t, err)
+
+		err = sendFunc(context.Background())
+		require.NoError(t, err)
+
+		select {
+		case entity := <-entitiesChan:
+			assert.Equal(t, "event-123", entity.ID)
+		default:
+			t.Fatal("expected entity in channel")
+		}
+	})
+
+	t.Run("returns error on context cancellation", func(t *testing.T) {
+		repo := newMockRepository()
+		entitiesChan := make(chan *outboxEntity) // unbuffered channel
+		serializer := &mockSerializer{}
+		propagator := &mockTracePropagator{}
+		log := zap.NewNop()
+
+		o := newOutbox(log, repo, entitiesChan, serializer, propagator)
+
+		msg := OutboxMessage{
+			Message: "test-message",
+			EventID: "event-123",
+		}
+
+		ctx := logger.With(context.Background(), log)
+		sendFunc, err := o.Create(ctx, msg)
+		require.NoError(t, err)
+
+		ctx2, cancel := context.WithCancel(context.Background())
+		cancel()
+
+		err = sendFunc(ctx2)
+		assert.Error(t, err)
+		assert.Contains(t, err.Error(), "outbox didn't sent")
+	})
+
+	t.Run("returns error when channel is full", func(t *testing.T) {
+		repo := newMockRepository()
+		entitiesChan := make(chan *outboxEntity) // unbuffered, no receiver
+		serializer := &mockSerializer{}
+		propagator := &mockTracePropagator{}
+		log := zap.NewNop()
+
+		o := newOutbox(log, repo, entitiesChan, serializer, propagator)
+
+		msg := OutboxMessage{
+			Message: "test-message",
+			EventID: "event-123",
+		}
+
+		ctx := logger.With(context.Background(), log)
+		sendFunc, err := o.Create(ctx, msg)
+		require.NoError(t, err)
+
+		// sendFunc also uses logger from context
+		err = sendFunc(ctx)
+		assert.Error(t, err)
+		assert.Contains(t, err.Error(), "entitiesChan is full")
+	})
+}
+
+func TestOutbox_NilHeaders(t *testing.T) {
+	t.Run("handles nil headers gracefully", func(t *testing.T) {
+		repo := newMockRepository()
+		entitiesChan := make(chan *outboxEntity, 10)
+		serializer := &mockSerializer{}
+		propagator := &mockTracePropagator{}
+		log := zap.NewNop()
+
+		o := newOutbox(log, repo, entitiesChan, serializer, propagator)
+
+		msg := OutboxMessage{
+			Message: "test-message",
+			EventID: "event-123",
+			Headers: nil,
+		}
+
+		ctx := logger.With(context.Background(), log)
+		sendFunc, err := o.Create(ctx, msg)
+
+		require.NoError(t, err)
+		assert.NotNil(t, sendFunc)
+		assert.NotNil(t, repo.created[0].Headers)
+	})
+}

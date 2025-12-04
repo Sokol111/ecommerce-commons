@@ -26,15 +26,6 @@ type Config struct {
 
 	// Query Timeout Settings
 	QueryTimeout time.Duration `mapstructure:"query-timeout"` // Максимальний час виконання запиту до БД
-
-	// Bulkhead Settings
-	BulkheadLimit   int           `mapstructure:"bulkhead-limit"`   // Максимальна кількість одночасних операцій
-	BulkheadTimeout time.Duration `mapstructure:"bulkhead-timeout"` // Таймаут очікування слоту в bulkhead
-
-	// Retry Settings
-	MaxRetries      int           `mapstructure:"max-retries"`      // Максимальна кількість повторів при помилках
-	RetryDelay      time.Duration `mapstructure:"retry-delay"`      // Затримка між повторами
-	RetryableErrors bool          `mapstructure:"retryable-errors"` // Чи вмикати автоматичний retry
 }
 
 func newConfig(v *viper.Viper) (Config, error) {
@@ -54,22 +45,13 @@ func newConfig(v *viper.Viper) (Config, error) {
 		cfg.MaxConnIdleTime = 5 * time.Minute // Default: 5 minutes
 	}
 	if cfg.ConnectTimeout == 0 {
-		cfg.ConnectTimeout = 10 * time.Second // Default: 10 seconds
+		cfg.ConnectTimeout = 5 * time.Second // Default: 5 seconds
 	}
 	if cfg.ServerSelectTimeout == 0 {
-		cfg.ServerSelectTimeout = 30 * time.Second // Default: 30 seconds
+		cfg.ServerSelectTimeout = 5 * time.Second // Default: 5 seconds (fast-fail)
 	}
 	if cfg.QueryTimeout == 0 {
-		cfg.QueryTimeout = 30 * time.Second // Default: 30 seconds for queries
-	}
-
-	// Set default values for bulkhead if not specified
-	if cfg.BulkheadLimit == 0 {
-		// Default: 1.5x MaxPoolSize (allows some buffering for goroutines waiting for connections)
-		cfg.BulkheadLimit = int(cfg.MaxPoolSize) * 3 / 2
-	}
-	if cfg.BulkheadTimeout == 0 {
-		cfg.BulkheadTimeout = 100 * time.Millisecond // Default: 100ms fast-fail
+		cfg.QueryTimeout = 10 * time.Second // Default: 10 seconds for queries
 	}
 
 	return cfg, nil

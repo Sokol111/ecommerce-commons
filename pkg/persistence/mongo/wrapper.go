@@ -2,323 +2,375 @@ package mongo
 
 import (
 	"context"
+	"fmt"
 	"time"
 
 	mongodriver "go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
 )
 
-type CollectionWrapper struct {
-	coll     Collection
-	timeout  time.Duration
-	bulkhead *Bulkhead
+// Middleware represents a decorator that wraps context handling for database operations
+type Middleware func(ctx context.Context, next func(context.Context) error) error
+
+// WrapperOption is a functional option for configuring CollectionWrapper
+type WrapperOption func(*wrapperOptions)
+
+type wrapperOptions struct {
+	middlewares []Middleware
 }
 
-func NewCollectionWrapper(coll Collection, timeout time.Duration, bulkhead *Bulkhead) *CollectionWrapper {
-	return &CollectionWrapper{
-		coll:     coll,
-		timeout:  timeout,
-		bulkhead: bulkhead,
+// WithTimeout adds timeout middleware to the wrapper
+func WithTimeout(timeout time.Duration) WrapperOption {
+	return func(o *wrapperOptions) {
+		o.middlewares = append(o.middlewares, timeoutMiddleware(timeout))
 	}
 }
 
-// withTimeout creates context with query timeout
-func (w *CollectionWrapper) withTimeout(ctx context.Context) (context.Context, context.CancelFunc) {
-	return context.WithTimeout(ctx, w.timeout)
+// WithMiddleware adds a custom middleware to the wrapper
+func WithMiddleware(mw Middleware) WrapperOption {
+	return func(o *wrapperOptions) {
+		o.middlewares = append(o.middlewares, mw)
+	}
 }
 
-// withBulkhead executes a function with bulkhead protection
-func (w *CollectionWrapper) withBulkhead(ctx context.Context, fn func() error) error {
-	return w.bulkhead.Execute(ctx, fn)
+// chain combines multiple middlewares into a single middleware.
+// Middlewares are executed in order: first middleware wraps second, second wraps third, etc.
+func chain(middlewares ...Middleware) Middleware {
+	return func(ctx context.Context, next func(context.Context) error) error {
+		if len(middlewares) == 0 {
+			return next(ctx)
+		}
+
+		// Build the chain from right to left
+		handler := next
+		for i := len(middlewares) - 1; i >= 0; i-- {
+			handler = wrapMiddleware(middlewares[i], handler)
+		}
+		return handler(ctx)
+	}
 }
 
-// FindOne wraps collection.FindOne with automatic timeout and bulkhead
+// wrapMiddleware creates a handler that wraps the next handler with middleware.
+// This avoids closure capture issues in the loop.
+func wrapMiddleware(mw Middleware, next func(context.Context) error) func(context.Context) error {
+	return func(c context.Context) error {
+		return mw(c, next)
+	}
+}
+
+// timeoutMiddleware adds timeout to context for each operation
+func timeoutMiddleware(timeout time.Duration) Middleware {
+	return func(ctx context.Context, next func(context.Context) error) error {
+		timeoutCtx, cancel := context.WithTimeout(ctx, timeout)
+		defer cancel()
+		return next(timeoutCtx)
+	}
+}
+
+// Compile-time check that CollectionWrapper implements Collection interface
+var _ Collection = (*CollectionWrapper)(nil)
+
+type CollectionWrapper struct {
+	coll       Collection
+	middleware Middleware
+}
+
+// NewCollectionWrapper creates a new CollectionWrapper with the specified options.
+// Options are applied in order, so middleware execution order matches the option order.
+// Returns error if collection is nil.
+//
+// Example:
+//
+//	wrapper, err := NewCollectionWrapper(coll,
+//	    WithBulkhead(bulkhead),
+//	    WithTimeout(5*time.Second),
+//	)
+func NewCollectionWrapper(coll Collection, opts ...WrapperOption) (*CollectionWrapper, error) {
+	if coll == nil {
+		return nil, fmt.Errorf("collection is required")
+	}
+
+	o := &wrapperOptions{}
+	for _, opt := range opts {
+		opt(o)
+	}
+
+	return &CollectionWrapper{
+		coll:       coll,
+		middleware: chain(o.middlewares...),
+	}, nil
+}
+
+// FindOne wraps collection.FindOne with middleware chain
 func (w *CollectionWrapper) FindOne(ctx context.Context, filter interface{}, opts ...*options.FindOneOptions) *mongodriver.SingleResult {
 	var result *mongodriver.SingleResult
 
-	err := w.withBulkhead(ctx, func() error {
-		timeoutCtx, cancel := w.withTimeout(ctx)
-		defer cancel()
-		result = w.coll.FindOne(timeoutCtx, filter, opts...)
+	_ = w.middleware(ctx, func(c context.Context) error {
+		result = w.coll.FindOne(c, filter, opts...)
 		return nil
 	})
 
-	if err != nil {
-		// Return error as SingleResult
+	if result == nil {
 		return &mongodriver.SingleResult{}
 	}
 	return result
 }
 
-// Find wraps collection.Find with automatic timeout and bulkhead
+// Find wraps collection.Find with middleware chain
 func (w *CollectionWrapper) Find(ctx context.Context, filter interface{}, opts ...*options.FindOptions) (*mongodriver.Cursor, error) {
 	var cursor *mongodriver.Cursor
-	var findErr error
+	var opErr error
 
-	err := w.withBulkhead(ctx, func() error {
-		timeoutCtx, cancel := w.withTimeout(ctx)
-		defer cancel()
-		cursor, findErr = w.coll.Find(timeoutCtx, filter, opts...)
-		return findErr
+	err := w.middleware(ctx, func(c context.Context) error {
+		cursor, opErr = w.coll.Find(c, filter, opts...)
+		return opErr
 	})
 
 	if err != nil {
 		return nil, err
 	}
-	return cursor, findErr
+	return cursor, nil
 }
 
-// InsertOne wraps collection.InsertOne with automatic timeout and bulkhead
+// InsertOne wraps collection.InsertOne with middleware chain
 func (w *CollectionWrapper) InsertOne(ctx context.Context, document interface{}, opts ...*options.InsertOneOptions) (*mongodriver.InsertOneResult, error) {
 	var result *mongodriver.InsertOneResult
-	var insertErr error
+	var opErr error
 
-	err := w.withBulkhead(ctx, func() error {
-		timeoutCtx, cancel := w.withTimeout(ctx)
-		defer cancel()
-		result, insertErr = w.coll.InsertOne(timeoutCtx, document, opts...)
-		return insertErr
+	err := w.middleware(ctx, func(c context.Context) error {
+		result, opErr = w.coll.InsertOne(c, document, opts...)
+		return opErr
 	})
 
 	if err != nil {
 		return nil, err
 	}
-	return result, insertErr
+	return result, nil
 }
 
-// InsertMany wraps collection.InsertMany with automatic timeout and bulkhead
+// InsertMany wraps collection.InsertMany with middleware chain
 func (w *CollectionWrapper) InsertMany(ctx context.Context, documents []interface{}, opts ...*options.InsertManyOptions) (*mongodriver.InsertManyResult, error) {
 	var result *mongodriver.InsertManyResult
-	var insertErr error
+	var opErr error
 
-	err := w.withBulkhead(ctx, func() error {
-		timeoutCtx, cancel := w.withTimeout(ctx)
-		defer cancel()
-		result, insertErr = w.coll.InsertMany(timeoutCtx, documents, opts...)
-		return insertErr
+	err := w.middleware(ctx, func(c context.Context) error {
+		result, opErr = w.coll.InsertMany(c, documents, opts...)
+		return opErr
 	})
 
 	if err != nil {
 		return nil, err
 	}
-	return result, insertErr
+	return result, nil
 }
 
-// UpdateOne wraps collection.UpdateOne with automatic timeout and bulkhead
+// UpdateOne wraps collection.UpdateOne with middleware chain
 func (w *CollectionWrapper) UpdateOne(ctx context.Context, filter interface{}, update interface{}, opts ...*options.UpdateOptions) (*mongodriver.UpdateResult, error) {
 	var result *mongodriver.UpdateResult
-	var updateErr error
+	var opErr error
 
-	err := w.withBulkhead(ctx, func() error {
-		timeoutCtx, cancel := w.withTimeout(ctx)
-		defer cancel()
-		result, updateErr = w.coll.UpdateOne(timeoutCtx, filter, update, opts...)
-		return updateErr
+	err := w.middleware(ctx, func(c context.Context) error {
+		result, opErr = w.coll.UpdateOne(c, filter, update, opts...)
+		return opErr
 	})
 
 	if err != nil {
 		return nil, err
 	}
-	return result, updateErr
+	return result, nil
 }
 
-// UpdateMany wraps collection.UpdateMany with automatic timeout and bulkhead
+// UpdateMany wraps collection.UpdateMany with middleware chain
 func (w *CollectionWrapper) UpdateMany(ctx context.Context, filter interface{}, update interface{}, opts ...*options.UpdateOptions) (*mongodriver.UpdateResult, error) {
 	var result *mongodriver.UpdateResult
-	var updateErr error
+	var opErr error
 
-	err := w.withBulkhead(ctx, func() error {
-		timeoutCtx, cancel := w.withTimeout(ctx)
-		defer cancel()
-		result, updateErr = w.coll.UpdateMany(timeoutCtx, filter, update, opts...)
-		return updateErr
+	err := w.middleware(ctx, func(c context.Context) error {
+		result, opErr = w.coll.UpdateMany(c, filter, update, opts...)
+		return opErr
 	})
 
 	if err != nil {
 		return nil, err
 	}
-	return result, updateErr
+	return result, nil
 }
 
-// DeleteOne wraps collection.DeleteOne with automatic timeout and bulkhead
+// DeleteOne wraps collection.DeleteOne with middleware chain
 func (w *CollectionWrapper) DeleteOne(ctx context.Context, filter interface{}, opts ...*options.DeleteOptions) (*mongodriver.DeleteResult, error) {
 	var result *mongodriver.DeleteResult
-	var deleteErr error
+	var opErr error
 
-	err := w.withBulkhead(ctx, func() error {
-		timeoutCtx, cancel := w.withTimeout(ctx)
-		defer cancel()
-		result, deleteErr = w.coll.DeleteOne(timeoutCtx, filter, opts...)
-		return deleteErr
+	err := w.middleware(ctx, func(c context.Context) error {
+		result, opErr = w.coll.DeleteOne(c, filter, opts...)
+		return opErr
 	})
 
 	if err != nil {
 		return nil, err
 	}
-	return result, deleteErr
+	return result, nil
 }
 
-// DeleteMany wraps collection.DeleteMany with automatic timeout and bulkhead
+// DeleteMany wraps collection.DeleteMany with middleware chain
 func (w *CollectionWrapper) DeleteMany(ctx context.Context, filter interface{}, opts ...*options.DeleteOptions) (*mongodriver.DeleteResult, error) {
 	var result *mongodriver.DeleteResult
-	var deleteErr error
+	var opErr error
 
-	err := w.withBulkhead(ctx, func() error {
-		timeoutCtx, cancel := w.withTimeout(ctx)
-		defer cancel()
-		result, deleteErr = w.coll.DeleteMany(timeoutCtx, filter, opts...)
-		return deleteErr
+	err := w.middleware(ctx, func(c context.Context) error {
+		result, opErr = w.coll.DeleteMany(c, filter, opts...)
+		return opErr
 	})
 
 	if err != nil {
 		return nil, err
 	}
-	return result, deleteErr
+	return result, nil
 }
 
-// FindOneAndUpdate wraps collection.FindOneAndUpdate with automatic timeout and bulkhead
+// FindOneAndUpdate wraps collection.FindOneAndUpdate with middleware chain
 func (w *CollectionWrapper) FindOneAndUpdate(ctx context.Context, filter interface{}, update interface{}, opts ...*options.FindOneAndUpdateOptions) *mongodriver.SingleResult {
 	var result *mongodriver.SingleResult
 
-	err := w.withBulkhead(ctx, func() error {
-		timeoutCtx, cancel := w.withTimeout(ctx)
-		defer cancel()
-		result = w.coll.FindOneAndUpdate(timeoutCtx, filter, update, opts...)
+	_ = w.middleware(ctx, func(c context.Context) error {
+		result = w.coll.FindOneAndUpdate(c, filter, update, opts...)
 		return nil
 	})
 
-	if err != nil {
+	if result == nil {
 		return &mongodriver.SingleResult{}
 	}
 	return result
 }
 
-// FindOneAndReplace wraps collection.FindOneAndReplace with automatic timeout and bulkhead
+// FindOneAndReplace wraps collection.FindOneAndReplace with middleware chain
 func (w *CollectionWrapper) FindOneAndReplace(ctx context.Context, filter interface{}, replacement interface{}, opts ...*options.FindOneAndReplaceOptions) *mongodriver.SingleResult {
 	var result *mongodriver.SingleResult
 
-	err := w.withBulkhead(ctx, func() error {
-		timeoutCtx, cancel := w.withTimeout(ctx)
-		defer cancel()
-		result = w.coll.FindOneAndReplace(timeoutCtx, filter, replacement, opts...)
+	_ = w.middleware(ctx, func(c context.Context) error {
+		result = w.coll.FindOneAndReplace(c, filter, replacement, opts...)
 		return nil
 	})
 
-	if err != nil {
+	if result == nil {
 		return &mongodriver.SingleResult{}
 	}
 	return result
 }
 
-// FindOneAndDelete wraps collection.FindOneAndDelete with automatic timeout and bulkhead
+// FindOneAndDelete wraps collection.FindOneAndDelete with middleware chain
 func (w *CollectionWrapper) FindOneAndDelete(ctx context.Context, filter interface{}, opts ...*options.FindOneAndDeleteOptions) *mongodriver.SingleResult {
 	var result *mongodriver.SingleResult
 
-	err := w.withBulkhead(ctx, func() error {
-		timeoutCtx, cancel := w.withTimeout(ctx)
-		defer cancel()
-		result = w.coll.FindOneAndDelete(timeoutCtx, filter, opts...)
+	_ = w.middleware(ctx, func(c context.Context) error {
+		result = w.coll.FindOneAndDelete(c, filter, opts...)
 		return nil
 	})
 
-	if err != nil {
+	if result == nil {
 		return &mongodriver.SingleResult{}
 	}
 	return result
 }
 
-// Aggregate wraps collection.Aggregate with automatic timeout and bulkhead
+// Aggregate wraps collection.Aggregate with middleware chain
 func (w *CollectionWrapper) Aggregate(ctx context.Context, pipeline interface{}, opts ...*options.AggregateOptions) (*mongodriver.Cursor, error) {
 	var cursor *mongodriver.Cursor
-	var aggErr error
+	var opErr error
 
-	err := w.withBulkhead(ctx, func() error {
-		timeoutCtx, cancel := w.withTimeout(ctx)
-		defer cancel()
-		cursor, aggErr = w.coll.Aggregate(timeoutCtx, pipeline, opts...)
-		return aggErr
+	err := w.middleware(ctx, func(c context.Context) error {
+		cursor, opErr = w.coll.Aggregate(c, pipeline, opts...)
+		return opErr
 	})
 
 	if err != nil {
 		return nil, err
 	}
-	return cursor, aggErr
+	return cursor, nil
 }
 
-// CountDocuments wraps collection.CountDocuments with automatic timeout and bulkhead
+// CountDocuments wraps collection.CountDocuments with middleware chain
 func (w *CollectionWrapper) CountDocuments(ctx context.Context, filter interface{}, opts ...*options.CountOptions) (int64, error) {
 	var count int64
-	var countErr error
+	var opErr error
 
-	err := w.withBulkhead(ctx, func() error {
-		timeoutCtx, cancel := w.withTimeout(ctx)
-		defer cancel()
-		count, countErr = w.coll.CountDocuments(timeoutCtx, filter, opts...)
-		return countErr
+	err := w.middleware(ctx, func(c context.Context) error {
+		count, opErr = w.coll.CountDocuments(c, filter, opts...)
+		return opErr
 	})
 
 	if err != nil {
 		return 0, err
 	}
-	return count, countErr
+	return count, nil
 }
 
-// Distinct wraps collection.Distinct with automatic timeout and bulkhead
+// Distinct wraps collection.Distinct with middleware chain
 func (w *CollectionWrapper) Distinct(ctx context.Context, fieldName string, filter interface{}, opts ...*options.DistinctOptions) ([]interface{}, error) {
 	var values []interface{}
-	var distinctErr error
+	var opErr error
 
-	err := w.withBulkhead(ctx, func() error {
-		timeoutCtx, cancel := w.withTimeout(ctx)
-		defer cancel()
-		values, distinctErr = w.coll.Distinct(timeoutCtx, fieldName, filter, opts...)
-		return distinctErr
+	err := w.middleware(ctx, func(c context.Context) error {
+		values, opErr = w.coll.Distinct(c, fieldName, filter, opts...)
+		return opErr
 	})
 
 	if err != nil {
 		return nil, err
 	}
-	return values, distinctErr
+	return values, nil
 }
 
-// ReplaceOne wraps collection.ReplaceOne with automatic timeout and bulkhead
+// ReplaceOne wraps collection.ReplaceOne with middleware chain
 func (w *CollectionWrapper) ReplaceOne(ctx context.Context, filter interface{}, replacement interface{}, opts ...*options.ReplaceOptions) (*mongodriver.UpdateResult, error) {
 	var result *mongodriver.UpdateResult
-	var replaceErr error
+	var opErr error
 
-	err := w.withBulkhead(ctx, func() error {
-		timeoutCtx, cancel := w.withTimeout(ctx)
-		defer cancel()
-		result, replaceErr = w.coll.ReplaceOne(timeoutCtx, filter, replacement, opts...)
-		return replaceErr
+	err := w.middleware(ctx, func(c context.Context) error {
+		result, opErr = w.coll.ReplaceOne(c, filter, replacement, opts...)
+		return opErr
 	})
 
 	if err != nil {
 		return nil, err
 	}
-	return result, replaceErr
+	return result, nil
 }
 
-// Indexes returns the index view for the collection (no timeout needed for view access)
+// Indexes returns the index view for the collection (no middleware needed for view access)
 func (w *CollectionWrapper) Indexes() mongodriver.IndexView {
 	return w.coll.Indexes()
 }
 
-// Drop wraps collection.Drop with automatic timeout and bulkhead
+// Drop wraps collection.Drop with middleware chain
 func (w *CollectionWrapper) Drop(ctx context.Context) error {
-	return w.withBulkhead(ctx, func() error {
-		timeoutCtx, cancel := w.withTimeout(ctx)
-		defer cancel()
-		return w.coll.Drop(timeoutCtx)
+	return w.middleware(ctx, func(c context.Context) error {
+		return w.coll.Drop(c)
 	})
 }
 
-// Name returns the collection name (no timeout needed)
+// Name returns the collection name (no middleware needed)
 func (w *CollectionWrapper) Name() string {
 	return w.coll.Name()
 }
 
-// Database returns the database (no timeout needed)
+// Database returns the database (no middleware needed)
 func (w *CollectionWrapper) Database() *mongodriver.Database {
 	return w.coll.Database()
+}
+
+// BulkWrite wraps collection.BulkWrite with middleware chain
+func (w *CollectionWrapper) BulkWrite(ctx context.Context, models []mongodriver.WriteModel, opts ...*options.BulkWriteOptions) (*mongodriver.BulkWriteResult, error) {
+	var result *mongodriver.BulkWriteResult
+	var opErr error
+
+	err := w.middleware(ctx, func(c context.Context) error {
+		result, opErr = w.coll.BulkWrite(c, models, opts...)
+		return opErr
+	})
+
+	if err != nil {
+		return nil, err
+	}
+	return result, nil
 }

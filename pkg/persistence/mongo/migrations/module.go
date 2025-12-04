@@ -20,7 +20,7 @@ func NewMigrationsModule() fx.Option {
 	)
 }
 
-func provideMigrator(lc fx.Lifecycle, log *zap.Logger, conf Config, m mongo.Mongo, readiness health.ComponentManager) (Migrator, error) {
+func provideMigrator(lc fx.Lifecycle, log *zap.Logger, conf Config, m mongo.MongoAdmin, readiness health.ComponentManager) (Migrator, error) {
 	migrator, err := newMigrator(m.GetDatabase(), log, conf.LockingTimeout)
 	if err != nil {
 		return nil, err

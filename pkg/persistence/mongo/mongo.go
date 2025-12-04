@@ -11,14 +11,15 @@ import (
 	"go.uber.org/zap"
 )
 
+// Mongo is the public interface for repository access
 type Mongo interface {
-	connect(ctx context.Context) error
-	disconnect(ctx context.Context) error
 	GetCollection(collection string) Collection
-	GetCollectionWrapper(collection string) *CollectionWrapper
+}
+
+// MongoAdmin is the internal interface for infrastructure components (migrations, transactions)
+type MongoAdmin interface {
+	Mongo
 	GetDatabase() *mongodriver.Database
-	CreateIndexes(ctx context.Context, collection string, indexes []mongodriver.IndexModel) error
-	CreateSimpleIndex(ctx context.Context, collection string, keys interface{}) error
 	StartSession(ctx context.Context) (mongodriver.Session, error)
 }
 
@@ -29,10 +30,9 @@ type mongo struct {
 	databaseName  string
 	conf          Config
 	log           *zap.Logger
-	bulkhead      *Bulkhead
 }
 
-func newMongo(log *zap.Logger, conf Config) (Mongo, error) {
+func newMongo(log *zap.Logger, conf Config) (*mongo, error) {
 	if err := validateConfig(conf); err != nil {
 		return nil, err
 	}
@@ -55,9 +55,6 @@ func newMongo(log *zap.Logger, conf Config) (Mongo, error) {
 		return nil, fmt.Errorf("failed to create mongo client: %w", err)
 	}
 
-	// Initialize bulkhead
-	bulkhead := NewBulkhead(conf.BulkheadLimit, conf.BulkheadTimeout, log)
-
 	return &mongo{
 		client:        client,
 		database:      client.Database(conf.Database),
@@ -65,7 +62,6 @@ func newMongo(log *zap.Logger, conf Config) (Mongo, error) {
 		databaseName:  conf.Database,
 		conf:          conf,
 		log:           log,
-		bulkhead:      bulkhead,
 	}, nil
 }
 
@@ -94,8 +90,7 @@ func (m *mongo) connect(ctx context.Context) error {
 		zap.Uint64("max-pool-size", m.conf.MaxPoolSize),
 		zap.Uint64("min-pool-size", m.conf.MinPoolSize),
 		zap.Duration("max-conn-idle-time", m.conf.MaxConnIdleTime),
-		zap.Int("bulkhead-limit", m.conf.BulkheadLimit),
-		zap.Duration("bulkhead-timeout", m.conf.BulkheadTimeout),
+		zap.Duration("query-timeout", m.conf.QueryTimeout),
 	)
 	return nil
 }
@@ -131,14 +126,14 @@ func buildURI(conf Config) string {
 	return uri
 }
 
+// GetCollection returns a Collection with automatic query timeout
 func (m *mongo) GetCollection(collection string) Collection {
-	return m.database.Collection(collection)
-}
-
-// GetCollectionWrapper returns a wrapped collection with automatic query timeout
-func (m *mongo) GetCollectionWrapper(collection string) *CollectionWrapper {
 	coll := m.database.Collection(collection)
-	return NewCollectionWrapper(coll, m.conf.QueryTimeout, m.bulkhead)
+	// Error is ignored because mongo driver's Collection() never returns nil
+	wrapper, _ := NewCollectionWrapper(coll,
+		WithTimeout(m.conf.QueryTimeout),
+	)
+	return wrapper
 }
 
 func (m *mongo) GetDatabase() *mongodriver.Database {
@@ -156,21 +151,4 @@ func (m *mongo) disconnect(ctx context.Context) error {
 	}
 	m.log.Info("disconnected from mongo")
 	return nil
-}
-
-func (m *mongo) CreateIndexes(ctx context.Context, collection string, indexes []mongodriver.IndexModel) error {
-	names, err := m.database.Collection(collection).Indexes().CreateMany(ctx, indexes)
-	if err != nil {
-		return fmt.Errorf("failed to create indexes: %w", err)
-	}
-
-	for _, name := range names {
-		m.log.Info("index created", zap.String("name", name), zap.String("collection", collection))
-	}
-	return nil
-}
-
-func (m *mongo) CreateSimpleIndex(ctx context.Context, collection string, keys interface{}) error {
-	indexModel := mongodriver.IndexModel{Keys: keys}
-	return m.CreateIndexes(ctx, collection, []mongodriver.IndexModel{indexModel})
 }

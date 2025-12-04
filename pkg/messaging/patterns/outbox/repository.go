@@ -30,7 +30,7 @@ type outboxRepository struct {
 
 func newOutboxRepository(m mongo.Mongo) repository {
 	return &outboxRepository{
-		coll: m.GetCollectionWrapper("outbox"),
+		coll: m.GetCollection("outbox"),
 	}
 }
 

@@ -63,15 +63,22 @@ type GenericRepository[Domain any, Entity any] struct {
 	mapper EntityMapper[Domain, Entity]
 }
 
-// NewGenericRepository creates a new generic repository
+// NewGenericRepository creates a new generic repository.
+// Returns error if collection or mapper is nil.
 func NewGenericRepository[Domain any, Entity any](
 	coll Collection,
 	mapper EntityMapper[Domain, Entity],
-) *GenericRepository[Domain, Entity] {
+) (*GenericRepository[Domain, Entity], error) {
+	if coll == nil {
+		return nil, fmt.Errorf("collection is required")
+	}
+	if mapper == nil {
+		return nil, fmt.Errorf("mapper is required")
+	}
 	return &GenericRepository[Domain, Entity]{
 		coll:   coll,
 		mapper: mapper,
-	}
+	}, nil
 }
 
 // Save creates a new entity in MongoDB
@@ -238,4 +245,22 @@ func (r *GenericRepository[Domain, Entity]) Delete(ctx context.Context, id strin
 		return fmt.Errorf("failed to delete entity: %w", err)
 	}
 	return nil
+}
+
+// Exists checks if an entity with the given ID exists
+func (r *GenericRepository[Domain, Entity]) Exists(ctx context.Context, id string) (bool, error) {
+	count, err := r.coll.CountDocuments(ctx, bson.D{{Key: "_id", Value: id}}, options.Count().SetLimit(1))
+	if err != nil {
+		return false, fmt.Errorf("failed to check entity existence: %w", err)
+	}
+	return count > 0, nil
+}
+
+// ExistsWithFilter checks if any entity matching the filter exists
+func (r *GenericRepository[Domain, Entity]) ExistsWithFilter(ctx context.Context, filter bson.D) (bool, error) {
+	count, err := r.coll.CountDocuments(ctx, filter, options.Count().SetLimit(1))
+	if err != nil {
+		return false, fmt.Errorf("failed to check entity existence: %w", err)
+	}
+	return count > 0, nil
 }

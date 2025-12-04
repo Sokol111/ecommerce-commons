@@ -16,15 +16,15 @@ func NewMongoModule() fx.Option {
 	)
 }
 
-func provideMongo(lc fx.Lifecycle, log *zap.Logger, conf Config, readiness health.ComponentManager) (Mongo, error) {
+func provideMongo(lc fx.Lifecycle, log *zap.Logger, conf Config, readiness health.ComponentManager) (Mongo, MongoAdmin, error) {
 	if err := validateConfig(conf); err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
 	m, err := newMongo(log, conf)
 
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
 	readiness.AddComponent("mongo-module")
@@ -38,5 +38,5 @@ func provideMongo(lc fx.Lifecycle, log *zap.Logger, conf Config, readiness healt
 		},
 	})
 
-	return m, nil
+	return m, m, nil
 }

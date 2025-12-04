@@ -17,13 +17,6 @@ type Mongo interface {
 	GetCollectionWithOptions(collection string, opts ...WrapperOption) Collection
 }
 
-// Session represents a MongoDB session for transactions.
-// This interface wraps mongo.Session to enable testing.
-type Session interface {
-	WithTransaction(ctx context.Context, fn func(sessCtx mongodriver.SessionContext) (interface{}, error), opts ...*options.TransactionOptions) (interface{}, error)
-	EndSession(ctx context.Context)
-}
-
 // MongoAdmin is the internal interface for infrastructure components (migrations, transactions)
 type MongoAdmin interface {
 	Mongo

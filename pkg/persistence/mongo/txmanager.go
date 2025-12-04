@@ -10,13 +10,13 @@ import (
 )
 
 type mongoTxManager struct {
-	mongo MongoAdmin
+	admin MongoAdmin
 	log   *zap.Logger
 }
 
-func newTxManager(mongo MongoAdmin, log *zap.Logger) persistence.TxManager {
+func newTxManager(admin MongoAdmin, log *zap.Logger) persistence.TxManager {
 	return &mongoTxManager{
-		mongo: mongo,
+		admin: admin,
 		log:   log,
 	}
 }
@@ -26,13 +26,13 @@ func newTxManager(mongo MongoAdmin, log *zap.Logger) persistence.TxManager {
 func (t *mongoTxManager) WithTransaction(ctx context.Context, fn func(sessCtx context.Context) (any, error)) (any, error) {
 	t.log.Debug("starting transaction")
 
-	session, err := t.mongo.StartSession(ctx)
+	sess, err := t.admin.StartSession(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("failed to start session: %w", err)
 	}
-	defer session.EndSession(ctx)
+	defer sess.EndSession(ctx)
 
-	result, err := session.WithTransaction(ctx, func(sessCtx mongodriver.SessionContext) (any, error) {
+	result, err := sess.WithTransaction(ctx, func(sessCtx mongodriver.SessionContext) (any, error) {
 		return fn(sessCtx)
 	})
 	if err != nil {

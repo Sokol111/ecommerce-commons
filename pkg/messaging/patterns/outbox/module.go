@@ -23,6 +23,7 @@ func NewOutboxModule() fx.Option {
 			},
 		),
 		fx.Provide(
+			newConfig,
 			newOutboxRepository,
 			newFetcher,
 			newSender,

@@ -6,7 +6,7 @@
     },
     {
         "dropIndexes": "outbox",
-        "index": "outbox_status_lockExpiresAt_createdAt_v1",
+        "index": "outbox_status_nextAttemptAfter_lockExpiresAt_v1",
         "writeConcern": {"w": "majority"}
     }
 ]

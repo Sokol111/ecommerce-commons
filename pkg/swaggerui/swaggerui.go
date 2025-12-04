@@ -12,7 +12,7 @@ type SwaggerConfig struct {
 	Route          string
 }
 
-func registerSwaggerUI(router *gin.Engine, cfg SwaggerConfig) error {
+func registerSwaggerUI(router *gin.Engine, cfg SwaggerConfig) {
 	router.GET("/openapi.yaml", func(c *gin.Context) {
 		c.Data(http.StatusOK, "application/yaml", cfg.OpenAPIContent)
 	})
@@ -41,12 +41,10 @@ func registerSwaggerUI(router *gin.Engine, cfg SwaggerConfig) error {
 </body>
 </html>`)
 	})
-
-	return nil
 }
 
 func NewSwaggerModule(cfg SwaggerConfig) fx.Option {
-	return fx.Invoke(func(r *gin.Engine) error {
-		return registerSwaggerUI(r, cfg)
+	return fx.Invoke(func(r *gin.Engine) {
+		registerSwaggerUI(r, cfg)
 	})
 }

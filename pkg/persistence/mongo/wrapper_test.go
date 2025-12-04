@@ -514,7 +514,7 @@ func TestMiddlewareIntegration(t *testing.T) {
 		mockColl.EXPECT().DeleteOne(mock.Anything, filter).Return(&mongodriver.DeleteResult{}, nil)
 
 		wrapper.FindOne(ctx, filter)
-		wrapper.DeleteOne(ctx, filter)
+		_, _ = wrapper.DeleteOne(ctx, filter)
 
 		assert.Equal(t, 2, callCount)
 	})

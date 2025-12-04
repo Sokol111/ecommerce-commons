@@ -90,6 +90,8 @@ func validateIndividualConsumers(consumers []ConsumerConfig) error {
 }
 
 // validateConsumer validates a single consumer configuration.
+//
+//nolint:gocyclo // validation functions are inherently complex with many checks
 func validateConsumer(index int, consumer *ConsumerConfig) error {
 	if strings.TrimSpace(consumer.Name) == "" {
 		return fmt.Errorf("consumer[%d]: name cannot be empty", index)

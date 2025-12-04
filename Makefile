@@ -50,13 +50,8 @@ fmt: ## Format code with gofmt and goimports
 		echo "$(COLOR_YELLOW)goimports not installed, skipping...$(COLOR_RESET)"; \
 	fi
 
-.PHONY: vet
-vet: ## Run go vet
-	@echo "$(COLOR_GREEN)Running go vet...$(COLOR_RESET)"
-	go vet ./...
-
 .PHONY: lint
-lint: ## Run golangci-lint
+lint: ## Run golangci-lint (includes vet, errcheck, staticcheck, etc.)
 	@echo "$(COLOR_GREEN)Running golangci-lint...$(COLOR_RESET)"
 	@if command -v golangci-lint >/dev/null 2>&1; then \
 		golangci-lint run --timeout=5m; \
@@ -64,52 +59,8 @@ lint: ## Run golangci-lint
 		echo "$(COLOR_YELLOW)golangci-lint not installed. Install: go install github.com/golangci/golangci-lint/cmd/golangci-lint@latest$(COLOR_RESET)"; \
 	fi
 
-.PHONY: staticcheck
-staticcheck: ## Run staticcheck
-	@if command -v staticcheck >/dev/null 2>&1; then \
-		staticcheck ./...; \
-	else \
-		echo "$(COLOR_YELLOW)staticcheck not installed. Install: go install honnef.co/go/tools/cmd/staticcheck@latest$(COLOR_RESET)"; \
-	fi
-
-.PHONY: errcheck
-errcheck: ## Check for unchecked errors
-	@echo "$(COLOR_GREEN)Checking for unchecked errors...$(COLOR_RESET)"
-	@if command -v errcheck >/dev/null 2>&1; then \
-		errcheck ./...; \
-	else \
-		echo "$(COLOR_YELLOW)errcheck not installed. Install: go install github.com/kisielk/errcheck@latest$(COLOR_RESET)"; \
-	fi
-
-.PHONY: ineffassign
-ineffassign: ## Check for ineffectual assignments
-	@echo "$(COLOR_GREEN)Checking for ineffectual assignments...$(COLOR_RESET)"
-	@if command -v ineffassign >/dev/null 2>&1; then \
-		ineffassign ./...; \
-	else \
-		echo "$(COLOR_YELLOW)ineffassign not installed. Install: go install github.com/gordonklaus/ineffassign@latest$(COLOR_RESET)"; \
-	fi
-
-.PHONY: misspell
-misspell: ## Check for misspelled words in comments
-	@echo "$(COLOR_GREEN)Checking for misspelled words...$(COLOR_RESET)"
-	@if command -v misspell >/dev/null 2>&1; then \
-		misspell -error .; \
-	else \
-		echo "$(COLOR_YELLOW)misspell not installed. Install: go install github.com/client9/misspell/cmd/misspell@latest$(COLOR_RESET)"; \
-	fi
-
-.PHONY: gocyclo
-gocyclo: ## Check cyclomatic complexity (threshold: 15)
-	@echo "$(COLOR_GREEN)Checking cyclomatic complexity...$(COLOR_RESET)"
-	@if command -v gocyclo >/dev/null 2>&1; then \
-		gocyclo -over 15 .; \
-	else \
-		echo "$(COLOR_YELLOW)gocyclo not installed. Install: go install github.com/fzipp/gocyclo/cmd/gocyclo@latest$(COLOR_RESET)"; \
-	fi
-
 .PHONY: check-all
-check-all: fmt vet lint staticcheck errcheck ineffassign misspell ## Run all code quality checks
+check-all: fmt lint ## Run all code quality checks
 
 # =============================================================================
 # Testing
@@ -209,13 +160,8 @@ license-check: ## Check licenses of dependencies
 install-tools: ## Install all development tools
 	@echo "$(COLOR_GREEN)Installing development tools...$(COLOR_RESET)"
 	go install github.com/golangci/golangci-lint/cmd/golangci-lint@latest
-	go install honnef.co/go/tools/cmd/staticcheck@latest
 	go install golang.org/x/vuln/cmd/govulncheck@latest
 	go install github.com/securego/gosec/v2/cmd/gosec@latest
-	go install github.com/kisielk/errcheck@latest
-	go install github.com/gordonklaus/ineffassign@latest
-	go install github.com/client9/misspell/cmd/misspell@latest
-	go install github.com/fzipp/gocyclo/cmd/gocyclo@latest
 	go install github.com/psampaz/go-mod-outdated@latest
 	go install golang.org/x/tools/cmd/goimports@latest
 	go install github.com/vektra/mockery/v2@latest
@@ -226,7 +172,7 @@ install-tools: ## Install all development tools
 # =============================================================================
 
 .PHONY: pre-commit
-pre-commit: fmt lint vet test-unit ## Run pre-commit checks
+pre-commit: fmt lint test-unit ## Run pre-commit checks
 
 .PHONY: pre-push
 pre-push: check-all test vuln-check ## Run pre-push checks (more thorough)

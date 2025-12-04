@@ -9,7 +9,7 @@ import (
 
 type Config struct {
 	// MaxBackoff is the maximum delay between retry attempts.
-	// Default: 16 minutes
+	// Default: 10 hours
 	MaxBackoff time.Duration `mapstructure:"max-backoff"`
 }
 
@@ -23,7 +23,7 @@ func newConfig(v *viper.Viper) (*Config, error) {
 	}
 
 	if cfg.MaxBackoff <= 0 {
-		cfg.MaxBackoff = 16 * time.Minute
+		cfg.MaxBackoff = 10 * time.Hour
 	}
 
 	return cfg, nil

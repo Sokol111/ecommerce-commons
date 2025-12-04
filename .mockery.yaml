@@ -1,10 +1,16 @@
-filename: "mock_{{.SrcPackageName | snakecase}}_{{.InterfaceName | snakecase}}.go"
-dir: "test/mocks"
-pkgname: "mocks"
+all: false
+dir: "{{.InterfaceDir}}"
+filename: "mock_{{.InterfaceName | snakecase}}_test.go"
+formatter: goimports
+pkgname: "{{.SrcPackageName}}"
+template: testify
 packages:
-  github.com/Sokol111/ecommerce-commons/pkg/kafka/outbox:
+  github.com/Sokol111/ecommerce-commons/pkg/persistence/mongo:
+    config:
+      dir: "{{.InterfaceDir}}/mongomock"
+      pkgname: "mongomock"
+      filename: "mock_{{.InterfaceName | snakecase}}.go"
     interfaces:
-      Outbox:
-  github.com/Sokol111/ecommerce-commons/pkg/mongo:
-    interfaces:
-      TxManager:
+      Collection:
+      Mongo:
+      MongoAdmin:

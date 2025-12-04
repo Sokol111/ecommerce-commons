@@ -66,7 +66,7 @@ func composeMiddleware(outer, inner Middleware) Middleware {
 	}
 }
 
-// timeoutMiddleware adds timeout to context for each operation
+// timeoutMiddleware adds timeout to context for each operation.
 func timeoutMiddleware(timeout time.Duration) Middleware {
 	return func(ctx context.Context, next func(context.Context)) {
 		timeoutCtx, cancel := context.WithTimeout(ctx, timeout)
@@ -114,7 +114,7 @@ func newCollectionWrapper(coll Collection, opts ...WrapperOption) *collectionWra
 	}
 }
 
-// FindOne wraps collection.FindOne with middleware chain
+// FindOne wraps collection.FindOne with middleware chain.
 func (w *collectionWrapper) FindOne(ctx context.Context, filter interface{}, opts ...*options.FindOneOptions) *mongodriver.SingleResult {
 	var result *mongodriver.SingleResult
 	w.middleware(ctx, func(c context.Context) {
@@ -123,7 +123,7 @@ func (w *collectionWrapper) FindOne(ctx context.Context, filter interface{}, opt
 	return result
 }
 
-// Find wraps collection.Find with middleware chain
+// Find wraps collection.Find with middleware chain.
 func (w *collectionWrapper) Find(ctx context.Context, filter interface{}, opts ...*options.FindOptions) (*mongodriver.Cursor, error) {
 	var cursor *mongodriver.Cursor
 	var err error
@@ -133,7 +133,7 @@ func (w *collectionWrapper) Find(ctx context.Context, filter interface{}, opts .
 	return cursor, err
 }
 
-// InsertOne wraps collection.InsertOne with middleware chain
+// InsertOne wraps collection.InsertOne with middleware chain.
 func (w *collectionWrapper) InsertOne(ctx context.Context, document interface{}, opts ...*options.InsertOneOptions) (*mongodriver.InsertOneResult, error) {
 	var result *mongodriver.InsertOneResult
 	var err error
@@ -143,7 +143,7 @@ func (w *collectionWrapper) InsertOne(ctx context.Context, document interface{},
 	return result, err
 }
 
-// InsertMany wraps collection.InsertMany with middleware chain
+// InsertMany wraps collection.InsertMany with middleware chain.
 func (w *collectionWrapper) InsertMany(ctx context.Context, documents []interface{}, opts ...*options.InsertManyOptions) (*mongodriver.InsertManyResult, error) {
 	var result *mongodriver.InsertManyResult
 	var err error
@@ -153,7 +153,7 @@ func (w *collectionWrapper) InsertMany(ctx context.Context, documents []interfac
 	return result, err
 }
 
-// UpdateOne wraps collection.UpdateOne with middleware chain
+// UpdateOne wraps collection.UpdateOne with middleware chain.
 func (w *collectionWrapper) UpdateOne(ctx context.Context, filter interface{}, update interface{}, opts ...*options.UpdateOptions) (*mongodriver.UpdateResult, error) {
 	var result *mongodriver.UpdateResult
 	var err error
@@ -163,7 +163,7 @@ func (w *collectionWrapper) UpdateOne(ctx context.Context, filter interface{}, u
 	return result, err
 }
 
-// UpdateMany wraps collection.UpdateMany with middleware chain
+// UpdateMany wraps collection.UpdateMany with middleware chain.
 func (w *collectionWrapper) UpdateMany(ctx context.Context, filter interface{}, update interface{}, opts ...*options.UpdateOptions) (*mongodriver.UpdateResult, error) {
 	var result *mongodriver.UpdateResult
 	var err error
@@ -173,7 +173,7 @@ func (w *collectionWrapper) UpdateMany(ctx context.Context, filter interface{}, 
 	return result, err
 }
 
-// DeleteOne wraps collection.DeleteOne with middleware chain
+// DeleteOne wraps collection.DeleteOne with middleware chain.
 func (w *collectionWrapper) DeleteOne(ctx context.Context, filter interface{}, opts ...*options.DeleteOptions) (*mongodriver.DeleteResult, error) {
 	var result *mongodriver.DeleteResult
 	var err error
@@ -183,7 +183,7 @@ func (w *collectionWrapper) DeleteOne(ctx context.Context, filter interface{}, o
 	return result, err
 }
 
-// DeleteMany wraps collection.DeleteMany with middleware chain
+// DeleteMany wraps collection.DeleteMany with middleware chain.
 func (w *collectionWrapper) DeleteMany(ctx context.Context, filter interface{}, opts ...*options.DeleteOptions) (*mongodriver.DeleteResult, error) {
 	var result *mongodriver.DeleteResult
 	var err error
@@ -193,7 +193,7 @@ func (w *collectionWrapper) DeleteMany(ctx context.Context, filter interface{}, 
 	return result, err
 }
 
-// FindOneAndUpdate wraps collection.FindOneAndUpdate with middleware chain
+// FindOneAndUpdate wraps collection.FindOneAndUpdate with middleware chain.
 func (w *collectionWrapper) FindOneAndUpdate(ctx context.Context, filter interface{}, update interface{}, opts ...*options.FindOneAndUpdateOptions) *mongodriver.SingleResult {
 	var result *mongodriver.SingleResult
 	w.middleware(ctx, func(c context.Context) {
@@ -202,7 +202,7 @@ func (w *collectionWrapper) FindOneAndUpdate(ctx context.Context, filter interfa
 	return result
 }
 
-// FindOneAndReplace wraps collection.FindOneAndReplace with middleware chain
+// FindOneAndReplace wraps collection.FindOneAndReplace with middleware chain.
 func (w *collectionWrapper) FindOneAndReplace(ctx context.Context, filter interface{}, replacement interface{}, opts ...*options.FindOneAndReplaceOptions) *mongodriver.SingleResult {
 	var result *mongodriver.SingleResult
 	w.middleware(ctx, func(c context.Context) {
@@ -211,7 +211,7 @@ func (w *collectionWrapper) FindOneAndReplace(ctx context.Context, filter interf
 	return result
 }
 
-// FindOneAndDelete wraps collection.FindOneAndDelete with middleware chain
+// FindOneAndDelete wraps collection.FindOneAndDelete with middleware chain.
 func (w *collectionWrapper) FindOneAndDelete(ctx context.Context, filter interface{}, opts ...*options.FindOneAndDeleteOptions) *mongodriver.SingleResult {
 	var result *mongodriver.SingleResult
 	w.middleware(ctx, func(c context.Context) {
@@ -220,7 +220,7 @@ func (w *collectionWrapper) FindOneAndDelete(ctx context.Context, filter interfa
 	return result
 }
 
-// Aggregate wraps collection.Aggregate with middleware chain
+// Aggregate wraps collection.Aggregate with middleware chain.
 func (w *collectionWrapper) Aggregate(ctx context.Context, pipeline interface{}, opts ...*options.AggregateOptions) (*mongodriver.Cursor, error) {
 	var cursor *mongodriver.Cursor
 	var err error
@@ -230,7 +230,7 @@ func (w *collectionWrapper) Aggregate(ctx context.Context, pipeline interface{},
 	return cursor, err
 }
 
-// CountDocuments wraps collection.CountDocuments with middleware chain
+// CountDocuments wraps collection.CountDocuments with middleware chain.
 func (w *collectionWrapper) CountDocuments(ctx context.Context, filter interface{}, opts ...*options.CountOptions) (int64, error) {
 	var count int64
 	var err error
@@ -240,7 +240,7 @@ func (w *collectionWrapper) CountDocuments(ctx context.Context, filter interface
 	return count, err
 }
 
-// Distinct wraps collection.Distinct with middleware chain
+// Distinct wraps collection.Distinct with middleware chain.
 func (w *collectionWrapper) Distinct(ctx context.Context, fieldName string, filter interface{}, opts ...*options.DistinctOptions) ([]interface{}, error) {
 	var values []interface{}
 	var err error
@@ -250,7 +250,7 @@ func (w *collectionWrapper) Distinct(ctx context.Context, fieldName string, filt
 	return values, err
 }
 
-// ReplaceOne wraps collection.ReplaceOne with middleware chain
+// ReplaceOne wraps collection.ReplaceOne with middleware chain.
 func (w *collectionWrapper) ReplaceOne(ctx context.Context, filter interface{}, replacement interface{}, opts ...*options.ReplaceOptions) (*mongodriver.UpdateResult, error) {
 	var result *mongodriver.UpdateResult
 	var err error
@@ -265,7 +265,7 @@ func (w *collectionWrapper) Indexes() mongodriver.IndexView {
 	return w.coll.Indexes()
 }
 
-// Drop wraps collection.Drop with middleware chain
+// Drop wraps collection.Drop with middleware chain.
 func (w *collectionWrapper) Drop(ctx context.Context) error {
 	var err error
 	w.middleware(ctx, func(c context.Context) {

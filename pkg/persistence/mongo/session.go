@@ -64,5 +64,5 @@ type Session interface {
 	AdvanceOperationTime(*primitive.Timestamp) error
 }
 
-// Compile-time check that mongodriver.Session implements our Session interface
+// Compile-time check that mongodriver.Session implements our Session interface.
 var _ Session = (mongodriver.Session)(nil)

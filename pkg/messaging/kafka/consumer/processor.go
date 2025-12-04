@@ -87,7 +87,7 @@ func (p *processor) processMessage(ctx context.Context, envelope *MessageEnvelop
 	p.resultHandler.handle(ctx, err, envelope.Message, span)
 }
 
-// executeWithRetry executes the handler with exponential backoff retry logic
+// executeWithRetry executes the handler with exponential backoff retry logic.
 func (p *processor) executeWithRetry(ctx context.Context, event any) error {
 	expBackoff := backoff.NewExponentialBackOff(
 		backoff.WithInitialInterval(p.initialBackoff),

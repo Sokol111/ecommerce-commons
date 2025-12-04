@@ -93,7 +93,7 @@ func logPartitionEvent(log *zap.Logger, event string, partitions []kafka.TopicPa
 		zap.Int32s("partitions", partitionIDs))
 }
 
-// verifyTopicAvailable checks if topic exists and has partitions
+// verifyTopicAvailable checks if topic exists and has partitions.
 func verifyTopicAvailable(consumer *kafka.Consumer, topic string, log *zap.Logger) error {
 	metadata, err := consumer.GetMetadata(&topic, false, 10000)
 	if err != nil {

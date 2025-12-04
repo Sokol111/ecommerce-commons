@@ -68,6 +68,18 @@ func timeoutMiddleware(timeout time.Duration) Middleware {
 	}
 }
 
+// UnwrapCollection unwraps a Collection to the underlying *mongo.Collection.
+// This is useful when you need direct access to the driver's collection
+// for operations not exposed through the Collection interface.
+// Panics if the underlying collection is not *mongo.Collection (should never happen
+// when using collections from Mongo.GetCollection/GetCollectionWithOptions).
+func UnwrapCollection(coll Collection) *mongodriver.Collection {
+	if wrapper, ok := coll.(*collectionWrapper); ok {
+		return wrapper.coll.(*mongodriver.Collection)
+	}
+	return coll.(*mongodriver.Collection)
+}
+
 // Compile-time check that collectionWrapper implements Collection interface
 var _ Collection = (*collectionWrapper)(nil)
 

@@ -17,8 +17,8 @@ type Mongo interface {
 	GetCollectionWithOptions(collection string, opts ...WrapperOption) Collection
 }
 
-// MongoAdmin is the internal interface for infrastructure components (migrations, transactions).
-type MongoAdmin interface {
+// Admin is the internal interface for infrastructure components (migrations, transactions).
+type Admin interface {
 	Mongo
 	GetDatabase() *mongodriver.Database
 	StartSession(ctx context.Context) (Session, error)

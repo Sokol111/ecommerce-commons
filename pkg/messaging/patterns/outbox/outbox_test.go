@@ -67,8 +67,8 @@ func TestOutbox_Create(t *testing.T) {
 
 		o := newOutbox(log, repo, entitiesChan, serializer, propagator)
 
-		msg := OutboxMessage{
-			Message: "test-message",
+		msg := Message{
+			Payload: "test-message",
 			EventID: "event-123",
 			Key:     "partition-key",
 			Headers: map[string]string{"custom": "header"},
@@ -98,8 +98,8 @@ func TestOutbox_Create(t *testing.T) {
 
 		o := newOutbox(log, repo, entitiesChan, serializer, propagator)
 
-		msg := OutboxMessage{
-			Message: "test-message",
+		msg := Message{
+			Payload: "test-message",
 			EventID: "event-123",
 		}
 
@@ -121,8 +121,8 @@ func TestOutbox_Create(t *testing.T) {
 
 		o := newOutbox(log, repo, entitiesChan, serializer, propagator)
 
-		msg := OutboxMessage{
-			Message: "test-message",
+		msg := Message{
+			Payload: "test-message",
 			EventID: "event-123",
 		}
 
@@ -151,8 +151,8 @@ func TestOutbox_Create(t *testing.T) {
 
 		o := newOutbox(log, repo, entitiesChan, serializer, propagator)
 
-		msg := OutboxMessage{
-			Message: "test-message",
+		msg := Message{
+			Payload: "test-message",
 			EventID: "event-123",
 			Headers: map[string]string{"existing": "header"},
 		}
@@ -177,8 +177,8 @@ func TestOutbox_SendFunc(t *testing.T) {
 
 		o := newOutbox(log, repo, entitiesChan, serializer, propagator)
 
-		msg := OutboxMessage{
-			Message: "test-message",
+		msg := Message{
+			Payload: "test-message",
 			EventID: "event-123",
 		}
 
@@ -206,8 +206,8 @@ func TestOutbox_SendFunc(t *testing.T) {
 
 		o := newOutbox(log, repo, entitiesChan, serializer, propagator)
 
-		msg := OutboxMessage{
-			Message: "test-message",
+		msg := Message{
+			Payload: "test-message",
 			EventID: "event-123",
 		}
 
@@ -232,8 +232,8 @@ func TestOutbox_SendFunc(t *testing.T) {
 
 		o := newOutbox(log, repo, entitiesChan, serializer, propagator)
 
-		msg := OutboxMessage{
-			Message: "test-message",
+		msg := Message{
+			Payload: "test-message",
 			EventID: "event-123",
 		}
 
@@ -258,8 +258,8 @@ func TestOutbox_NilHeaders(t *testing.T) {
 
 		o := newOutbox(log, repo, entitiesChan, serializer, propagator)
 
-		msg := OutboxMessage{
-			Message: "test-message",
+		msg := Message{
+			Payload: "test-message",
 			EventID: "event-123",
 			Headers: nil,
 		}

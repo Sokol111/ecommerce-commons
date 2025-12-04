@@ -10,15 +10,15 @@ import (
 	"go.uber.org/zap"
 )
 
-type OutboxMessage struct {
-	Message any               // The actual message payload to be sent
+type Message struct {
+	Payload any               // The actual message payload to be sent
 	EventID string            // Unique event identifier - used as outbox record ID for idempotency (prevents duplicate messages)
 	Key     string            // Kafka partition key for ordering guarantees
 	Headers map[string]string // Kafka headers for trace propagation, event_type, etc.
 }
 
 type Outbox interface {
-	Create(ctx context.Context, msg OutboxMessage) (SendFunc, error)
+	Create(ctx context.Context, msg Message) (SendFunc, error)
 }
 
 type outbox struct {
@@ -41,11 +41,11 @@ func newOutbox(logger *zap.Logger, outboxRepository repository, entitiesChan cha
 
 type SendFunc func(ctx context.Context) error
 
-func (o *outbox) Create(ctx context.Context, msg OutboxMessage) (SendFunc, error) {
+func (o *outbox) Create(ctx context.Context, msg Message) (SendFunc, error) {
 	// Save trace context into headers for storage in outbox
 	msg.Headers = o.tracePropagator.SaveTraceContext(ctx, msg.Headers)
 
-	serializedMsg, topic, err := o.serializer.SerializeWithTopic(msg.Message)
+	serializedMsg, topic, err := o.serializer.SerializeWithTopic(msg.Payload)
 	if err != nil {
 		return nil, fmt.Errorf("failed to serialize outbox message: %w", err)
 	}

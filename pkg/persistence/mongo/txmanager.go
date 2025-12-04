@@ -10,11 +10,11 @@ import (
 )
 
 type mongoTxManager struct {
-	admin MongoAdmin
+	admin Admin
 	log   *zap.Logger
 }
 
-func newTxManager(admin MongoAdmin, log *zap.Logger) persistence.TxManager {
+func newTxManager(admin Admin, log *zap.Logger) persistence.TxManager {
 	return &mongoTxManager{
 		admin: admin,
 		log:   log,

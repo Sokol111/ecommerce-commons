@@ -107,7 +107,7 @@ func (c *confirmer) handleConfirmation(ctx context.Context, events []kafka.Event
 		return
 	}
 
-	err := c.outboxRepository.UpdateAsSentByIds(ctx, ids)
+	err := c.outboxRepository.UpdateAsSentByIDs(ctx, ids)
 	if err != nil {
 		c.logger.Error("failed to update confirmation", zap.Error(err))
 		return

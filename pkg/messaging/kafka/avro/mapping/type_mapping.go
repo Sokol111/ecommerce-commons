@@ -7,7 +7,7 @@ import (
 	hambavro "github.com/hamba/avro/v2"
 )
 
-// SchemaBinding contains the binding between Go type, Avro schema, and Kafka topic
+// SchemaBinding contains the binding between Go type, Avro schema, and Kafka topic.
 type SchemaBinding struct {
 	// GoType is the Go reflect.Type for serialization/deserialization
 	GoType reflect.Type
@@ -21,7 +21,7 @@ type SchemaBinding struct {
 	ParsedSchema hambavro.Schema
 }
 
-// TypeMapping is a local registry for mapping between Go types, Avro schemas, and Kafka topics
+// TypeMapping is a local registry for mapping between Go types, Avro schemas, and Kafka topics.
 type TypeMapping struct {
 	// typeToBinding maps Go types to schema bindings (for serialization)
 	typeToBinding map[reflect.Type]*SchemaBinding
@@ -29,7 +29,7 @@ type TypeMapping struct {
 	nameToBinding map[string]*SchemaBinding
 }
 
-// NewTypeMapping creates a new type mapping registry
+// NewTypeMapping creates a new type mapping registry.
 func NewTypeMapping() *TypeMapping {
 	return &TypeMapping{
 		typeToBinding: make(map[reflect.Type]*SchemaBinding),
@@ -37,8 +37,8 @@ func NewTypeMapping() *TypeMapping {
 	}
 }
 
-// Register adds a schema binding to the type mapping
-// This registers the binding for both serialization (by Go type) and deserialization (by schema name)
+// Register adds a schema binding to the type mapping.
+// This registers the binding for both serialization (by Go type) and deserialization (by schema name).
 func (tm *TypeMapping) Register(goType reflect.Type, schemaJSON []byte, schemaName string, topic string) error {
 	if goType == nil {
 		return fmt.Errorf("goType cannot be nil")
@@ -73,7 +73,7 @@ func (tm *TypeMapping) Register(goType reflect.Type, schemaJSON []byte, schemaNa
 	return nil
 }
 
-// GetByType returns schema binding by Go type (used for serialization)
+// GetByType returns schema binding by Go type (used for serialization).
 func (tm *TypeMapping) GetByType(goType reflect.Type) (*SchemaBinding, error) {
 	binding, ok := tm.typeToBinding[goType]
 	if !ok {
@@ -82,8 +82,8 @@ func (tm *TypeMapping) GetByType(goType reflect.Type) (*SchemaBinding, error) {
 	return binding, nil
 }
 
-// GetByValue returns schema binding by value instance
-// Automatically handles pointer types by extracting the underlying type
+// GetByValue returns schema binding by value instance.
+// Automatically handles pointer types by extracting the underlying type.
 func (tm *TypeMapping) GetByValue(value interface{}) (*SchemaBinding, error) {
 	goType := reflect.TypeOf(value)
 	if goType.Kind() == reflect.Ptr {
@@ -92,7 +92,7 @@ func (tm *TypeMapping) GetByValue(value interface{}) (*SchemaBinding, error) {
 	return tm.GetByType(goType)
 }
 
-// GetBySchemaName returns schema binding by Avro schema name (used for deserialization)
+// GetBySchemaName returns schema binding by Avro schema name (used for deserialization).
 func (tm *TypeMapping) GetBySchemaName(schemaName string) (*SchemaBinding, error) {
 	binding, ok := tm.nameToBinding[schemaName]
 	if !ok {
@@ -101,7 +101,7 @@ func (tm *TypeMapping) GetBySchemaName(schemaName string) (*SchemaBinding, error
 	return binding, nil
 }
 
-// GetAllBindings returns a slice of all registered schema bindings
+// GetAllBindings returns a slice of all registered schema bindings.
 func (tm *TypeMapping) GetAllBindings() []*SchemaBinding {
 	bindings := make([]*SchemaBinding, 0, len(tm.nameToBinding))
 	for _, binding := range tm.nameToBinding {

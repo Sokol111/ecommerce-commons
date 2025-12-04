@@ -14,7 +14,7 @@ import (
 	"go.uber.org/zap"
 )
 
-// Module provides Avro deserialization components for dependency injection
+// Module provides Avro deserialization components for dependency injection.
 func NewAvroModule() fx.Option {
 	return fx.Module("avro",
 		fx.Provide(

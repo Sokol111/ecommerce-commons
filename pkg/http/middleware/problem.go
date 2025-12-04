@@ -9,7 +9,7 @@ import (
 	"go.uber.org/fx"
 )
 
-// problemMiddleware converts Gin errors to Problem Details (RFC 7807) responses
+// problemMiddleware converts Gin errors to Problem Details (RFC 7807) responses.
 func problemMiddleware() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		c.Next()
@@ -70,7 +70,7 @@ func problemMiddleware() gin.HandlerFunc {
 	}
 }
 
-// ProblemModule provides problem details middleware
+// ProblemModule provides problem details middleware.
 func ProblemModule(priority int) fx.Option {
 	return fx.Provide(
 		fx.Annotate(

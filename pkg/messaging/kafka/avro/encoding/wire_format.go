@@ -2,14 +2,14 @@ package encoding
 
 import "fmt"
 
-// WireFormatParser parses Confluent wire format messages
+// WireFormatParser parses Confluent wire format messages.
 type WireFormatParser interface {
 	// Parse extracts schema ID and payload from Confluent wire format
 	// Expected format: [0x00][schema_id (4 bytes)][payload]
 	Parse(data []byte) (schemaID int, payload []byte, err error)
 }
 
-// WireFormatBuilder builds Confluent wire format messages
+// WireFormatBuilder builds Confluent wire format messages.
 type WireFormatBuilder interface {
 	// Build creates Confluent wire format from schema ID and payload
 	// Returns format: [0x00][schema_id (4 bytes)][payload]
@@ -18,7 +18,7 @@ type WireFormatBuilder interface {
 
 type confluentWireFormat struct{}
 
-// NewConfluentWireFormatParser creates a parser for Confluent wire format
+// NewConfluentWireFormatParser creates a parser for Confluent wire format.
 func NewConfluentWireFormat() (WireFormatParser, WireFormatBuilder) {
 	f := &confluentWireFormat{}
 	return f, f

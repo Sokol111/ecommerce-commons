@@ -16,12 +16,12 @@ var errEntityNotFound = errors.New("entity not found in database")
 
 type repository interface {
 
-	// can return errEntityNotFound
+	// can return errEntityNotFound.
 	FetchAndLock(ctx context.Context) (*outboxEntity, error)
 
 	Create(ctx context.Context, payload []byte, id string, key string, topic string, headers map[string]string) (*outboxEntity, error)
 
-	UpdateAsSentByIds(ctx context.Context, ids []string) error
+	UpdateAsSentByIDs(ctx context.Context, ids []string) error
 }
 
 type outboxRepository struct {
@@ -109,7 +109,7 @@ func (r *outboxRepository) Create(ctx context.Context, payload []byte, id string
 	return &entity, nil
 }
 
-func (r *outboxRepository) UpdateAsSentByIds(ctx context.Context, ids []string) error {
+func (r *outboxRepository) UpdateAsSentByIDs(ctx context.Context, ids []string) error {
 	_, err := r.coll.UpdateMany(ctx,
 		bson.M{"_id": bson.M{"$in": ids}},
 		bson.M{

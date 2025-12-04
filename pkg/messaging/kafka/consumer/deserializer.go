@@ -9,13 +9,13 @@ import (
 	"go.uber.org/zap"
 )
 
-// MessageEnvelope contains deserialized event with original Kafka message metadata
+// MessageEnvelope contains deserialized event with original Kafka message metadata.
 type MessageEnvelope struct {
 	Event   any
 	Message *kafka.Message
 }
 
-// messageDeserializer reads raw Kafka messages, deserializes them, and sends to output channel
+// messageDeserializer reads raw Kafka messages, deserializes them, and sends to output channel.
 type messageDeserializer struct {
 	inputChan    <-chan *kafka.Message
 	outputChan   chan<- *MessageEnvelope

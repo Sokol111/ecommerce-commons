@@ -10,12 +10,12 @@ import (
 	"go.uber.org/fx"
 )
 
-// openAPIErrorHandler handles OpenAPI validation errors
+// openAPIErrorHandler handles OpenAPI validation errors.
 func openAPIErrorHandler(c *gin.Context, message string, statusCode int) {
-	c.AbortWithError(statusCode, errors.New(message))
+	_ = c.AbortWithError(statusCode, errors.New(message))
 }
 
-// createOpenAPIValidator creates OpenAPI request validator with custom options
+// createOpenAPIValidator creates OpenAPI request validator with custom options.
 func createOpenAPIValidator(swagger *openapi3.T) gin.HandlerFunc {
 	swagger.Servers = nil
 
@@ -28,7 +28,7 @@ func createOpenAPIValidator(swagger *openapi3.T) gin.HandlerFunc {
 }
 
 // createOpenAPIValidatorMiddleware creates OpenAPI request validator middleware
-// that skips validation for health endpoints
+// that skips validation for health endpoints.
 func createOpenAPIValidatorMiddleware(validator gin.HandlerFunc) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		// Skip OpenAPI validation for health endpoints
@@ -41,7 +41,7 @@ func createOpenAPIValidatorMiddleware(validator gin.HandlerFunc) gin.HandlerFunc
 	}
 }
 
-// OpenAPIValidatorModule provides OpenAPI validator middleware
+// OpenAPIValidatorModule provides OpenAPI validator middleware.
 func OpenAPIValidatorModule(priority int) fx.Option {
 	return fx.Provide(
 		fx.Annotate(

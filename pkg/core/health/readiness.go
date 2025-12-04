@@ -165,7 +165,7 @@ func (r *readiness) GetStatus() ReadinessStatus {
 	return status
 }
 
-// WaitReady blocks until all components are ready or context is cancelled
+// WaitReady blocks until all components are ready or context is cancelled.
 func (r *readiness) WaitReady(ctx context.Context) error {
 	select {
 	case <-r.readyChan:

@@ -11,7 +11,7 @@ import (
 	"go.uber.org/zap"
 )
 
-// DLQHandler відповідає за відправку повідомлень, які не вдалось обробити, в Dead Letter Queue
+// DLQHandler відповідає за відправку повідомлень, які не вдалось обробити, в Dead Letter Queue.
 type DLQHandler interface {
 	// SendToDLQ відправляє повідомлення в DLQ з інформацією про помилку
 	SendToDLQ(ctx context.Context, message *kafka.Message, processingErr error)
@@ -78,7 +78,12 @@ func (h *dlqHandler) SendToDLQ(ctx context.Context, message *kafka.Message, proc
 
 	// Чекаємо на delivery report
 	e := <-deliveryChan
-	m := e.(*kafka.Message)
+	m, ok := e.(*kafka.Message)
+	if !ok {
+		h.log.Error("unexpected event type from delivery channel")
+		close(deliveryChan)
+		return
+	}
 	if m.TopicPartition.Error != nil {
 		span.RecordError(m.TopicPartition.Error)
 		span.SetStatus(codes.Error, "failed to deliver message to DLQ")
@@ -92,7 +97,7 @@ func (h *dlqHandler) SendToDLQ(ctx context.Context, message *kafka.Message, proc
 			zap.String("dlq_topic", h.dlqTopic),
 			zap.String("key", string(message.Key)),
 			zap.Int32("original_partition", message.TopicPartition.Partition),
-			zap.Int32("original_offset", int32(message.TopicPartition.Offset)))
+			zap.Int64("original_offset", int64(message.TopicPartition.Offset)))
 	}
 	close(deliveryChan)
 }
@@ -112,5 +117,5 @@ func (h *noopDLQHandler) SendToDLQ(ctx context.Context, message *kafka.Message, 
 	h.log.Warn("DLQ producer not configured, cannot send message to DLQ",
 		zap.String("key", string(message.Key)),
 		zap.Int32("partition", message.TopicPartition.Partition),
-		zap.Int32("offset", int32(message.TopicPartition.Offset)))
+		zap.Int64("offset", int64(message.TopicPartition.Offset)))
 }

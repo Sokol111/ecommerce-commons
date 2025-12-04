@@ -19,25 +19,25 @@ type ReadinessStatus struct {
 	KubernetesNotifiedAt time.Time         `json:"kubernetes_notified_at,omitempty"`
 }
 
-// ComponentManager manages component registration and readiness tracking
+// ComponentManager manages component registration and readiness tracking.
 type ComponentManager interface {
 	AddComponent(name string)
 	MarkReady(name string)
 }
 
-// ReadinessChecker provides readiness status information
+// ReadinessChecker provides readiness status information.
 type ReadinessChecker interface {
 	IsReady() bool
 	GetStatus() ReadinessStatus
 }
 
-// ReadinessWaiter provides methods to wait for readiness events
+// ReadinessWaiter provides methods to wait for readiness events.
 type ReadinessWaiter interface {
 	WaitReady(ctx context.Context) error           // Wait until all components are ready
 	WaitForTrafficReady(ctx context.Context) error // Wait until ready to handle traffic
 }
 
-// TrafficController controls when the service is ready to handle traffic
+// TrafficController controls when the service is ready to handle traffic.
 type TrafficController interface {
 	MarkTrafficReady() // Manually mark the service as ready for traffic (for local/testing)
 }

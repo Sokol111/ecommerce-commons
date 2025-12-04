@@ -8,7 +8,7 @@ import (
 	hambavro "github.com/hamba/avro/v2"
 )
 
-// Decoder decodes Avro data to Go structs
+// Decoder decodes Avro data to Go structs.
 type Decoder interface {
 	// Decode deserializes Avro bytes to a Go object
 	// writerSchema is the parsed schema from Schema Registry (used to write the data)
@@ -21,7 +21,7 @@ type hambaDecoder struct {
 	typeMapping *mapping.TypeMapping
 }
 
-// NewHambaDecoder creates an Avro decoder using hamba/avro library
+// NewHambaDecoder creates an Avro decoder using hamba/avro library.
 func NewHambaDecoder(typeMapping *mapping.TypeMapping) Decoder {
 	return &hambaDecoder{
 		typeMapping: typeMapping,

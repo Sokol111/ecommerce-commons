@@ -45,11 +45,11 @@ func (t *LogThrottler) Warn(key string, msg string, fields ...zap.Field) {
 
 func (t *LogThrottler) getLimiter(key string) *rate.Limiter {
 	if limiter, ok := t.limiters.Load(key); ok {
-		return limiter.(*rate.Limiter)
+		return limiter.(*rate.Limiter) //nolint:errcheck // type is guaranteed by LoadOrStore below
 	}
 
 	// 1 event per interval, no burst
 	limiter := rate.NewLimiter(rate.Every(t.interval), 1)
 	actual, _ := t.limiters.LoadOrStore(key, limiter)
-	return actual.(*rate.Limiter)
+	return actual.(*rate.Limiter) //nolint:errcheck // we only store *rate.Limiter
 }

@@ -26,7 +26,7 @@ func errorLoggerMiddleware() gin.HandlerFunc {
 	}
 }
 
-// ErrorLoggerModule provides error logger middleware
+// ErrorLoggerModule provides error logger middleware.
 func ErrorLoggerModule(priority int) fx.Option {
 	return fx.Provide(
 		fx.Annotate(

@@ -6,7 +6,7 @@ import (
 	hambavro "github.com/hamba/avro/v2"
 )
 
-// Encoder encodes Go structs to Avro bytes
+// Encoder encodes Go structs to Avro bytes.
 type Encoder interface {
 	// Encode serializes a Go object to Avro bytes based on schema
 	Encode(msg interface{}, schema hambavro.Schema) ([]byte, error)
@@ -14,7 +14,7 @@ type Encoder interface {
 
 type hambaEncoder struct{}
 
-// NewHambaEncoder creates an Avro encoder using hamba/avro library
+// NewHambaEncoder creates an Avro encoder using hamba/avro library.
 func NewHambaEncoder() Encoder {
 	return &hambaEncoder{}
 }

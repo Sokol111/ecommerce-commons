@@ -4,7 +4,7 @@ import (
 	"go.uber.org/fx"
 )
 
-// NewGinModule provides all Gin middleware modules
+// NewGinModule provides all Gin middleware modules.
 // Middleware execution order (by priority, lower = earlier):
 //
 //	10 - Recovery         - catches panics (must be first)

@@ -2,7 +2,7 @@ package config
 
 import "time"
 
-// Config represents the main Kafka configuration
+// Config represents the main Kafka configuration.
 type Config struct {
 	Brokers         string               `mapstructure:"brokers"`          // Comma-separated list of Kafka broker addresses (e.g., "localhost:9092,localhost:9093")
 	SchemaRegistry  SchemaRegistryConfig `mapstructure:"schema-registry"`  // Schema Registry configuration for Avro serialization/deserialization
@@ -10,7 +10,7 @@ type Config struct {
 	ProducerConfig  ProducerConfig       `mapstructure:"producer-config"`  // Producer-specific configuration
 }
 
-// ConsumersConfig holds global default settings and individual consumer configurations
+// ConsumersConfig holds global default settings and individual consumer configurations.
 type ConsumersConfig struct {
 	DefaultGroupID           string           `mapstructure:"default-group-id"`            // Default consumer group ID (applied to consumers without explicit group-id)
 	DefaultAutoOffsetReset   string           `mapstructure:"default-auto-offset-reset"`   // Default offset reset policy: "earliest" or "latest"
@@ -22,7 +22,7 @@ type ConsumersConfig struct {
 	ConsumerConfig           []ConsumerConfig `mapstructure:"consumers"`                   // Individual consumer configurations
 }
 
-// ConsumerConfig represents configuration for an individual Kafka consumer
+// ConsumerConfig represents configuration for an individual Kafka consumer.
 type ConsumerConfig struct {
 	Name                    string        `mapstructure:"name"`                      // Unique consumer name/identifier (required)
 	Topic                   string        `mapstructure:"topic"`                     // Kafka topic to consume from (required)
@@ -39,13 +39,13 @@ type ConsumerConfig struct {
 	ChannelBufferSize       int           `mapstructure:"channel-buffer-size"`       // Internal message channel buffer size (10-10000, defaults to DefaultChannelBufferSize)
 }
 
-// ProducerConfig represents configuration for Kafka producer
+// ProducerConfig represents configuration for Kafka producer.
 type ProducerConfig struct {
 	ReadinessTimeoutSeconds int  `mapstructure:"readiness-timeout-seconds"` // Timeout in seconds for waiting brokers readiness (0 = no timeout, max 600s, default 30s)
 	FailOnBrokerError       bool `mapstructure:"fail-on-broker-error"`      // Whether to fail application startup if brokers are not available (default false)
 }
 
-// SchemaRegistryConfig represents Confluent Schema Registry configuration
+// SchemaRegistryConfig represents Confluent Schema Registry configuration.
 type SchemaRegistryConfig struct {
 	URL                 string `mapstructure:"url"`                   // Schema Registry URL (required, e.g., "http://schema-registry:8081")
 	CacheCapacity       int    `mapstructure:"cache-capacity"`        // Schema cache capacity (100-100000, default 1000)

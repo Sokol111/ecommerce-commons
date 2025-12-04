@@ -1,6 +1,6 @@
 package problems
 
-// Problem represents RFC7807 Problem Details for HTTP APIs
+// Problem represents RFC7807 Problem Details for HTTP APIs.
 type Problem struct {
 	Type     string       `json:"type,omitempty"`
 	Title    string       `json:"title"`

@@ -9,8 +9,8 @@ import (
 	"go.uber.org/fx"
 )
 
-// NewCoreModule provides core functionality: config, logger, and health
-// It also sets increased startup and shutdown timeouts for fx application lifecycle
+// NewCoreModule provides core functionality: config, logger, and health.
+// It also sets increased startup and shutdown timeouts for fx application lifecycle.
 func NewCoreModule() fx.Option {
 	return fx.Options(
 		// Increase timeouts for startup and shutdown

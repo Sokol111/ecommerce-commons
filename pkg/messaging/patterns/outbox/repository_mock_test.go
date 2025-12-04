@@ -80,7 +80,7 @@ func (m *mockRepository) FetchAndLock(ctx context.Context) (*outboxEntity, error
 	return nil, errEntityNotFound
 }
 
-func (m *mockRepository) UpdateAsSentByIds(ctx context.Context, ids []string) error {
+func (m *mockRepository) UpdateAsSentByIDs(ctx context.Context, ids []string) error {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 

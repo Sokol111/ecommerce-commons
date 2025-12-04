@@ -8,7 +8,7 @@ import (
 	"go.uber.org/fx"
 )
 
-// NewMessagingModule provides messaging functionality: kafka, outbox, consumer, producer
+// NewMessagingModule provides messaging functionality: kafka, outbox, consumer, producer.
 func NewMessagingModule() fx.Option {
 	return fx.Options(
 		config.NewKafkaConfigModule(),

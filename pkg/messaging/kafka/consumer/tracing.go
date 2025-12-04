@@ -10,7 +10,7 @@ import (
 	"go.opentelemetry.io/otel/trace"
 )
 
-// MessageTracer відповідає за OpenTelemetry tracing для Kafka повідомлень
+// MessageTracer відповідає за OpenTelemetry tracing для Kafka повідомлень.
 type MessageTracer interface {
 	// ExtractContext витягує trace context з Kafka headers
 	ExtractContext(ctx context.Context, message *kafka.Message) context.Context

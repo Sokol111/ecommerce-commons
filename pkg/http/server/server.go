@@ -5,6 +5,7 @@ import (
 	"net"
 	"net/http"
 	"strconv"
+	"time"
 
 	"go.uber.org/zap"
 )
@@ -22,8 +23,9 @@ type server struct {
 
 func newServer(log *zap.Logger, conf Config, handler http.Handler) Server {
 	srv := &http.Server{
-		Addr:    ":" + strconv.Itoa(conf.Port),
-		Handler: handler,
+		Addr:              ":" + strconv.Itoa(conf.Port),
+		Handler:           handler,
+		ReadHeaderTimeout: 10 * time.Second,
 	}
 	return &server{
 		httpSrv: srv,

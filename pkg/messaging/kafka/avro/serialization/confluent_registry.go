@@ -8,8 +8,8 @@ import (
 	"github.com/confluentinc/confluent-kafka-go/v2/schemaregistry"
 )
 
-// ConfluentRegistry provides integration with Confluent Schema Registry
-// It handles schema registration and ID caching for Kafka message serialization
+// ConfluentRegistry provides integration with Confluent Schema Registry.
+// It handles schema registration and ID caching for Kafka message serialization.
 type ConfluentRegistry interface {
 	// RegisterSchema registers a schema in Confluent Schema Registry and returns schema ID
 	// Subject is automatically formed as "{binding.Topic}-value"
@@ -27,7 +27,7 @@ type confluentRegistry struct {
 	mu            sync.RWMutex
 }
 
-// NewConfluentRegistry creates a new Confluent Schema Registry client using TypeMapping
+// NewConfluentRegistry creates a new Confluent Schema Registry client using TypeMapping.
 func NewConfluentRegistry(client schemaregistry.Client, typeMapping *mapping.TypeMapping) ConfluentRegistry {
 	return &confluentRegistry{
 		client:        client,
@@ -66,9 +66,9 @@ func (cr *confluentRegistry) RegisterSchema(binding *mapping.SchemaBinding) (int
 	return id, nil
 }
 
-// RegisterAllSchemasAtStartup registers all schemas from the type mapping in Confluent Schema Registry
-// This should be called once at application startup to ensure all schemas are registered
-// Returns error immediately if any schema fails to register (fail-fast approach)
+// RegisterAllSchemasAtStartup registers all schemas from the type mapping in Confluent Schema Registry.
+// This should be called once at application startup to ensure all schemas are registered.
+// Returns error immediately if any schema fails to register (fail-fast approach).
 func (cr *confluentRegistry) RegisterAllSchemasAtStartup() error {
 	allBindings := cr.typeMapping.GetAllBindings()
 

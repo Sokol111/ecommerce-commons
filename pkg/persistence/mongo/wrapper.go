@@ -12,21 +12,21 @@ import (
 // Middleware should only modify context (e.g., add timeout, tracing), not return errors.
 type Middleware func(ctx context.Context, next func(context.Context))
 
-// WrapperOption is a functional option for configuring CollectionWrapper
+// WrapperOption is a functional option for configuring CollectionWrapper.
 type WrapperOption func(*wrapperOptions)
 
 type wrapperOptions struct {
 	middlewares []Middleware
 }
 
-// WithTimeout adds timeout middleware to the wrapper
+// WithTimeout adds timeout middleware to the wrapper.
 func WithTimeout(timeout time.Duration) WrapperOption {
 	return func(o *wrapperOptions) {
 		o.middlewares = append(o.middlewares, timeoutMiddleware(timeout))
 	}
 }
 
-// WithMiddleware adds a custom middleware to the wrapper
+// WithMiddleware adds a custom middleware to the wrapper.
 func WithMiddleware(mw Middleware) WrapperOption {
 	return func(o *wrapperOptions) {
 		o.middlewares = append(o.middlewares, mw)
@@ -82,12 +82,12 @@ func timeoutMiddleware(timeout time.Duration) Middleware {
 // when using collections from Mongo.GetCollection/GetCollectionWithOptions).
 func UnwrapCollection(coll Collection) *mongodriver.Collection {
 	if wrapper, ok := coll.(*collectionWrapper); ok {
-		return wrapper.coll.(*mongodriver.Collection)
+		return wrapper.coll.(*mongodriver.Collection) //nolint:errcheck // type is guaranteed by constructor
 	}
-	return coll.(*mongodriver.Collection)
+	return coll.(*mongodriver.Collection) //nolint:errcheck // direct mongo.Collection
 }
 
-// Compile-time check that collectionWrapper implements Collection interface
+// Compile-time check that collectionWrapper implements Collection interface.
 var _ Collection = (*collectionWrapper)(nil)
 
 type collectionWrapper struct {
@@ -260,7 +260,7 @@ func (w *collectionWrapper) ReplaceOne(ctx context.Context, filter interface{}, 
 	return result, err
 }
 
-// Indexes returns the index view for the collection (no middleware needed for view access)
+// Indexes returns the index view for the collection (no middleware needed for view access).
 func (w *collectionWrapper) Indexes() mongodriver.IndexView {
 	return w.coll.Indexes()
 }
@@ -274,17 +274,17 @@ func (w *collectionWrapper) Drop(ctx context.Context) error {
 	return err
 }
 
-// Name returns the collection name (no middleware needed)
+// Name returns the collection name (no middleware needed).
 func (w *collectionWrapper) Name() string {
 	return w.coll.Name()
 }
 
-// Database returns the database (no middleware needed)
+// Database returns the database (no middleware needed).
 func (w *collectionWrapper) Database() *mongodriver.Database {
 	return w.coll.Database()
 }
 
-// BulkWrite wraps collection.BulkWrite with middleware chain
+// BulkWrite wraps collection.BulkWrite with middleware chain.
 func (w *collectionWrapper) BulkWrite(ctx context.Context, models []mongodriver.WriteModel, opts ...*options.BulkWriteOptions) (*mongodriver.BulkWriteResult, error) {
 	var result *mongodriver.BulkWriteResult
 	var err error

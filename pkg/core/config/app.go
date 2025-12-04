@@ -10,7 +10,7 @@ import (
 	"go.uber.org/zap"
 )
 
-// Environment variable names
+// Environment variable names.
 const (
 	envAppEnv                = "APP_ENV"
 	envAppServiceName        = "APP_SERVICE_NAME"
@@ -21,7 +21,7 @@ const (
 	envKubernetesServiceHost = "KUBERNETES_SERVICE_HOST"
 )
 
-// Default configuration values
+// Default configuration values.
 const (
 	defaultConfigDir = "./configs"
 )
@@ -45,7 +45,7 @@ type AppConfig struct {
 // NewAppConfigModule creates a new fx module for application configuration.
 // It provides AppConfig instance loaded from environment variables.
 //
-// Required environment variables:
+// Required environment variables:.
 //   - APP_ENV: Environment name (e.g., "local", "staging", "pro")
 //   - APP_SERVICE_NAME: Service name
 //   - APP_SERVICE_VERSION: Service version

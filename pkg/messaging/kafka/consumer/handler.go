@@ -5,7 +5,7 @@ import (
 	"errors"
 )
 
-// Sentinel errors for message processing control flow
+// Sentinel errors for message processing control flow.
 
 // ErrSkipMessage indicates that the message should be skipped without retry and committed.
 // Use this when:

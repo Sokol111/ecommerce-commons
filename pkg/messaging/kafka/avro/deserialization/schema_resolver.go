@@ -8,7 +8,7 @@ import (
 	hambavro "github.com/hamba/avro/v2"
 )
 
-// WriterSchemaResolver resolves schema IDs to writer schema metadata from Schema Registry
+// WriterSchemaResolver resolves schema IDs to writer schema metadata from Schema Registry.
 type WriterSchemaResolver interface {
 	// Resolve returns parsed writer schema and schema name for a given schema ID
 	// The parsed schema is cached to avoid repeated parsing
@@ -26,7 +26,7 @@ type registryWriterSchemaResolver struct {
 	mu     sync.RWMutex
 }
 
-// NewWriterSchemaResolver creates a Schema Registry-based writer schema resolver
+// NewWriterSchemaResolver creates a Schema Registry-based writer schema resolver.
 func NewWriterSchemaResolver(client schemaregistry.Client) WriterSchemaResolver {
 	return &registryWriterSchemaResolver{
 		client: client,

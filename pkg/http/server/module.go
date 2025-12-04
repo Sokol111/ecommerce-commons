@@ -9,7 +9,7 @@ import (
 	"go.uber.org/zap"
 )
 
-func NewHttpServerModule() fx.Option {
+func NewHTTPServerModule() fx.Option {
 	return fx.Options(
 		fx.Provide(newConfig),
 		fx.Invoke(startHTTPServer),
@@ -29,7 +29,7 @@ func startHTTPServer(lc fx.Lifecycle, log *zap.Logger, conf Config, engine *gin.
 					readiness.MarkReady("http-server")
 				}); err != nil {
 					log.Error("HTTP server failed, shutting down application", zap.Error(err))
-					shutdowner.Shutdown()
+					_ = shutdowner.Shutdown()
 				}
 			}()
 

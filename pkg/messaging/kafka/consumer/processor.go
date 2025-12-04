@@ -12,7 +12,7 @@ import (
 	"go.uber.org/zap"
 )
 
-// PanicError represents an error that occurred due to panic
+// PanicError represents an error that occurred due to panic.
 type panicError struct {
 	Panic interface{}
 	Stack []byte
@@ -44,13 +44,17 @@ func newProcessor(
 	tracer MessageTracer,
 	consumerConf config.ConsumerConfig,
 ) *processor {
+	maxRetries := uint64(0)
+	if consumerConf.MaxRetryAttempts > 1 {
+		maxRetries = uint64(consumerConf.MaxRetryAttempts - 1) //nolint:gosec // validated in config
+	}
 	return &processor{
 		envelopeChan:      envelopeChan,
 		handler:           handler,
 		log:               log,
 		resultHandler:     resultHandler,
 		tracer:            tracer,
-		maxRetries:        uint64(consumerConf.MaxRetryAttempts - 1), // backoff counts retries, not attempts
+		maxRetries:        maxRetries,
 		initialBackoff:    consumerConf.InitialBackoff,
 		maxBackoff:        consumerConf.MaxBackoff,
 		processingTimeout: consumerConf.ProcessingTimeout,
@@ -127,7 +131,7 @@ func (p *processor) executeWithRetry(ctx context.Context, event any) error {
 	}, b)
 }
 
-// process executes the handler with panic recovery
+// process executes the handler with panic recovery.
 func (p *processor) process(ctx context.Context, event any) (err error) {
 	// Apply processing timeout to prevent hanging
 	ctx, cancel := context.WithTimeout(ctx, p.processingTimeout)
@@ -135,6 +139,7 @@ func (p *processor) process(ctx context.Context, event any) (err error) {
 
 	defer func() {
 		if rec := recover(); rec != nil {
+			//nolint:errorlint // panicError is intentionally not wrapped, only ErrPermanent is
 			err = fmt.Errorf("%w: %v", ErrPermanent, &panicError{
 				Panic: rec,
 				Stack: debug.Stack(),

@@ -18,7 +18,7 @@ func TestGet_WithNilContext(t *testing.T) {
 	t.Cleanup(func() { defaultLogger = original })
 
 	// When: getting logger from nil context
-	logger := Get(nil)
+	logger := Get(nil) //nolint:staticcheck // testing nil context handling
 
 	// Then: should return default logger
 	assert.NotNil(t, logger)
@@ -113,7 +113,7 @@ func TestWith_WithNilContext(t *testing.T) {
 	customLogger := zap.NewNop()
 
 	// When: attaching logger to nil context
-	newCtx := With(nil, customLogger)
+	newCtx := With(nil, customLogger) //nolint:staticcheck // testing nil context handling
 
 	// Then: should create new context with logger
 	assert.NotNil(t, newCtx)

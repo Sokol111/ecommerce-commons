@@ -9,25 +9,25 @@ import (
 	"go.uber.org/zap"
 )
 
-// Middleware represents a Gin middleware with priority
+// Middleware represents a Gin middleware with priority.
 type Middleware struct {
 	Priority int
 	Handler  gin.HandlerFunc
 }
 
-// mwIn is used for dependency injection of all middlewares
+// mwIn is used for dependency injection of all middlewares.
 type mwIn struct {
 	fx.In
 	Middlewares []Middleware `group:"gin_mw"`
 }
 
-// provideGinAndHandler creates Gin engine with all registered middlewares
+// provideGinAndHandler creates Gin engine with all registered middlewares.
 func provideGinAndHandler(in mwIn) (*gin.Engine, http.Handler) {
 	e := newEngine(in.Middlewares)
 	return e, e
 }
 
-// newEngine creates a new Gin engine and registers middlewares sorted by priority
+// newEngine creates a new Gin engine and registers middlewares sorted by priority.
 func newEngine(mws []Middleware) *gin.Engine {
 	engine := gin.New(func(e *gin.Engine) {
 		e.ContextWithFallback = true
@@ -47,7 +47,7 @@ func newEngine(mws []Middleware) *gin.Engine {
 	return engine
 }
 
-// requestFields returns common request fields for logging
+// requestFields returns common request fields for logging.
 func requestFields(c *gin.Context) []zap.Field {
 	return []zap.Field{
 		zap.String("method", c.Request.Method),

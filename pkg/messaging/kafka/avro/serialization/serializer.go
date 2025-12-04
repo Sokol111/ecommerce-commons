@@ -7,7 +7,7 @@ import (
 	"github.com/Sokol111/ecommerce-commons/pkg/messaging/kafka/avro/mapping"
 )
 
-// Serializer serializes Go structs to Avro bytes with Confluent Schema Registry integration
+// Serializer serializes Go structs to Avro bytes with Confluent Schema Registry integration.
 type Serializer interface {
 	// Serialize serializes a Go struct to Avro bytes using topic from schema binding
 	// The msg parameter must be a type registered in TypeMapping with topic configured
@@ -30,8 +30,8 @@ type serializer struct {
 	builder           encoding.WireFormatBuilder
 }
 
-// NewSerializer creates a new Avro serializer with Confluent Schema Registry integration
-// Uses composition of specialized components for separation of concerns
+// NewSerializer creates a new Avro serializer with Confluent Schema Registry integration.
+// Uses composition of specialized components for separation of concerns.
 func NewSerializer(
 	typeMapping *mapping.TypeMapping,
 	confluentRegistry ConfluentRegistry,

@@ -71,16 +71,16 @@ func newCircuitBreakerMiddleware(cb *gobreaker.CircuitBreaker) gin.HandlerFunc {
 
 		// Handle circuit breaker errors
 		if err != nil {
-			if err == gobreaker.ErrOpenState {
+			if errors.Is(err, gobreaker.ErrOpenState) {
 				problem := problems.Problem{Detail: "service is temporarily unavailable due to circuit breaker"}
-				c.AbortWithError(http.StatusServiceUnavailable, ErrCircuitBreakerOpen).SetMeta(problem)
+				_ = c.AbortWithError(http.StatusServiceUnavailable, ErrCircuitBreakerOpen).SetMeta(problem)
 			}
 			// For other errors (like "server error"), request was already processed
 		}
 	}
 }
 
-// CircuitBreakerModule adds circuit breaker middleware to the application
+// CircuitBreakerModule adds circuit breaker middleware to the application.
 func CircuitBreakerModule(priority int) fx.Option {
 	return fx.Provide(
 		fx.Annotate(

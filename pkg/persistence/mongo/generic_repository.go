@@ -11,7 +11,7 @@ import (
 	"go.mongodb.org/mongo-driver/mongo/options"
 )
 
-// QueryOptions defines options for querying entities with filtering, pagination and sorting
+// QueryOptions defines options for querying entities with filtering, pagination and sorting.
 type QueryOptions struct {
 	// Filter is the MongoDB filter criteria (BSON)
 	Filter bson.D
@@ -24,7 +24,7 @@ type QueryOptions struct {
 	Sort bson.D
 }
 
-// PageResult represents a paginated result
+// PageResult represents a paginated result.
 type PageResult[Domain any] struct {
 	// Items is the list of domain objects for the current page
 	Items []*Domain
@@ -38,8 +38,8 @@ type PageResult[Domain any] struct {
 	TotalPages int
 }
 
-// EntityMapper defines the contract for converting between domain models and MongoDB entities
-// Each repository implementation must provide this mapper
+// EntityMapper defines the contract for converting between domain models and MongoDB entities.
+// Each repository implementation must provide this mapper.
 type EntityMapper[Domain any, Entity any] interface {
 	// ToEntity converts domain model to MongoDB entity
 	ToEntity(domain *Domain) *Entity
@@ -57,7 +57,7 @@ type EntityMapper[Domain any, Entity any] interface {
 	SetVersion(entity *Entity, version int)
 }
 
-// GenericRepository provides common CRUD operations for MongoDB
+// GenericRepository provides common CRUD operations for MongoDB.
 type GenericRepository[Domain any, Entity any] struct {
 	coll   Collection
 	mapper EntityMapper[Domain, Entity]
@@ -81,7 +81,7 @@ func NewGenericRepository[Domain any, Entity any](
 	}, nil
 }
 
-// Save creates a new entity in MongoDB
+// Save creates a new entity in MongoDB.
 func (r *GenericRepository[Domain, Entity]) Save(ctx context.Context, domain *Domain) error {
 	entity := r.mapper.ToEntity(domain)
 
@@ -93,7 +93,7 @@ func (r *GenericRepository[Domain, Entity]) Save(ctx context.Context, domain *Do
 	return nil
 }
 
-// FindByID retrieves an entity by ID
+// FindByID retrieves an entity by ID.
 func (r *GenericRepository[Domain, Entity]) FindByID(ctx context.Context, id string) (*Domain, error) {
 	result := r.coll.FindOne(ctx, bson.D{{Key: "_id", Value: id}})
 
@@ -109,7 +109,7 @@ func (r *GenericRepository[Domain, Entity]) FindByID(ctx context.Context, id str
 	return r.mapper.ToDomain(&entity), nil
 }
 
-// FindAll retrieves all entities
+// FindAll retrieves all entities.
 func (r *GenericRepository[Domain, Entity]) FindAll(ctx context.Context) ([]*Domain, error) {
 	cursor, err := r.coll.Find(ctx, bson.D{})
 	if err != nil {
@@ -130,7 +130,7 @@ func (r *GenericRepository[Domain, Entity]) FindAll(ctx context.Context) ([]*Dom
 	return domains, nil
 }
 
-// FindWithOptions retrieves entities with filtering, pagination and sorting
+// FindWithOptions retrieves entities with filtering, pagination and sorting.
 func (r *GenericRepository[Domain, Entity]) FindWithOptions(
 	ctx context.Context,
 	opts QueryOptions,
@@ -199,7 +199,7 @@ func (r *GenericRepository[Domain, Entity]) FindWithOptions(
 	}, nil
 }
 
-// Update updates an existing entity with optimistic locking and returns the updated domain object
+// Update updates an existing entity with optimistic locking and returns the updated domain object.
 func (r *GenericRepository[Domain, Entity]) Update(ctx context.Context, domain *Domain) (*Domain, error) {
 	entity := r.mapper.ToEntity(domain)
 
@@ -238,7 +238,7 @@ func (r *GenericRepository[Domain, Entity]) Update(ctx context.Context, domain *
 	return r.mapper.ToDomain(&updated), nil
 }
 
-// Delete hard deletes an entity by ID
+// Delete hard deletes an entity by ID.
 func (r *GenericRepository[Domain, Entity]) Delete(ctx context.Context, id string) error {
 	_, err := r.coll.DeleteOne(ctx, bson.D{{Key: "_id", Value: id}})
 	if err != nil {
@@ -247,7 +247,7 @@ func (r *GenericRepository[Domain, Entity]) Delete(ctx context.Context, id strin
 	return nil
 }
 
-// Exists checks if an entity with the given ID exists
+// Exists checks if an entity with the given ID exists.
 func (r *GenericRepository[Domain, Entity]) Exists(ctx context.Context, id string) (bool, error) {
 	count, err := r.coll.CountDocuments(ctx, bson.D{{Key: "_id", Value: id}}, options.Count().SetLimit(1))
 	if err != nil {
@@ -256,7 +256,7 @@ func (r *GenericRepository[Domain, Entity]) Exists(ctx context.Context, id strin
 	return count > 0, nil
 }
 
-// ExistsWithFilter checks if any entity matching the filter exists
+// ExistsWithFilter checks if any entity matching the filter exists.
 func (r *GenericRepository[Domain, Entity]) ExistsWithFilter(ctx context.Context, filter bson.D) (bool, error) {
 	count, err := r.coll.CountDocuments(ctx, filter, options.Count().SetLimit(1))
 	if err != nil {

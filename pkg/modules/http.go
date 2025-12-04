@@ -7,11 +7,11 @@ import (
 	"go.uber.org/fx"
 )
 
-// NewHTTPModule provides HTTP functionality: gin, server, health, timeout, rate limiting, bulkhead
+// NewHTTPModule provides HTTP functionality: gin, server, health, timeout, rate limiting, bulkhead.
 func NewHTTPModule() fx.Option {
 	return fx.Options(
 		middleware.NewGinModule(),
-		server.NewHttpServerModule(),
+		server.NewHTTPServerModule(),
 		health.NewHealthRoutesModule(),
 	)
 }

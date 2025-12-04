@@ -11,13 +11,13 @@ import (
 	"go.uber.org/zap"
 )
 
-// Mongo is the public interface for repository access
+// Mongo is the public interface for repository access.
 type Mongo interface {
 	GetCollection(collection string) Collection
 	GetCollectionWithOptions(collection string, opts ...WrapperOption) Collection
 }
 
-// MongoAdmin is the internal interface for infrastructure components (migrations, transactions)
+// MongoAdmin is the internal interface for infrastructure components (migrations, transactions).
 type MongoAdmin interface {
 	Mongo
 	GetDatabase() *mongodriver.Database
@@ -134,13 +134,13 @@ func buildURI(conf Config) string {
 	return u.String()
 }
 
-// GetCollection returns a Collection with automatic query timeout from config
+// GetCollection returns a Collection with automatic query timeout from config.
 func (m *mongo) GetCollection(collection string) Collection {
 	return m.GetCollectionWithOptions(collection, WithTimeout(m.conf.QueryTimeout))
 }
 
 // GetCollectionWithOptions returns a Collection with custom options (timeout, middleware, etc.)
-// Use this when you need different timeout or additional middleware for specific operations
+// Use this when you need different timeout or additional middleware for specific operations.
 func (m *mongo) GetCollectionWithOptions(collection string, opts ...WrapperOption) Collection {
 	coll := m.database.Collection(collection)
 	return newCollectionWrapper(coll, opts...)

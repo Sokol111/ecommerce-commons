@@ -35,7 +35,7 @@ func loggerMiddleware() gin.HandlerFunc {
 	}
 }
 
-// LoggerModule provides logger middleware
+// LoggerModule provides logger middleware.
 func LoggerModule(priority int) fx.Option {
 	return fx.Provide(
 		fx.Annotate(

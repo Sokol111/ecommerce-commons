@@ -11,12 +11,12 @@ import (
 	"golang.org/x/time/rate"
 )
 
-// rateLimiter defines the interface for rate limiting
+// rateLimiter defines the interface for rate limiting.
 type rateLimiter interface {
 	Allow() bool
 }
 
-// newRateLimitMiddleware creates a rate limiting middleware
+// newRateLimitMiddleware creates a rate limiting middleware.
 func newRateLimitMiddleware(limiter rateLimiter) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		// Allow health checks without rate limiting
@@ -28,7 +28,7 @@ func newRateLimitMiddleware(limiter rateLimiter) gin.HandlerFunc {
 		// Check rate limit
 		if !limiter.Allow() {
 			problem := problems.Problem{Detail: "rate limit exceeded, please try again later"}
-			c.AbortWithError(http.StatusTooManyRequests, errors.New("rate limit exceeded")).SetMeta(problem)
+			_ = c.AbortWithError(http.StatusTooManyRequests, errors.New("rate limit exceeded")).SetMeta(problem)
 			return
 		}
 
@@ -36,7 +36,7 @@ func newRateLimitMiddleware(limiter rateLimiter) gin.HandlerFunc {
 	}
 }
 
-// RateLimitModule adds rate limiting middleware to the application
+// RateLimitModule adds rate limiting middleware to the application.
 func RateLimitModule(priority int) fx.Option {
 	return fx.Provide(
 		fx.Annotate(

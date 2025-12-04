@@ -10,7 +10,7 @@ import (
 	"go.uber.org/zap"
 )
 
-// recoveryMiddleware handles panics and converts them to 500 errors
+// recoveryMiddleware handles panics and converts them to 500 errors.
 func recoveryMiddleware() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		defer func() {
@@ -27,7 +27,7 @@ func recoveryMiddleware() gin.HandlerFunc {
 	}
 }
 
-// RecoveryModule provides recovery middleware
+// RecoveryModule provides recovery middleware.
 func RecoveryModule(priority int) fx.Option {
 	return fx.Provide(
 		fx.Annotate(

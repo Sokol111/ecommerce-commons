@@ -3,6 +3,7 @@ package health
 import (
 	"net/http"
 	"net/http/httptest"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -28,11 +29,11 @@ func (m *mockReadinessChecker) GetStatus() coreHealth.ReadinessStatus {
 }
 
 type mockTrafficController struct {
-	trafficReadyCalled bool
+	trafficReadyCalled atomic.Bool
 }
 
 func (m *mockTrafficController) MarkTrafficReady() {
-	m.trafficReadyCalled = true
+	m.trafficReadyCalled.Store(true)
 }
 
 func setupTestRouter(handler *healthHandler) *gin.Engine {
@@ -68,7 +69,7 @@ func TestHealthHandler_IsReady(t *testing.T) {
 
 		assert.Equal(t, http.StatusOK, w.Code)
 		assert.Equal(t, "ready", w.Body.String())
-		assert.True(t, trafficControl.trafficReadyCalled, "Should mark traffic as ready")
+		assert.True(t, trafficControl.trafficReadyCalled.Load(), "Should mark traffic as ready")
 	})
 
 	t.Run("returns 503 when not ready (simple text response)", func(t *testing.T) {
@@ -84,7 +85,7 @@ func TestHealthHandler_IsReady(t *testing.T) {
 
 		assert.Equal(t, http.StatusServiceUnavailable, w.Code)
 		assert.Equal(t, "not ready", w.Body.String())
-		assert.False(t, trafficControl.trafficReadyCalled, "Should not mark traffic as ready")
+		assert.False(t, trafficControl.trafficReadyCalled.Load(), "Should not mark traffic as ready")
 	})
 
 	t.Run("returns 200 OK with JSON when format=json query parameter", func(t *testing.T) {
@@ -260,7 +261,7 @@ func TestHealthHandler_IsReady(t *testing.T) {
 
 		router.ServeHTTP(w, req)
 
-		assert.True(t, trafficControl.trafficReadyCalled)
+		assert.True(t, trafficControl.trafficReadyCalled.Load())
 	})
 
 	t.Run("does not call MarkTrafficReady when not ready (simple response)", func(t *testing.T) {
@@ -274,7 +275,7 @@ func TestHealthHandler_IsReady(t *testing.T) {
 
 		router.ServeHTTP(w, req)
 
-		assert.False(t, trafficControl.trafficReadyCalled)
+		assert.False(t, trafficControl.trafficReadyCalled.Load())
 	})
 
 	t.Run("does not call MarkTrafficReady when using JSON response format", func(t *testing.T) {
@@ -294,7 +295,7 @@ func TestHealthHandler_IsReady(t *testing.T) {
 
 		router.ServeHTTP(w, req)
 
-		assert.False(t, trafficControl.trafficReadyCalled, "Should not call MarkTrafficReady for JSON responses")
+		assert.False(t, trafficControl.trafficReadyCalled.Load(), "Should not call MarkTrafficReady for JSON responses")
 	})
 
 	t.Run("MarkTrafficReady is idempotent (can be called multiple times)", func(t *testing.T) {
@@ -316,7 +317,7 @@ func TestHealthHandler_IsReady(t *testing.T) {
 		// Both should succeed
 		assert.Equal(t, http.StatusOK, w1.Code)
 		assert.Equal(t, http.StatusOK, w2.Code)
-		assert.True(t, trafficControl.trafficReadyCalled)
+		assert.True(t, trafficControl.trafficReadyCalled.Load())
 	})
 }
 
@@ -375,7 +376,7 @@ func TestHealthHandler_IsLive(t *testing.T) {
 
 		router.ServeHTTP(w, req)
 
-		assert.False(t, trafficControl.trafficReadyCalled)
+		assert.False(t, trafficControl.trafficReadyCalled.Load())
 	})
 }
 
@@ -740,7 +741,7 @@ func TestHealthHandler_IsReady_TableDriven(t *testing.T) {
 			assert.Equal(t, tc.expectedStatusCode, w.Code)
 			assert.Contains(t, w.Body.String(), tc.expectedBody)
 			assert.Contains(t, w.Header().Get("Content-Type"), tc.expectedContentType)
-			assert.Equal(t, tc.shouldMarkTraffic, trafficControl.trafficReadyCalled)
+			assert.Equal(t, tc.shouldMarkTraffic, trafficControl.trafficReadyCalled.Load())
 		})
 	}
 }

@@ -3,7 +3,7 @@ package mongo
 import (
 	"context"
 	"fmt"
-	"strings"
+	"net/url"
 
 	mongodriver "go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
@@ -14,6 +14,7 @@ import (
 // Mongo is the public interface for repository access
 type Mongo interface {
 	GetCollection(collection string) Collection
+	GetCollectionWithOptions(collection string, opts ...WrapperOption) Collection
 }
 
 // MongoAdmin is the internal interface for infrastructure components (migrations, transactions)
@@ -84,14 +85,21 @@ func (m *mongo) connect(ctx context.Context) error {
 		return fmt.Errorf("failed to ping mongo: %w", err)
 	}
 
-	m.log.Info("connected to mongo",
-		zap.String("host", m.conf.Host),
-		zap.Int("port", m.conf.Port),
+	fields := []zap.Field{
+		zap.String("database", m.conf.Database),
 		zap.Uint64("max-pool-size", m.conf.MaxPoolSize),
 		zap.Uint64("min-pool-size", m.conf.MinPoolSize),
 		zap.Duration("max-conn-idle-time", m.conf.MaxConnIdleTime),
 		zap.Duration("query-timeout", m.conf.QueryTimeout),
-	)
+	}
+	if m.conf.ConnectionString == "" {
+		fields = append(fields,
+			zap.String("host", m.conf.Host),
+			zap.Int("port", m.conf.Port),
+		)
+	}
+
+	m.log.Info("connected to mongo", fields...)
 	return nil
 }
 
@@ -104,36 +112,38 @@ func buildURI(conf Config) string {
 		return conf.ConnectionString
 	}
 
-	auth := ""
-	if conf.Username != "" {
-		auth = fmt.Sprintf("%s:%s@", conf.Username, conf.Password)
+	u := &url.URL{
+		Scheme: "mongodb",
+		Host:   fmt.Sprintf("%s:%d", conf.Host, conf.Port),
+		Path:   "/" + conf.Database,
 	}
 
-	uri := fmt.Sprintf("mongodb://%s%s:%d/%s", auth, conf.Host, conf.Port, conf.Database)
+	if conf.Username != "" {
+		u.User = url.UserPassword(conf.Username, conf.Password)
+	}
 
-	params := []string{}
+	q := u.Query()
 	if conf.ReplicaSet != "" {
-		params = append(params, "replicaSet="+conf.ReplicaSet)
+		q.Set("replicaSet", conf.ReplicaSet)
 	}
 	if conf.DirectConnection {
-		params = append(params, "directConnection=true")
+		q.Set("directConnection", "true")
 	}
+	u.RawQuery = q.Encode()
 
-	if len(params) > 0 {
-		uri += "?" + strings.Join(params, "&")
-	}
-
-	return uri
+	return u.String()
 }
 
-// GetCollection returns a Collection with automatic query timeout
+// GetCollection returns a Collection with automatic query timeout from config
 func (m *mongo) GetCollection(collection string) Collection {
+	return m.GetCollectionWithOptions(collection, WithTimeout(m.conf.QueryTimeout))
+}
+
+// GetCollectionWithOptions returns a Collection with custom options (timeout, middleware, etc.)
+// Use this when you need different timeout or additional middleware for specific operations
+func (m *mongo) GetCollectionWithOptions(collection string, opts ...WrapperOption) Collection {
 	coll := m.database.Collection(collection)
-	// Error is ignored because mongo driver's Collection() never returns nil
-	wrapper, _ := NewCollectionWrapper(coll,
-		WithTimeout(m.conf.QueryTimeout),
-	)
-	return wrapper
+	return newCollectionWrapper(coll, opts...)
 }
 
 func (m *mongo) GetDatabase() *mongodriver.Database {

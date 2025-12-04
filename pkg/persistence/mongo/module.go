@@ -17,10 +17,6 @@ func NewMongoModule() fx.Option {
 }
 
 func provideMongo(lc fx.Lifecycle, log *zap.Logger, conf Config, readiness health.ComponentManager) (Mongo, MongoAdmin, error) {
-	if err := validateConfig(conf); err != nil {
-		return nil, nil, err
-	}
-
 	m, err := newMongo(log, conf)
 
 	if err != nil {

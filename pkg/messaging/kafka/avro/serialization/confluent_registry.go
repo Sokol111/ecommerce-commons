@@ -19,7 +19,7 @@ type ConfluentRegistry interface {
 	RegisterAllSchemasAtStartup() error
 }
 
-// confluentRegistry implements ConfluentRegistry using TypeMapping
+// confluentRegistry implements ConfluentRegistry using TypeMapping.
 type confluentRegistry struct {
 	client        schemaregistry.Client
 	typeMapping   *mapping.TypeMapping

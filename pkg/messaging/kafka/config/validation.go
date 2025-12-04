@@ -5,7 +5,7 @@ import (
 	"strings"
 )
 
-// validateConfig validates the entire Kafka configuration
+// validateConfig validates the entire Kafka configuration.
 func validateConfig(cfg *Config) error {
 	if err := validateBrokers(cfg); err != nil {
 		return err
@@ -25,7 +25,7 @@ func validateConfig(cfg *Config) error {
 	return nil
 }
 
-// validateBrokers validates Kafka brokers configuration
+// validateBrokers validates Kafka brokers configuration.
 func validateBrokers(cfg *Config) error {
 	if strings.TrimSpace(cfg.Brokers) == "" {
 		return fmt.Errorf("kafka brokers cannot be empty")
@@ -33,7 +33,7 @@ func validateBrokers(cfg *Config) error {
 	return nil
 }
 
-// validateSchemaRegistry validates Schema Registry configuration
+// validateSchemaRegistry validates Schema Registry configuration.
 func validateSchemaRegistry(cfg *SchemaRegistryConfig) error {
 	if strings.TrimSpace(cfg.URL) == "" {
 		return fmt.Errorf("schema registry URL cannot be empty")
@@ -45,7 +45,7 @@ func validateSchemaRegistry(cfg *SchemaRegistryConfig) error {
 	return nil
 }
 
-// validateGlobalConsumerConfig validates global consumer configuration
+// validateGlobalConsumerConfig validates global consumer configuration.
 func validateGlobalConsumerConfig(cfg *ConsumersConfig) error {
 	if cfg.DefaultMaxRetryAttempts > 0 &&
 		(cfg.DefaultMaxRetryAttempts < minMaxRetryAttempts || cfg.DefaultMaxRetryAttempts > maxMaxRetryAttempts) {
@@ -79,7 +79,7 @@ func validateGlobalConsumerConfig(cfg *ConsumersConfig) error {
 	return nil
 }
 
-// validateIndividualConsumers validates all individual consumer configurations
+// validateIndividualConsumers validates all individual consumer configurations.
 func validateIndividualConsumers(consumers []ConsumerConfig) error {
 	for i, consumer := range consumers {
 		if err := validateConsumer(i, &consumer); err != nil {
@@ -89,7 +89,7 @@ func validateIndividualConsumers(consumers []ConsumerConfig) error {
 	return nil
 }
 
-// validateConsumer validates a single consumer configuration
+// validateConsumer validates a single consumer configuration.
 func validateConsumer(index int, consumer *ConsumerConfig) error {
 	if strings.TrimSpace(consumer.Name) == "" {
 		return fmt.Errorf("consumer[%d]: name cannot be empty", index)
@@ -141,7 +141,7 @@ func validateConsumer(index int, consumer *ConsumerConfig) error {
 	return nil
 }
 
-// validateProducerConfig validates producer configuration
+// validateProducerConfig validates producer configuration.
 func validateProducerConfig(cfg *ProducerConfig) error {
 	if cfg.ReadinessTimeoutSeconds > maxReadinessTimeout {
 		return fmt.Errorf("producer readiness timeout cannot exceed %d seconds, got: %d",

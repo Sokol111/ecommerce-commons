@@ -7,7 +7,7 @@ import (
 	"go.uber.org/zap"
 )
 
-// errorLoggerMiddleware logs errors from Gin context
+// errorLoggerMiddleware logs errors from Gin context.
 func errorLoggerMiddleware() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		c.Next()

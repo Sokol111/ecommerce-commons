@@ -1,6 +1,6 @@
 package config
 
-// applyDefaults applies default values to the configuration
+// applyDefaults applies default values to the configuration.
 func applyDefaults(cfg *Config) {
 	// Apply defaults for schema registry
 	if cfg.SchemaRegistry.CacheCapacity == 0 {
@@ -35,7 +35,7 @@ func applyDefaults(cfg *Config) {
 	}
 }
 
-// applyConsumerDefaults applies defaults to an individual consumer configuration
+// applyConsumerDefaults applies defaults to an individual consumer configuration.
 func applyConsumerDefaults(consumer *ConsumerConfig, globalConfig *ConsumersConfig) {
 	if consumer.GroupID == "" {
 		consumer.GroupID = globalConfig.DefaultGroupID

@@ -14,7 +14,7 @@ import (
 	"golang.org/x/sync/semaphore"
 )
 
-// newHTTPBulkheadMiddleware creates an HTTP bulkhead middleware that limits concurrent requests
+// newHTTPBulkheadMiddleware creates an HTTP bulkhead middleware that limits concurrent requests.
 func newHTTPBulkheadMiddleware(maxConcurrent int, timeout time.Duration) gin.HandlerFunc {
 	// Create semaphore for bulkhead
 	sem := semaphore.NewWeighted(int64(maxConcurrent))

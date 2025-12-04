@@ -108,7 +108,7 @@ func newNoopDLQHandler(log *zap.Logger) DLQHandler {
 	}
 }
 
-// noopDLQHandler - реалізація DLQHandler для випадків коли DLQ не налаштований
+// noopDLQHandler - реалізація DLQHandler для випадків коли DLQ не налаштований.
 type noopDLQHandler struct {
 	log *zap.Logger
 }

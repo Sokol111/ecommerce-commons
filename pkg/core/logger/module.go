@@ -51,7 +51,7 @@ func provideLogger(lc fx.Lifecycle, conf Config) (*zap.Logger, zap.AtomicLevel, 
 		OnStop: func(ctx context.Context) error {
 			// Best-effort sync, ignore errors.
 			// Sync errors on stdout/stderr are expected on some systems.
-			_ = logger.Sync()
+			_ = logger.Sync() //nolint:errcheck // best-effort sync
 			return nil
 		},
 	})

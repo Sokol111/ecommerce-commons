@@ -28,7 +28,7 @@ func newRateLimitMiddleware(limiter rateLimiter) gin.HandlerFunc {
 		// Check rate limit
 		if !limiter.Allow() {
 			problem := problems.Problem{Detail: "rate limit exceeded, please try again later"}
-			_ = c.AbortWithError(http.StatusTooManyRequests, errors.New("rate limit exceeded")).SetMeta(problem)
+			_ = c.AbortWithError(http.StatusTooManyRequests, errors.New("rate limit exceeded")).SetMeta(problem) //nolint:errcheck // error already logged via AbortWithError
 			return
 		}
 

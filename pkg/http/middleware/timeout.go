@@ -40,7 +40,7 @@ func newTimeoutMiddleware(timeout time.Duration) gin.HandlerFunc {
 		// After handler completes, check if context timed out and no response was sent
 		if errors.Is(ctx.Err(), context.DeadlineExceeded) && !c.Writer.Written() {
 			problem := problems.Problem{Detail: "request took too long to process"}
-			_ = c.AbortWithError(http.StatusGatewayTimeout, errors.New("HTTP request timeout")).SetMeta(problem)
+			_ = c.AbortWithError(http.StatusGatewayTimeout, errors.New("HTTP request timeout")).SetMeta(problem) //nolint:errcheck // error already logged via AbortWithError
 		}
 	}
 }

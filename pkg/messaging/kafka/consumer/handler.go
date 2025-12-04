@@ -9,9 +9,9 @@ import (
 
 // ErrSkipMessage indicates that the message should be skipped without retry and committed.
 // Use this when:
-// - The handler doesn't need to process this particular event type
-// - The message is intentionally ignored (e.g., filtered out)
-// - The event is outdated or irrelevant
+//   - The handler doesn't need to process this particular event type.
+//   - The message is intentionally ignored (e.g., filtered out).
+//   - The event is outdated or irrelevant.
 var ErrSkipMessage = errors.New("skip message processing")
 
 // ErrPermanent indicates a permanent error that should send message to DLQ.

@@ -41,6 +41,7 @@ func TestOutboxEntity(t *testing.T) {
 			Headers: nil,
 		}
 
+		assert.Equal(t, "test-id", entity.ID)
 		assert.Nil(t, entity.Headers)
 	})
 }

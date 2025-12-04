@@ -12,7 +12,7 @@ import (
 
 // openAPIErrorHandler handles OpenAPI validation errors.
 func openAPIErrorHandler(c *gin.Context, message string, statusCode int) {
-	_ = c.AbortWithError(statusCode, errors.New(message))
+	_ = c.AbortWithError(statusCode, errors.New(message)) //nolint:errcheck // error is intentionally not handled
 }
 
 // createOpenAPIValidator creates OpenAPI request validator with custom options.

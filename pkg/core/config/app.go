@@ -74,7 +74,7 @@ func NewAppConfigModule() fx.Option {
 // It loads the .env file if it exists (optional).
 func newAppConfig() (AppConfig, error) {
 	// Load .env file if exists - silently ignore if file doesn't exist
-	_ = godotenv.Load()
+	_ = godotenv.Load() //nolint:errcheck // optional .env file
 
 	env := os.Getenv(envAppEnv)
 	if env == "" {

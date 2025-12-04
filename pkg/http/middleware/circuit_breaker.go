@@ -73,7 +73,7 @@ func newCircuitBreakerMiddleware(cb *gobreaker.CircuitBreaker) gin.HandlerFunc {
 		if err != nil {
 			if errors.Is(err, gobreaker.ErrOpenState) {
 				problem := problems.Problem{Detail: "service is temporarily unavailable due to circuit breaker"}
-				_ = c.AbortWithError(http.StatusServiceUnavailable, ErrCircuitBreakerOpen).SetMeta(problem)
+				_ = c.AbortWithError(http.StatusServiceUnavailable, ErrCircuitBreakerOpen).SetMeta(problem) //nolint:errcheck // error already logged via AbortWithError
 			}
 			// For other errors (like "server error"), request was already processed
 		}

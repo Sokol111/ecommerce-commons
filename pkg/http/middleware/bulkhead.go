@@ -33,7 +33,7 @@ func newHTTPBulkheadMiddleware(maxConcurrent int, timeout time.Duration) gin.Han
 		// Try to acquire semaphore slot
 		if err := sem.Acquire(ctx, 1); err != nil {
 			problem := problems.Problem{Detail: "too many concurrent requests, please try again later"}
-			_ = c.AbortWithError(http.StatusServiceUnavailable, fmt.Errorf("bulkhead acquisition failed: %w", err)).SetMeta(problem)
+			_ = c.AbortWithError(http.StatusServiceUnavailable, fmt.Errorf("bulkhead acquisition failed: %w", err)).SetMeta(problem) //nolint:errcheck // error already logged via AbortWithError
 			return
 		}
 		defer sem.Release(1)

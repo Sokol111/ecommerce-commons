@@ -29,7 +29,7 @@ func startHTTPServer(lc fx.Lifecycle, log *zap.Logger, conf Config, engine *gin.
 					readiness.MarkReady("http-server")
 				}); err != nil {
 					log.Error("HTTP server failed, shutting down application", zap.Error(err))
-					_ = shutdowner.Shutdown()
+					_ = shutdowner.Shutdown() //nolint:errcheck // shutdown is best-effort
 				}
 			}()
 

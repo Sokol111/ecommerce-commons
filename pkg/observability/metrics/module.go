@@ -62,7 +62,7 @@ func provideMeterProvider(p providerParams) (metric.MeterProvider, error) {
 	p.Lc.Append(fx.Hook{
 		OnStart: func(context.Context) error {
 			otel.SetMeterProvider(provider)
-			_ = otelruntime.Start(otelruntime.WithMinimumReadMemStatsInterval(otelconfig.DefaultRuntimeStatsInterval))
+			_ = otelruntime.Start(otelruntime.WithMinimumReadMemStatsInterval(otelconfig.DefaultRuntimeStatsInterval)) //nolint:errcheck // best-effort runtime stats
 			p.Log.Info("metrics initialized",
 				zap.String("endpoint", p.Cfg.OtelCollectorEndpoint),
 				zap.Duration("interval", p.Cfg.Metrics.Interval),

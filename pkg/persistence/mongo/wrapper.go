@@ -35,27 +35,34 @@ func WithMiddleware(mw Middleware) WrapperOption {
 
 // chain combines multiple middlewares into a single middleware.
 // Middlewares are executed in order: first middleware wraps second, second wraps third, etc.
+// The chain is built once at creation time, not on every call.
 func chain(middlewares ...Middleware) Middleware {
-	return func(ctx context.Context, next func(context.Context)) {
-		if len(middlewares) == 0 {
+	if len(middlewares) == 0 {
+		return func(ctx context.Context, next func(context.Context)) {
 			next(ctx)
-			return
 		}
-
-		// Build the chain from right to left
-		handler := next
-		for i := len(middlewares) - 1; i >= 0; i-- {
-			handler = wrapMiddleware(middlewares[i], handler)
-		}
-		handler(ctx)
 	}
+
+	if len(middlewares) == 1 {
+		return middlewares[0]
+	}
+
+	// Build the chain once, from right to left
+	// Result: mw[0] wraps mw[1] wraps ... wraps mw[n-1]
+	chained := middlewares[len(middlewares)-1]
+	for i := len(middlewares) - 2; i >= 0; i-- {
+		chained = composeMiddleware(middlewares[i], chained)
+	}
+	return chained
 }
 
-// wrapMiddleware creates a handler that wraps the next handler with middleware.
-// This avoids closure capture issues in the loop.
-func wrapMiddleware(mw Middleware, next func(context.Context)) func(context.Context) {
-	return func(c context.Context) {
-		mw(c, next)
+// composeMiddleware combines two middlewares into one.
+// The outer middleware wraps the inner middleware.
+func composeMiddleware(outer, inner Middleware) Middleware {
+	return func(ctx context.Context, next func(context.Context)) {
+		outer(ctx, func(c context.Context) {
+			inner(c, next)
+		})
 	}
 }
 

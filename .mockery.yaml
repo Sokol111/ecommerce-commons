@@ -12,5 +12,3 @@ packages:
       filename: "mock_{{.InterfaceName | snakecase}}.go"
     interfaces:
       Collection:
-      Mongo:
-      MongoAdmin:

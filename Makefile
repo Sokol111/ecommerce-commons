@@ -95,10 +95,10 @@ test-coverage-func: test ## Show coverage per function
 
 .PHONY: test-coverage-check
 test-coverage-check: test ## Check if coverage meets minimum threshold (default: 60%)
-	@COVERAGE=$$(go tool cover -func=$(COVERAGE_FILE) | grep total | awk '{print $$3}' | sed 's/%//'); \
+	@COVERAGE=$$(go tool cover -func=$(COVERAGE_FILE) | grep total | awk '{print int($$3)}'); \
 	MIN_COVERAGE=$${MIN_COVERAGE:-60}; \
 	echo "$(COLOR_BLUE)Coverage: $${COVERAGE}% (minimum: $${MIN_COVERAGE}%)$(COLOR_RESET)"; \
-	if [ $$(echo "$${COVERAGE} < $${MIN_COVERAGE}" | bc -l) -eq 1 ]; then \
+	if [ $${COVERAGE} -lt $${MIN_COVERAGE} ]; then \
 		echo "$(COLOR_YELLOW)Coverage is below minimum threshold!$(COLOR_RESET)"; \
 		exit 1; \
 	fi
@@ -115,7 +115,12 @@ bench: ## Run benchmarks
 .PHONY: generate-mocks
 generate-mocks: ## Generate mocks using mockery
 	@echo "$(COLOR_GREEN)Generating mocks...$(COLOR_RESET)"
-	mockery
+	@if command -v mockery >/dev/null 2>&1; then \
+		mockery; \
+	else \
+		echo "$(COLOR_YELLOW)mockery not installed. Install: go install github.com/vektra/mockery/v2@latest$(COLOR_RESET)"; \
+		exit 1; \
+	fi
 
 .PHONY: generate
 generate: ## Run go generate
@@ -140,8 +145,7 @@ vuln-check: ## Check for known vulnerabilities
 sec-scan: ## Run security scanner (gosec)
 	@echo "$(COLOR_GREEN)Running security scan...$(COLOR_RESET)"
 	@if command -v gosec >/dev/null 2>&1; then \
-		gosec -fmt=json -out=gosec-report.json ./...; \
-		gosec ./...; \
+		gosec -fmt=json -out=gosec-report.json -stdout -verbose=text ./...; \
 	else \
 		echo "$(COLOR_YELLOW)gosec not installed. Install: go install github.com/securego/gosec/v2/cmd/gosec@latest$(COLOR_RESET)"; \
 		exit 1; \

@@ -68,63 +68,88 @@ func newConfig(v *viper.Viper, logger *zap.Logger) (Config, error) {
 		return cfg, fmt.Errorf("failed to load server config: %w", err)
 	}
 
-	// Set default values for server connection settings (optimized for API services)
-	if cfg.Connection.ReadHeaderTimeout == 0 {
-		cfg.Connection.ReadHeaderTimeout = 10 * time.Second // Default: 10s - protection against Slowloris
-	}
-	if cfg.Connection.ReadTimeout == 0 {
-		cfg.Connection.ReadTimeout = 30 * time.Second // Default: 30s - enough for typical API requests
-	}
-	if cfg.Connection.WriteTimeout == 0 {
-		// WriteTimeout should be > RequestTimeout to allow middleware to send timeout response
-		if cfg.Timeout.Enabled && cfg.Timeout.RequestTimeout > 0 {
-			cfg.Connection.WriteTimeout = cfg.Timeout.RequestTimeout + 10*time.Second
-		} else {
-			cfg.Connection.WriteTimeout = 40 * time.Second // Default: 40s
-		}
-	}
-	if cfg.Connection.IdleTimeout == 0 {
-		cfg.Connection.IdleTimeout = 120 * time.Second // Default: 120s - keep-alive timeout
-	}
-	if cfg.Connection.MaxHeaderBytes == 0 {
-		cfg.Connection.MaxHeaderBytes = 1 << 20 // Default: 1 MB
-	}
-
-	// Set default values for timeout
-	if cfg.Timeout.Enabled && cfg.Timeout.RequestTimeout == 0 {
-		cfg.Timeout.RequestTimeout = 30 * time.Second // Default: 30 seconds
-	}
-
-	// Set default values for rate limiting
-	if cfg.RateLimit.Enabled && cfg.RateLimit.RequestsPerSecond == 0 {
-		cfg.RateLimit.RequestsPerSecond = 1000 // Default: 1000 req/s
-	}
-	if cfg.RateLimit.Enabled && cfg.RateLimit.Burst == 0 {
-		cfg.RateLimit.Burst = 100 // Default: burst of 100
-	}
-
-	// Set default values for HTTP bulkhead
-	if cfg.Bulkhead.Enabled && cfg.Bulkhead.MaxConcurrent == 0 {
-		cfg.Bulkhead.MaxConcurrent = 500 // Default: 500 concurrent requests
-	}
-	if cfg.Bulkhead.Enabled && cfg.Bulkhead.Timeout == 0 {
-		cfg.Bulkhead.Timeout = 100 * time.Millisecond // Default: 100ms timeout
-	}
-
-	// Set default values for circuit breaker
-	if cfg.CircuitBreaker.Enabled && cfg.CircuitBreaker.FailureThreshold == 0 {
-		cfg.CircuitBreaker.FailureThreshold = 5 // Default: 5 consecutive failures
-	}
-	if cfg.CircuitBreaker.Enabled && cfg.CircuitBreaker.Timeout == 0 {
-		cfg.CircuitBreaker.Timeout = 60 * time.Second // Default: 60 seconds
-	}
-	if cfg.CircuitBreaker.Enabled && cfg.CircuitBreaker.Interval == 0 {
-		cfg.CircuitBreaker.Interval = 60 * time.Second // Default: 60 seconds (reset interval)
-	}
-	if cfg.CircuitBreaker.Enabled && cfg.CircuitBreaker.MaxRequests == 0 {
-		cfg.CircuitBreaker.MaxRequests = 1 // Default: 1 request in half-open state
-	}
+	cfg.Connection.setDefaults(cfg.Timeout)
+	cfg.Timeout.setDefaults()
+	cfg.RateLimit.setDefaults()
+	cfg.Bulkhead.setDefaults()
+	cfg.CircuitBreaker.setDefaults()
 
 	logger.Info("loaded server config", zap.Any("config", cfg))
 	return cfg, nil
+}
+
+// setDefaults sets default values for server connection settings (optimized for API services).
+func (c *ConnectionConfig) setDefaults(timeout TimeoutConfig) {
+	if c.ReadHeaderTimeout == 0 {
+		c.ReadHeaderTimeout = 10 * time.Second // Default: 10s - protection against Slowloris
+	}
+	if c.ReadTimeout == 0 {
+		c.ReadTimeout = 30 * time.Second // Default: 30s - enough for typical API requests
+	}
+	if c.WriteTimeout == 0 {
+		// WriteTimeout should be > RequestTimeout to allow middleware to send timeout response
+		if timeout.Enabled && timeout.RequestTimeout > 0 {
+			c.WriteTimeout = timeout.RequestTimeout + 10*time.Second
+		} else {
+			c.WriteTimeout = 40 * time.Second // Default: 40s
+		}
+	}
+	if c.IdleTimeout == 0 {
+		c.IdleTimeout = 120 * time.Second // Default: 120s - keep-alive timeout
+	}
+	if c.MaxHeaderBytes == 0 {
+		c.MaxHeaderBytes = 1 << 20 // Default: 1 MB
+	}
+}
+
+// setDefaults sets default values for timeout configuration.
+func (c *TimeoutConfig) setDefaults() {
+	if c.Enabled && c.RequestTimeout == 0 {
+		c.RequestTimeout = 30 * time.Second // Default: 30 seconds
+	}
+}
+
+// setDefaults sets default values for rate limiting configuration.
+func (c *RateLimitConfig) setDefaults() {
+	if !c.Enabled {
+		return
+	}
+	if c.RequestsPerSecond == 0 {
+		c.RequestsPerSecond = 1000 // Default: 1000 req/s
+	}
+	if c.Burst == 0 {
+		c.Burst = 100 // Default: burst of 100
+	}
+}
+
+// setDefaults sets default values for HTTP bulkhead configuration.
+func (c *BulkheadConfig) setDefaults() {
+	if !c.Enabled {
+		return
+	}
+	if c.MaxConcurrent == 0 {
+		c.MaxConcurrent = 500 // Default: 500 concurrent requests
+	}
+	if c.Timeout == 0 {
+		c.Timeout = 100 * time.Millisecond // Default: 100ms timeout
+	}
+}
+
+// setDefaults sets default values for circuit breaker configuration.
+func (c *CircuitBreakerConfig) setDefaults() {
+	if !c.Enabled {
+		return
+	}
+	if c.FailureThreshold == 0 {
+		c.FailureThreshold = 5 // Default: 5 consecutive failures
+	}
+	if c.Timeout == 0 {
+		c.Timeout = 60 * time.Second // Default: 60 seconds
+	}
+	if c.Interval == 0 {
+		c.Interval = 60 * time.Second // Default: 60 seconds (reset interval)
+	}
+	if c.MaxRequests == 0 {
+		c.MaxRequests = 1 // Default: 1 request in half-open state
+	}
 }

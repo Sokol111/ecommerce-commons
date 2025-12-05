@@ -229,7 +229,7 @@ check-updates: ## Check for outdated dependencies
 		go list -u -m -json all | go-mod-outdated -update -direct; \
 	else \
 		echo "$(COLOR_YELLOW)go-mod-outdated not installed. Install: go install github.com/psampaz/go-mod-outdated@latest$(COLOR_RESET)"; \
-		exit 1; \
+		go list -u -m all; \
 	fi
 
 .PHONY: version

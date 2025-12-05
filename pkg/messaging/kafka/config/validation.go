@@ -47,10 +47,9 @@ func validateSchemaRegistry(cfg *SchemaRegistryConfig) error {
 
 // validateGlobalConsumerConfig validates global consumer configuration.
 func validateGlobalConsumerConfig(cfg *ConsumersConfig) error {
-	if cfg.DefaultMaxRetryAttempts > 0 &&
-		(cfg.DefaultMaxRetryAttempts < minMaxRetryAttempts || cfg.DefaultMaxRetryAttempts > maxMaxRetryAttempts) {
-		return fmt.Errorf("default max retry attempts must be between %d and %d, got: %d",
-			minMaxRetryAttempts, maxMaxRetryAttempts, cfg.DefaultMaxRetryAttempts)
+	if cfg.DefaultMaxRetries != nil && *cfg.DefaultMaxRetries > maxMaxRetries {
+		return fmt.Errorf("default max retries must be between %d and %d, got: %d",
+			minMaxRetries, maxMaxRetries, *cfg.DefaultMaxRetries)
 	}
 	if cfg.DefaultInitialBackoff > 0 &&
 		(cfg.DefaultInitialBackoff < minInitialBackoff || cfg.DefaultInitialBackoff > maxInitialBackoff) {
@@ -107,10 +106,9 @@ func validateConsumer(index int, consumer *ConsumerConfig) error {
 		return fmt.Errorf("consumer[%d] (%s): readiness timeout cannot exceed %d seconds, got: %d",
 			index, consumer.Name, maxReadinessTimeout, consumer.ReadinessTimeoutSeconds)
 	}
-	if consumer.MaxRetryAttempts > 0 &&
-		(consumer.MaxRetryAttempts < minMaxRetryAttempts || consumer.MaxRetryAttempts > maxMaxRetryAttempts) {
-		return fmt.Errorf("consumer[%d] (%s): max retry attempts must be between %d and %d, got: %d",
-			index, consumer.Name, minMaxRetryAttempts, maxMaxRetryAttempts, consumer.MaxRetryAttempts)
+	if consumer.MaxRetries != nil && *consumer.MaxRetries > maxMaxRetries {
+		return fmt.Errorf("consumer[%d] (%s): max retries must be between %d and %d, got: %d",
+			index, consumer.Name, minMaxRetries, maxMaxRetries, *consumer.MaxRetries)
 	}
 	if consumer.InitialBackoff > 0 &&
 		(consumer.InitialBackoff < minInitialBackoff || consumer.InitialBackoff > maxInitialBackoff) {

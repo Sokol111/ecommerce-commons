@@ -18,7 +18,7 @@ func TestValidateConfig_Success(t *testing.T) {
 		ConsumersConfig: ConsumersConfig{
 			DefaultGroupID:           "test-group",
 			DefaultAutoOffsetReset:   "earliest",
-			DefaultMaxRetryAttempts:  3,
+			DefaultMaxRetries:        uintPtr(3),
 			DefaultInitialBackoff:    1 * time.Second,
 			DefaultMaxBackoff:        30 * time.Second,
 			DefaultChannelBufferSize: 100,
@@ -125,28 +125,28 @@ func TestValidateSchemaRegistry_ValidCacheCapacity(t *testing.T) {
 	}
 }
 
-func TestValidateGlobalConsumerConfig_MaxRetryAttempts(t *testing.T) {
+func TestValidateGlobalConsumerConfig_MaxRetries(t *testing.T) {
 	tests := []struct {
 		name          string
-		retryAttempts int
+		retryAttempts *uint
 		expectError   bool
 	}{
-		{"zero (will use default)", 0, false},
-		{"at minimum", minMaxRetryAttempts, false},
-		{"middle", 50, false},
-		{"at maximum", maxMaxRetryAttempts, false},
-		{"above maximum", maxMaxRetryAttempts + 1, true},
+		{"nil (valid)", nil, false},
+		{"zero (valid)", uintPtr(0), false},
+		{"middle", uintPtr(50), false},
+		{"at maximum", uintPtr(maxMaxRetries), false},
+		{"above maximum", uintPtr(maxMaxRetries + 1), true},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			cfg := &ConsumersConfig{
-				DefaultMaxRetryAttempts: tt.retryAttempts,
+				DefaultMaxRetries: tt.retryAttempts,
 			}
 			err := validateGlobalConsumerConfig(cfg)
 			if tt.expectError {
 				require.Error(t, err)
-				assert.Contains(t, err.Error(), "retry attempts must be between")
+				assert.Contains(t, err.Error(), "retries must be between")
 			} else {
 				assert.NoError(t, err)
 			}
@@ -438,7 +438,7 @@ func TestValidateConfig_CompleteValidConfig(t *testing.T) {
 		ConsumersConfig: ConsumersConfig{
 			DefaultGroupID:           "test-group",
 			DefaultAutoOffsetReset:   "latest",
-			DefaultMaxRetryAttempts:  5,
+			DefaultMaxRetries:        uintPtr(5),
 			DefaultInitialBackoff:    2 * time.Second,
 			DefaultMaxBackoff:        1 * time.Minute,
 			DefaultChannelBufferSize: 200,
@@ -451,7 +451,7 @@ func TestValidateConfig_CompleteValidConfig(t *testing.T) {
 					EnableDLQ:               true,
 					DLQTopic:                "topic1.dlq",
 					ReadinessTimeoutSeconds: 120,
-					MaxRetryAttempts:        10,
+					MaxRetries:              uintPtr(10),
 					InitialBackoff:          500 * time.Millisecond,
 					MaxBackoff:              2 * time.Minute,
 					ChannelBufferSize:       500,

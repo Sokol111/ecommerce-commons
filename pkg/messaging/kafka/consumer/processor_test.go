@@ -71,12 +71,17 @@ func (m *mockTracer) InjectContext(ctx context.Context, message *kafka.Message) 
 	m.injectContextFunc(ctx, message)
 }
 
+// uintPtr is a helper function to create a pointer to uint.
+func uintPtr(v uint) *uint {
+	return &v
+}
+
 func createTestConsumerConfig() config.ConsumerConfig {
 	return config.ConsumerConfig{
 		Name:              "test-consumer",
 		Topic:             "test-topic",
 		GroupID:           "test-group",
-		MaxRetryAttempts:  3,
+		MaxRetries:        uintPtr(2),
 		InitialBackoff:    10 * time.Millisecond,
 		MaxBackoff:        50 * time.Millisecond,
 		ProcessingTimeout: 1 * time.Second,
@@ -103,14 +108,14 @@ func TestNewProcessor(t *testing.T) {
 		log := zap.NewNop()
 		tracer := newMockTracer()
 		conf := createTestConsumerConfig()
-		conf.MaxRetryAttempts = 5
+		conf.MaxRetries = uintPtr(4)
 
 		resultHandler := &resultHandler{log: log}
 
 		p := newProcessor(envelopeChan, handler, log, resultHandler, tracer, conf)
 
 		assert.NotNil(t, p)
-		assert.Equal(t, uint64(4), p.maxRetries) // maxRetries = MaxRetryAttempts - 1
+		assert.Equal(t, uint64(4), p.maxRetries) // maxRetries = MaxRetries directly
 		assert.Equal(t, 10*time.Millisecond, p.initialBackoff)
 		assert.Equal(t, 50*time.Millisecond, p.maxBackoff)
 		assert.Equal(t, 1*time.Second, p.processingTimeout)
@@ -181,7 +186,7 @@ func TestProcessor_ExecuteWithRetry(t *testing.T) {
 		log := zap.NewNop()
 		tracer := newMockTracer()
 		conf := createTestConsumerConfig()
-		conf.MaxRetryAttempts = 5
+		conf.MaxRetries = uintPtr(4)
 
 		resultHandler := &resultHandler{log: log}
 
@@ -202,7 +207,7 @@ func TestProcessor_ExecuteWithRetry(t *testing.T) {
 		log := zap.NewNop()
 		tracer := newMockTracer()
 		conf := createTestConsumerConfig()
-		conf.MaxRetryAttempts = 3
+		conf.MaxRetries = uintPtr(2)
 
 		resultHandler := &resultHandler{log: log}
 
@@ -211,7 +216,7 @@ func TestProcessor_ExecuteWithRetry(t *testing.T) {
 		err := p.executeWithRetry(context.Background(), "test-event")
 
 		assert.Error(t, err)
-		assert.Equal(t, int32(3), handler.callCount.Load()) // 3 attempts
+		assert.Equal(t, int32(3), handler.callCount.Load()) // 1 attempt + 2 retries = 3 total
 	})
 
 	t.Run("does not retry ErrSkipMessage", func(t *testing.T) {
@@ -263,7 +268,7 @@ func TestProcessor_ExecuteWithRetry(t *testing.T) {
 		log := zap.NewNop()
 		tracer := newMockTracer()
 		conf := createTestConsumerConfig()
-		conf.MaxRetryAttempts = 10
+		conf.MaxRetries = uintPtr(9)
 
 		resultHandler := &resultHandler{log: log}
 

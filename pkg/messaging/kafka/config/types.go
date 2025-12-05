@@ -14,7 +14,7 @@ type Config struct {
 type ConsumersConfig struct {
 	DefaultGroupID           string           `mapstructure:"default-group-id"`            // Default consumer group ID (applied to consumers without explicit group-id)
 	DefaultAutoOffsetReset   string           `mapstructure:"default-auto-offset-reset"`   // Default offset reset policy: "earliest" or "latest"
-	DefaultMaxRetryAttempts  int              `mapstructure:"default-max-retry-attempts"`  // Default maximum retry attempts for message processing (1-100)
+	DefaultMaxRetries        *uint            `mapstructure:"default-max-retries"`         // Default maximum retries for message processing (0-99)
 	DefaultInitialBackoff    time.Duration    `mapstructure:"default-initial-backoff"`     // Default initial backoff duration for retries (100ms-30s)
 	DefaultMaxBackoff        time.Duration    `mapstructure:"default-max-backoff"`         // Default maximum backoff duration for retries (1s-5m)
 	DefaultProcessingTimeout time.Duration    `mapstructure:"default-processing-timeout"`  // Default timeout for processing a single message (1s-10m)
@@ -32,7 +32,7 @@ type ConsumerConfig struct {
 	DLQTopic                string        `mapstructure:"dlq-topic"`                 // DLQ topic name (defaults to "{topic}.dlq" if EnableDLQ is true)
 	ReadinessTimeoutSeconds int           `mapstructure:"readiness-timeout-seconds"` // Timeout in seconds for waiting topic readiness (0 = no timeout, max 600s)
 	FailOnTopicError        bool          `mapstructure:"fail-on-topic-error"`       // Whether to fail application startup if topic is not available
-	MaxRetryAttempts        int           `mapstructure:"max-retry-attempts"`        // Maximum retry attempts for message processing (1-100, defaults to DefaultMaxRetryAttempts)
+	MaxRetries              *uint         `mapstructure:"max-retries"`               // Maximum retries for message processing (0-99, defaults to DefaultMaxRetries)
 	InitialBackoff          time.Duration `mapstructure:"initial-backoff"`           // Initial backoff duration between retries (100ms-30s, defaults to DefaultInitialBackoff)
 	MaxBackoff              time.Duration `mapstructure:"max-backoff"`               // Maximum backoff duration between retries (1s-5m, defaults to DefaultMaxBackoff)
 	ProcessingTimeout       time.Duration `mapstructure:"processing-timeout"`        // Timeout for processing a single message attempt (1s-10m, defaults to DefaultProcessingTimeout)

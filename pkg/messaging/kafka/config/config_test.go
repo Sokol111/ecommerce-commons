@@ -22,7 +22,7 @@ kafka:
   consumers-config:
     default-group-id: "test-group"
     default-auto-offset-reset: "earliest"
-    default-max-retry-attempts: 5
+    default-max-retries: 5
     default-initial-backoff: 2s
     default-max-backoff: 1m
     default-channel-buffer-size: 200
@@ -34,7 +34,7 @@ kafka:
         enable-dlq: true
         dlq-topic: "catalog.product.events.dlq"
         readiness-timeout-seconds: 120
-        max-retry-attempts: 10
+        max-retries: 10
         initial-backoff: 500ms
         max-backoff: 2m
         channel-buffer-size: 500
@@ -60,7 +60,7 @@ kafka:
 	// Global consumer config
 	assert.Equal(t, "test-group", cfg.ConsumersConfig.DefaultGroupID)
 	assert.Equal(t, "earliest", cfg.ConsumersConfig.DefaultAutoOffsetReset)
-	assert.Equal(t, 5, cfg.ConsumersConfig.DefaultMaxRetryAttempts)
+	assert.Equal(t, uint(5), *cfg.ConsumersConfig.DefaultMaxRetries)
 	assert.Equal(t, 2*time.Second, cfg.ConsumersConfig.DefaultInitialBackoff)
 	assert.Equal(t, 1*time.Minute, cfg.ConsumersConfig.DefaultMaxBackoff)
 	assert.Equal(t, 200, cfg.ConsumersConfig.DefaultChannelBufferSize)
@@ -75,7 +75,7 @@ kafka:
 	assert.True(t, consumer.EnableDLQ)
 	assert.Equal(t, "catalog.product.events.dlq", consumer.DLQTopic)
 	assert.Equal(t, 120, consumer.ReadinessTimeoutSeconds)
-	assert.Equal(t, 10, consumer.MaxRetryAttempts)
+	assert.Equal(t, uint(10), *consumer.MaxRetries)
 	assert.Equal(t, 500*time.Millisecond, consumer.InitialBackoff)
 	assert.Equal(t, 2*time.Minute, consumer.MaxBackoff)
 	assert.Equal(t, 500, consumer.ChannelBufferSize)
@@ -109,7 +109,7 @@ kafka:
 
 	// Defaults should be applied
 	assert.Equal(t, defaultSchemaRegistryCacheCapacity, cfg.SchemaRegistry.CacheCapacity)
-	assert.Equal(t, defaultMaxRetryAttempts, cfg.ConsumersConfig.DefaultMaxRetryAttempts)
+	assert.Equal(t, defaultMaxRetries, *cfg.ConsumersConfig.DefaultMaxRetries)
 	assert.Equal(t, defaultInitialBackoff, cfg.ConsumersConfig.DefaultInitialBackoff)
 	assert.Equal(t, defaultMaxBackoff, cfg.ConsumersConfig.DefaultMaxBackoff)
 	assert.Equal(t, defaultChannelBufferSize, cfg.ConsumersConfig.DefaultChannelBufferSize)
@@ -185,7 +185,7 @@ kafka:
 	// Should inherit from global defaults
 	assert.Equal(t, "default-group", consumer.GroupID)
 	assert.Equal(t, "earliest", consumer.AutoOffsetReset)
-	assert.Equal(t, defaultMaxRetryAttempts, consumer.MaxRetryAttempts)
+	assert.Equal(t, defaultMaxRetries, *consumer.MaxRetries)
 	assert.Equal(t, defaultInitialBackoff, consumer.InitialBackoff)
 	assert.Equal(t, defaultMaxBackoff, consumer.MaxBackoff)
 	assert.Equal(t, defaultChannelBufferSize, consumer.ChannelBufferSize)

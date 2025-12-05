@@ -44,17 +44,13 @@ func newProcessor(
 	tracer MessageTracer,
 	consumerConf config.ConsumerConfig,
 ) *processor {
-	maxRetries := uint64(0)
-	if consumerConf.MaxRetryAttempts > 1 {
-		maxRetries = uint64(consumerConf.MaxRetryAttempts - 1) //nolint:gosec // validated in config
-	}
 	return &processor{
 		envelopeChan:      envelopeChan,
 		handler:           handler,
 		log:               log,
 		resultHandler:     resultHandler,
 		tracer:            tracer,
-		maxRetries:        maxRetries,
+		maxRetries:        uint64(*consumerConf.MaxRetries),
 		initialBackoff:    consumerConf.InitialBackoff,
 		maxBackoff:        consumerConf.MaxBackoff,
 		processingTimeout: consumerConf.ProcessingTimeout,

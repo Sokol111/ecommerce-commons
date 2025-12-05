@@ -5,7 +5,7 @@ import "time"
 const (
 	// Default values.
 	defaultSchemaRegistryCacheCapacity = 1000
-	defaultMaxRetryAttempts            = 3
+	defaultMaxRetries                  = uint(2)
 	defaultInitialBackoff              = 1 * time.Second
 	defaultMaxBackoff                  = 30 * time.Second
 	defaultProcessingTimeout           = 30 * time.Second
@@ -14,8 +14,8 @@ const (
 	defaultProducerReadinessTimeout    = 30
 
 	// Validation bounds.
-	minMaxRetryAttempts    = 1
-	maxMaxRetryAttempts    = 100
+	minMaxRetries          = uint(0)
+	maxMaxRetries          = uint(99)
 	minInitialBackoff      = 100 * time.Millisecond
 	maxInitialBackoff      = 30 * time.Second
 	minMaxBackoff          = 1 * time.Second

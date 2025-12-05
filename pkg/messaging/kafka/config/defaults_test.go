@@ -7,6 +7,11 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
+// uintPtr is a helper function to create a pointer to uint.
+func uintPtr(v uint) *uint {
+	return &v
+}
+
 func TestApplyDefaults_SchemaRegistry(t *testing.T) {
 	cfg := &Config{
 		Brokers: "localhost:9092",
@@ -46,14 +51,14 @@ func TestApplyDefaults_GlobalConsumerConfig(t *testing.T) {
 
 	applyDefaults(cfg)
 
-	assert.Equal(t, defaultMaxRetryAttempts, cfg.ConsumersConfig.DefaultMaxRetryAttempts)
+	assert.Equal(t, defaultMaxRetries, *cfg.ConsumersConfig.DefaultMaxRetries)
 	assert.Equal(t, defaultInitialBackoff, cfg.ConsumersConfig.DefaultInitialBackoff)
 	assert.Equal(t, defaultMaxBackoff, cfg.ConsumersConfig.DefaultMaxBackoff)
 	assert.Equal(t, defaultChannelBufferSize, cfg.ConsumersConfig.DefaultChannelBufferSize)
 }
 
 func TestApplyDefaults_GlobalConsumerConfigCustomValues(t *testing.T) {
-	customRetries := 10
+	customRetries := uintPtr(10)
 	customInitialBackoff := 5 * time.Second
 	customMaxBackoff := 2 * time.Minute
 	customBufferSize := 500
@@ -64,7 +69,7 @@ func TestApplyDefaults_GlobalConsumerConfigCustomValues(t *testing.T) {
 			URL: "http://localhost:8081",
 		},
 		ConsumersConfig: ConsumersConfig{
-			DefaultMaxRetryAttempts:  customRetries,
+			DefaultMaxRetries:        customRetries,
 			DefaultInitialBackoff:    customInitialBackoff,
 			DefaultMaxBackoff:        customMaxBackoff,
 			DefaultChannelBufferSize: customBufferSize,
@@ -73,7 +78,7 @@ func TestApplyDefaults_GlobalConsumerConfigCustomValues(t *testing.T) {
 
 	applyDefaults(cfg)
 
-	assert.Equal(t, customRetries, cfg.ConsumersConfig.DefaultMaxRetryAttempts)
+	assert.Equal(t, customRetries, cfg.ConsumersConfig.DefaultMaxRetries)
 	assert.Equal(t, customInitialBackoff, cfg.ConsumersConfig.DefaultInitialBackoff)
 	assert.Equal(t, customMaxBackoff, cfg.ConsumersConfig.DefaultMaxBackoff)
 	assert.Equal(t, customBufferSize, cfg.ConsumersConfig.DefaultChannelBufferSize)
@@ -114,7 +119,7 @@ func TestApplyConsumerDefaults_AllDefaults(t *testing.T) {
 	globalConfig := &ConsumersConfig{
 		DefaultGroupID:           "default-group",
 		DefaultAutoOffsetReset:   "earliest",
-		DefaultMaxRetryAttempts:  5,
+		DefaultMaxRetries:        uintPtr(5),
 		DefaultInitialBackoff:    2 * time.Second,
 		DefaultMaxBackoff:        1 * time.Minute,
 		DefaultChannelBufferSize: 200,
@@ -130,7 +135,7 @@ func TestApplyConsumerDefaults_AllDefaults(t *testing.T) {
 	assert.Equal(t, "default-group", consumer.GroupID)
 	assert.Equal(t, "earliest", consumer.AutoOffsetReset)
 	assert.Equal(t, defaultConsumerReadinessTimeout, consumer.ReadinessTimeoutSeconds)
-	assert.Equal(t, 5, consumer.MaxRetryAttempts)
+	assert.Equal(t, uint(5), *consumer.MaxRetries)
 	assert.Equal(t, 2*time.Second, consumer.InitialBackoff)
 	assert.Equal(t, 1*time.Minute, consumer.MaxBackoff)
 	assert.Equal(t, 200, consumer.ChannelBufferSize)
@@ -140,7 +145,7 @@ func TestApplyConsumerDefaults_CustomValues(t *testing.T) {
 	globalConfig := &ConsumersConfig{
 		DefaultGroupID:           "default-group",
 		DefaultAutoOffsetReset:   "earliest",
-		DefaultMaxRetryAttempts:  5,
+		DefaultMaxRetries:        uintPtr(5),
 		DefaultInitialBackoff:    2 * time.Second,
 		DefaultMaxBackoff:        1 * time.Minute,
 		DefaultChannelBufferSize: 200,
@@ -152,7 +157,7 @@ func TestApplyConsumerDefaults_CustomValues(t *testing.T) {
 		GroupID:                 "custom-group",
 		AutoOffsetReset:         "latest",
 		ReadinessTimeoutSeconds: 120,
-		MaxRetryAttempts:        10,
+		MaxRetries:              uintPtr(10),
 		InitialBackoff:          5 * time.Second,
 		MaxBackoff:              2 * time.Minute,
 		ChannelBufferSize:       500,
@@ -164,7 +169,7 @@ func TestApplyConsumerDefaults_CustomValues(t *testing.T) {
 	assert.Equal(t, "custom-group", consumer.GroupID)
 	assert.Equal(t, "latest", consumer.AutoOffsetReset)
 	assert.Equal(t, 120, consumer.ReadinessTimeoutSeconds)
-	assert.Equal(t, 10, consumer.MaxRetryAttempts)
+	assert.Equal(t, uint(10), *consumer.MaxRetries)
 	assert.Equal(t, 5*time.Second, consumer.InitialBackoff)
 	assert.Equal(t, 2*time.Minute, consumer.MaxBackoff)
 	assert.Equal(t, 500, consumer.ChannelBufferSize)
@@ -226,7 +231,7 @@ func TestApplyDefaults_MultipleConsumers(t *testing.T) {
 		ConsumersConfig: ConsumersConfig{
 			DefaultGroupID:           "default-group",
 			DefaultAutoOffsetReset:   "earliest",
-			DefaultMaxRetryAttempts:  3,
+			DefaultMaxRetries:        uintPtr(3),
 			DefaultInitialBackoff:    1 * time.Second,
 			DefaultMaxBackoff:        30 * time.Second,
 			DefaultChannelBufferSize: 100,
@@ -239,7 +244,7 @@ func TestApplyDefaults_MultipleConsumers(t *testing.T) {
 					Name:                    "consumer2",
 					Topic:                   "topic2",
 					GroupID:                 "custom-group",
-					MaxRetryAttempts:        5,
+					MaxRetries:              uintPtr(5),
 					ReadinessTimeoutSeconds: 120,
 				},
 				{
@@ -256,11 +261,11 @@ func TestApplyDefaults_MultipleConsumers(t *testing.T) {
 	// Consumer 1 - all defaults
 	assert.Equal(t, "default-group", cfg.ConsumersConfig.ConsumerConfig[0].GroupID)
 	assert.Equal(t, "earliest", cfg.ConsumersConfig.ConsumerConfig[0].AutoOffsetReset)
-	assert.Equal(t, 3, cfg.ConsumersConfig.ConsumerConfig[0].MaxRetryAttempts)
+	assert.Equal(t, uint(3), *cfg.ConsumersConfig.ConsumerConfig[0].MaxRetries)
 
 	// Consumer 2 - some custom values
 	assert.Equal(t, "custom-group", cfg.ConsumersConfig.ConsumerConfig[1].GroupID)
-	assert.Equal(t, 5, cfg.ConsumersConfig.ConsumerConfig[1].MaxRetryAttempts)
+	assert.Equal(t, uint(5), *cfg.ConsumersConfig.ConsumerConfig[1].MaxRetries)
 	assert.Equal(t, 120, cfg.ConsumersConfig.ConsumerConfig[1].ReadinessTimeoutSeconds)
 	assert.Equal(t, 1*time.Second, cfg.ConsumersConfig.ConsumerConfig[1].InitialBackoff) // From global
 
@@ -286,14 +291,14 @@ func TestApplyDefaults_CompleteConfig(t *testing.T) {
 
 	// Verify all defaults are applied
 	assert.Equal(t, defaultSchemaRegistryCacheCapacity, cfg.SchemaRegistry.CacheCapacity)
-	assert.Equal(t, defaultMaxRetryAttempts, cfg.ConsumersConfig.DefaultMaxRetryAttempts)
+	assert.Equal(t, defaultMaxRetries, *cfg.ConsumersConfig.DefaultMaxRetries)
 	assert.Equal(t, defaultInitialBackoff, cfg.ConsumersConfig.DefaultInitialBackoff)
 	assert.Equal(t, defaultMaxBackoff, cfg.ConsumersConfig.DefaultMaxBackoff)
 	assert.Equal(t, defaultChannelBufferSize, cfg.ConsumersConfig.DefaultChannelBufferSize)
 	assert.Equal(t, defaultProducerReadinessTimeout, cfg.ProducerConfig.ReadinessTimeoutSeconds)
 
 	// Verify consumer inherits from global defaults
-	assert.Equal(t, defaultMaxRetryAttempts, cfg.ConsumersConfig.ConsumerConfig[0].MaxRetryAttempts)
+	assert.Equal(t, defaultMaxRetries, *cfg.ConsumersConfig.ConsumerConfig[0].MaxRetries)
 	assert.Equal(t, defaultInitialBackoff, cfg.ConsumersConfig.ConsumerConfig[0].InitialBackoff)
 	assert.Equal(t, defaultMaxBackoff, cfg.ConsumersConfig.ConsumerConfig[0].MaxBackoff)
 	assert.Equal(t, defaultChannelBufferSize, cfg.ConsumersConfig.ConsumerConfig[0].ChannelBufferSize)

@@ -1,5 +1,10 @@
 package config
 
+// ptrUint is a helper function to create a pointer to uint.
+func ptrUint(v uint) *uint {
+	return &v
+}
+
 // applyDefaults applies default values to the configuration.
 func applyDefaults(cfg *Config) {
 	// Apply defaults for schema registry
@@ -8,8 +13,8 @@ func applyDefaults(cfg *Config) {
 	}
 
 	// Apply defaults for global consumer config
-	if cfg.ConsumersConfig.DefaultMaxRetryAttempts == 0 {
-		cfg.ConsumersConfig.DefaultMaxRetryAttempts = defaultMaxRetryAttempts
+	if cfg.ConsumersConfig.DefaultMaxRetries == nil {
+		cfg.ConsumersConfig.DefaultMaxRetries = ptrUint(defaultMaxRetries)
 	}
 	if cfg.ConsumersConfig.DefaultInitialBackoff == 0 {
 		cfg.ConsumersConfig.DefaultInitialBackoff = defaultInitialBackoff
@@ -51,9 +56,9 @@ func applyConsumerDefaults(consumer *ConsumerConfig, globalConfig *ConsumersConf
 	if consumer.ReadinessTimeoutSeconds == 0 {
 		consumer.ReadinessTimeoutSeconds = defaultConsumerReadinessTimeout
 	}
-	// Apply default max retry attempts from global config
-	if consumer.MaxRetryAttempts == 0 {
-		consumer.MaxRetryAttempts = globalConfig.DefaultMaxRetryAttempts
+	// Apply default max retries from global config
+	if consumer.MaxRetries == nil {
+		consumer.MaxRetries = globalConfig.DefaultMaxRetries
 	}
 	// Apply default initial backoff from global config
 	if consumer.InitialBackoff == 0 {

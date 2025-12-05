@@ -165,6 +165,7 @@ install-tools: ## Install all development tools
 	go install github.com/psampaz/go-mod-outdated@latest
 	go install golang.org/x/tools/cmd/goimports@latest
 	go install github.com/vektra/mockery/v2@latest
+	go install github.com/google/go-licenses@latest
 	@echo "$(COLOR_BLUE)All tools installed!$(COLOR_RESET)"
 
 # =============================================================================

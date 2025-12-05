@@ -131,32 +131,3 @@ func TestServer_Shutdown(t *testing.T) {
 	err := srv.Shutdown(ctx)
 	assert.NoError(t, err)
 }
-
-func TestServer_ShutdownTimeout(t *testing.T) {
-	t.Skip("Skipping timeout test as it requires active connections")
-	log := zap.NewNop()
-	conf := Config{Port: 0}
-	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		// Simulate long-running request
-		time.Sleep(5 * time.Second)
-		w.WriteHeader(http.StatusOK)
-	})
-
-	srv := newServer(log, conf, handler)
-
-	// Start server
-	go func() {
-		_ = srv.Serve()
-	}()
-
-	// Give server time to start
-	time.Sleep(100 * time.Millisecond)
-
-	// Test shutdown with very short timeout
-	ctx, cancel := context.WithTimeout(context.Background(), 1*time.Millisecond)
-	defer cancel()
-
-	err := srv.Shutdown(ctx)
-	// Should return context deadline exceeded
-	assert.Error(t, err)
-}

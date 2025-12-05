@@ -11,7 +11,10 @@ import (
 type Config struct {
 	Port int `mapstructure:"port"`
 
-	// Request Timeout
+	// Server connection settings
+	Connection ConnectionConfig `mapstructure:"connection"`
+
+	// Request Timeout (middleware-based, returns proper HTTP response)
 	Timeout TimeoutConfig `mapstructure:"timeout"`
 
 	// Rate Limiting
@@ -22,6 +25,16 @@ type Config struct {
 
 	// Circuit Breaker
 	CircuitBreaker CircuitBreakerConfig `mapstructure:"circuit-breaker"`
+}
+
+// ConnectionConfig contains low-level HTTP server connection settings.
+// These are "hard" timeouts that close the connection without HTTP response.
+type ConnectionConfig struct {
+	ReadHeaderTimeout time.Duration `mapstructure:"read-header-timeout"` // Time to read request headers (Slowloris protection)
+	ReadTimeout       time.Duration `mapstructure:"read-timeout"`        // Time to read entire request (headers + body)
+	WriteTimeout      time.Duration `mapstructure:"write-timeout"`       // Time to write response
+	IdleTimeout       time.Duration `mapstructure:"idle-timeout"`        // Keep-alive timeout between requests
+	MaxHeaderBytes    int           `mapstructure:"max-header-bytes"`    // Max size of request headers
 }
 
 type TimeoutConfig struct {
@@ -53,6 +66,28 @@ func newConfig(v *viper.Viper, logger *zap.Logger) (Config, error) {
 	var cfg Config
 	if err := v.Sub("server").UnmarshalExact(&cfg); err != nil {
 		return cfg, fmt.Errorf("failed to load server config: %w", err)
+	}
+
+	// Set default values for server connection settings (optimized for API services)
+	if cfg.Connection.ReadHeaderTimeout == 0 {
+		cfg.Connection.ReadHeaderTimeout = 10 * time.Second // Default: 10s - protection against Slowloris
+	}
+	if cfg.Connection.ReadTimeout == 0 {
+		cfg.Connection.ReadTimeout = 30 * time.Second // Default: 30s - enough for typical API requests
+	}
+	if cfg.Connection.WriteTimeout == 0 {
+		// WriteTimeout should be > RequestTimeout to allow middleware to send timeout response
+		if cfg.Timeout.Enabled && cfg.Timeout.RequestTimeout > 0 {
+			cfg.Connection.WriteTimeout = cfg.Timeout.RequestTimeout + 10*time.Second
+		} else {
+			cfg.Connection.WriteTimeout = 40 * time.Second // Default: 40s
+		}
+	}
+	if cfg.Connection.IdleTimeout == 0 {
+		cfg.Connection.IdleTimeout = 120 * time.Second // Default: 120s - keep-alive timeout
+	}
+	if cfg.Connection.MaxHeaderBytes == 0 {
+		cfg.Connection.MaxHeaderBytes = 1 << 20 // Default: 1 MB
 	}
 
 	// Set default values for timeout

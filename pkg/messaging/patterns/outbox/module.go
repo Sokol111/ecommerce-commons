@@ -36,7 +36,7 @@ func NewOutboxModule() fx.Option {
 			worker.Register[*sender]("outbox-sender", worker.WithTrafficReady()),
 			worker.Register[*confirmer]("outbox-confirmer", worker.WithTrafficReady()),
 		),
-		fx.Invoke(func(*fetcher, *sender, *confirmer, *outbox) {}),
+		fx.Invoke(func(*fetcher, *sender, *confirmer, Outbox) {}),
 		fx.Invoke(runMigrations),
 	)
 }

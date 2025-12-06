@@ -215,8 +215,8 @@ func (r *readiness) MarkTrafficReady() {
 		r.kubernetesNotifiedAt = time.Now()
 		r.mu.Unlock()
 		close(r.kubernetesReadyChan)
-		r.logger.Info("Traffic readiness manually marked",
-			zap.Time("marked_at", r.kubernetesNotifiedAt),
+		r.logger.Info("Service is now ready to receive traffic (Kubernetes readiness probe passed)",
+			zap.Bool("kubernetes_mode", r.isKubernetes),
 		)
 	})
 }

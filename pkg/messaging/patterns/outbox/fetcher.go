@@ -14,7 +14,7 @@ type fetcher struct {
 	logger           *zap.Logger
 }
 
-func newFetcher(outboxRepository repository, entitiesChan chan<- *outboxEntity, logger *zap.Logger) *fetcher {
+func newFetcher(outboxRepository repository, entitiesChan chan *outboxEntity, logger *zap.Logger) *fetcher {
 	return &fetcher{
 		outboxRepository: outboxRepository,
 		entitiesChan:     entitiesChan,

@@ -19,7 +19,7 @@ type sender struct {
 
 func newSender(
 	producer producer.Producer,
-	entitiesChan <-chan *outboxEntity,
+	entitiesChan chan *outboxEntity,
 	deliveryChan chan kafka.Event,
 	logger *zap.Logger,
 	tracePropagator tracePropagator,

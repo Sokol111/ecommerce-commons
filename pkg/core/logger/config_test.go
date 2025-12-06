@@ -158,16 +158,16 @@ func TestNewConfig_PartialConfiguration(t *testing.T) {
 				v.Set("logger.level", "debug")
 			},
 			expectedLevel:       zapcore.DebugLevel,
-			expectedStacktrace:  zapcore.ErrorLevel, // default
-			expectedDevelopment: false,              // default
+			expectedStacktrace:  zapcore.DPanicLevel, // default
+			expectedDevelopment: false,               // default
 		},
 		{
 			name: "only development specified",
 			setupViper: func(v *viper.Viper) {
 				v.Set("logger.development", true)
 			},
-			expectedLevel:       zapcore.InfoLevel,  // default
-			expectedStacktrace:  zapcore.ErrorLevel, // default
+			expectedLevel:       zapcore.InfoLevel,   // default
+			expectedStacktrace:  zapcore.DPanicLevel, // default
 			expectedDevelopment: true,
 		},
 		{

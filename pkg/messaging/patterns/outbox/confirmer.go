@@ -19,7 +19,7 @@ type confirmer struct {
 
 func newConfirmer(
 	outboxRepository repository,
-	deliveryChan <-chan kafka.Event,
+	deliveryChan chan kafka.Event,
 	logger *zap.Logger,
 ) *confirmer {
 	return &confirmer{

@@ -29,7 +29,7 @@ type outbox struct {
 	tracePropagator  tracePropagator
 }
 
-func newOutbox(logger *zap.Logger, outboxRepository repository, entitiesChan chan<- *outboxEntity, serializer serialization.Serializer, tracePropagator tracePropagator) Outbox {
+func newOutbox(logger *zap.Logger, outboxRepository repository, entitiesChan chan *outboxEntity, serializer serialization.Serializer, tracePropagator tracePropagator) Outbox {
 	return &outbox{
 		outboxRepository: outboxRepository,
 		logger:           logger,

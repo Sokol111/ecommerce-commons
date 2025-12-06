@@ -53,7 +53,7 @@ func newConfig(v *viper.Viper) (Config, error) {
 	}
 
 	// Parse stacktrace level string to zapcore.Level
-	stacktraceLevel := zapcore.ErrorLevel // default
+	stacktraceLevel := zapcore.DPanicLevel // default
 	if rawCfg.StacktraceLevel != "" {
 		parsedLevel, err := zapcore.ParseLevel(rawCfg.StacktraceLevel)
 		if err != nil {

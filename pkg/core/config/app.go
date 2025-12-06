@@ -45,7 +45,7 @@ type AppConfig struct {
 // NewAppConfigModule creates a new fx module for application configuration.
 // It provides AppConfig instance loaded from environment variables.
 //
-// Required environment variables:.
+// Required environment variables:
 //   - APP_ENV: Environment name (e.g., "local", "staging", "pro")
 //   - APP_SERVICE_NAME: Service name
 //   - APP_SERVICE_VERSION: Service version

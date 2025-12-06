@@ -49,5 +49,5 @@ type ProducerConfig struct {
 type SchemaRegistryConfig struct {
 	URL                 string `mapstructure:"url"`                   // Schema Registry URL (required, e.g., "http://schema-registry:8081")
 	CacheCapacity       int    `mapstructure:"cache-capacity"`        // Schema cache capacity (100-100000, default 1000)
-	AutoRegisterSchemas bool   `mapstructure:"auto_register_schemas"` // Automatically register schemas on startup
+	AutoRegisterSchemas bool   `mapstructure:"auto-register-schemas"` // Automatically register schemas on startup
 }

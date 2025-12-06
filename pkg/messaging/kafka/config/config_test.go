@@ -18,7 +18,7 @@ kafka:
   schema-registry:
     url: "http://schema-registry:8081"
     cache-capacity: 2000
-    auto_register_schemas: true
+    auto-register-schemas: true
   consumers-config:
     default-group-id: "test-group"
     default-auto-offset-reset: "earliest"

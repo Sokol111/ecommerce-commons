@@ -49,7 +49,7 @@ func HTTPBulkheadModule(priority int) fx.Option {
 		fx.Annotate(
 			func(serverConfig server.Config, log *zap.Logger) Middleware {
 				// Skip if disabled
-				if !serverConfig.Bulkhead.Enabled {
+				if !*serverConfig.Bulkhead.Enabled {
 					return Middleware{
 						Priority: priority,
 						Handler:  nil, // Will be skipped in newEngine

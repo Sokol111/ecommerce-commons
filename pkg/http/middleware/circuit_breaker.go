@@ -86,7 +86,7 @@ func CircuitBreakerModule(priority int) fx.Option {
 		fx.Annotate(
 			func(serverConfig server.Config, log *zap.Logger) Middleware {
 				// Skip if disabled
-				if !serverConfig.CircuitBreaker.Enabled {
+				if !*serverConfig.CircuitBreaker.Enabled {
 					return Middleware{
 						Priority: priority,
 						Handler:  nil,

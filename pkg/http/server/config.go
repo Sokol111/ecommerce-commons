@@ -38,24 +38,24 @@ type ConnectionConfig struct {
 }
 
 type TimeoutConfig struct {
-	Enabled        bool          `mapstructure:"enabled"`
+	Enabled        *bool         `mapstructure:"enabled"`
 	RequestTimeout time.Duration `mapstructure:"request-timeout"`
 }
 
 type RateLimitConfig struct {
-	Enabled           bool `mapstructure:"enabled"`
-	RequestsPerSecond int  `mapstructure:"requests-per-second"`
-	Burst             int  `mapstructure:"burst"`
+	Enabled           *bool `mapstructure:"enabled"`
+	RequestsPerSecond int   `mapstructure:"requests-per-second"`
+	Burst             int   `mapstructure:"burst"`
 }
 
 type BulkheadConfig struct {
-	Enabled       bool          `mapstructure:"enabled"`
+	Enabled       *bool         `mapstructure:"enabled"`
 	MaxConcurrent int           `mapstructure:"max-concurrent"`
 	Timeout       time.Duration `mapstructure:"timeout"`
 }
 
 type CircuitBreakerConfig struct {
-	Enabled          bool          `mapstructure:"enabled"`
+	Enabled          *bool         `mapstructure:"enabled"`
 	FailureThreshold uint32        `mapstructure:"failure-threshold"`
 	Timeout          time.Duration `mapstructure:"timeout"`
 	Interval         time.Duration `mapstructure:"interval"`
@@ -88,7 +88,7 @@ func (c *ConnectionConfig) setDefaults(timeout TimeoutConfig) {
 	}
 	if c.WriteTimeout == 0 {
 		// WriteTimeout should be > RequestTimeout to allow middleware to send timeout response
-		if timeout.Enabled && timeout.RequestTimeout > 0 {
+		if timeout.Enabled != nil && *timeout.Enabled && timeout.RequestTimeout > 0 {
 			c.WriteTimeout = timeout.RequestTimeout + 10*time.Second
 		} else {
 			c.WriteTimeout = 40 * time.Second // Default: 40s
@@ -102,16 +102,27 @@ func (c *ConnectionConfig) setDefaults(timeout TimeoutConfig) {
 	}
 }
 
+// boolPtr returns a pointer to the given bool value.
+func boolPtr(b bool) *bool {
+	return &b
+}
+
 // setDefaults sets default values for timeout configuration.
 func (c *TimeoutConfig) setDefaults() {
-	if c.Enabled && c.RequestTimeout == 0 {
+	if c.Enabled == nil {
+		c.Enabled = boolPtr(true) // Enabled by default
+	}
+	if *c.Enabled && c.RequestTimeout == 0 {
 		c.RequestTimeout = 30 * time.Second // Default: 30 seconds
 	}
 }
 
 // setDefaults sets default values for rate limiting configuration.
 func (c *RateLimitConfig) setDefaults() {
-	if !c.Enabled {
+	if c.Enabled == nil {
+		c.Enabled = boolPtr(true) // Enabled by default
+	}
+	if !*c.Enabled {
 		return
 	}
 	if c.RequestsPerSecond == 0 {
@@ -124,7 +135,10 @@ func (c *RateLimitConfig) setDefaults() {
 
 // setDefaults sets default values for HTTP bulkhead configuration.
 func (c *BulkheadConfig) setDefaults() {
-	if !c.Enabled {
+	if c.Enabled == nil {
+		c.Enabled = boolPtr(true) // Enabled by default
+	}
+	if !*c.Enabled {
 		return
 	}
 	if c.MaxConcurrent == 0 {
@@ -137,7 +151,10 @@ func (c *BulkheadConfig) setDefaults() {
 
 // setDefaults sets default values for circuit breaker configuration.
 func (c *CircuitBreakerConfig) setDefaults() {
-	if !c.Enabled {
+	if c.Enabled == nil {
+		c.Enabled = boolPtr(true) // Enabled by default
+	}
+	if !*c.Enabled {
 		return
 	}
 	if c.FailureThreshold == 0 {

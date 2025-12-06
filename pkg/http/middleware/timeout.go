@@ -50,7 +50,7 @@ func TimeoutModule(priority int) fx.Option {
 	return fx.Provide(
 		fx.Annotate(
 			func(serverConfig server.Config, log *zap.Logger) Middleware {
-				if !serverConfig.Timeout.Enabled {
+				if !*serverConfig.Timeout.Enabled {
 					return Middleware{
 						Priority: priority,
 						Handler:  nil, // Will be skipped in newEngine

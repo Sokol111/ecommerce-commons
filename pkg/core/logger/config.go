@@ -10,21 +10,21 @@ import (
 type Config struct {
 	// Level specifies the minimum logging level.
 	// Use zapcore constants: DebugLevel, InfoLevel, WarnLevel, ErrorLevel, DPanicLevel, PanicLevel, FatalLevel
-	Level zapcore.Level `mapstructure:"level"`
+	Level zapcore.Level
 
 	// Development enables development mode with console encoding and human-readable timestamps.
 	// In production mode (false), JSON encoding is used.
-	Development bool `mapstructure:"development"`
+	Development bool
 
 	// StacktraceLevel sets the minimum level at which stacktraces are captured.
 	// Use zapcore constants: DebugLevel, InfoLevel, WarnLevel, ErrorLevel, DPanicLevel, PanicLevel, FatalLevel
 	// Defaults to ErrorLevel.
-	StacktraceLevel zapcore.Level `mapstructure:"stacktraceLevel"`
+	StacktraceLevel zapcore.Level
 
 	// FxLevel specifies the logging level for fx framework internal events.
 	// Use zapcore constants: DebugLevel, InfoLevel, WarnLevel, ErrorLevel, DPanicLevel, PanicLevel, FatalLevel
-	// Defaults to WarnLevel to reduce noise from fx lifecycle events.
-	FxLevel zapcore.Level `mapstructure:"fxLevel"`
+	// Defaults to ErrorLevel to minimize noise from fx lifecycle events.
+	FxLevel zapcore.Level
 }
 
 func newConfig(v *viper.Viper) (Config, error) {
@@ -33,7 +33,7 @@ func newConfig(v *viper.Viper) (Config, error) {
 		return Config{
 			Level:           zapcore.InfoLevel,
 			StacktraceLevel: zapcore.ErrorLevel,
-			FxLevel:         zapcore.WarnLevel,
+			FxLevel:         zapcore.ErrorLevel,
 		}, nil
 	}
 
@@ -41,11 +41,11 @@ func newConfig(v *viper.Viper) (Config, error) {
 	var rawCfg struct {
 		Level           string `mapstructure:"level"`
 		Development     bool   `mapstructure:"development"`
-		StacktraceLevel string `mapstructure:"stacktraceLevel"`
-		FxLevel         string `mapstructure:"fxLevel"`
+		StacktraceLevel string `mapstructure:"stacktrace-level"`
+		FxLevel         string `mapstructure:"fx-level"`
 	}
 
-	if err := sub.Unmarshal(&rawCfg); err != nil {
+	if err := sub.UnmarshalExact(&rawCfg); err != nil {
 		return Config{}, fmt.Errorf("failed to load logger config: %w", err)
 	}
 
@@ -70,7 +70,7 @@ func newConfig(v *viper.Viper) (Config, error) {
 	}
 
 	// Parse fx level string to zapcore.Level
-	fxLevel := zapcore.WarnLevel // default
+	fxLevel := zapcore.ErrorLevel // default
 	if rawCfg.FxLevel != "" {
 		parsedLevel, err := zapcore.ParseLevel(rawCfg.FxLevel)
 		if err != nil {

@@ -20,7 +20,7 @@ func TestNewConfig_DefaultValues(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, zapcore.InfoLevel, cfg.Level)
 	assert.Equal(t, zapcore.ErrorLevel, cfg.StacktraceLevel)
-	assert.Equal(t, zapcore.WarnLevel, cfg.FxLevel)
+	assert.Equal(t, zapcore.ErrorLevel, cfg.FxLevel)
 	assert.False(t, cfg.Development)
 }
 
@@ -98,8 +98,8 @@ func TestNewConfig_ValidConfiguration(t *testing.T) {
 			// Given: viper with specific logger configuration
 			v := viper.New()
 			v.Set("logger.level", tt.level)
-			v.Set("logger.stacktraceLevel", tt.stacktraceLevel)
-			v.Set("logger.fxLevel", tt.fxLevel)
+			v.Set("logger.stacktrace-level", tt.stacktraceLevel)
+			v.Set("logger.fx-level", tt.fxLevel)
 			v.Set("logger.development", tt.development)
 
 			// When: creating config
@@ -158,8 +158,8 @@ func TestNewConfig_InvalidLevel(t *testing.T) {
 			// Given: viper with invalid configuration
 			v := viper.New()
 			v.Set("logger.level", tt.level)
-			v.Set("logger.stacktraceLevel", tt.stacktrace)
-			v.Set("logger.fxLevel", tt.fxLevel)
+			v.Set("logger.stacktrace-level", tt.stacktrace)
+			v.Set("logger.fx-level", tt.fxLevel)
 
 			// When: creating config
 			_, err := newConfig(v)
@@ -187,7 +187,7 @@ func TestNewConfig_PartialConfiguration(t *testing.T) {
 			},
 			expectedLevel:       zapcore.DebugLevel,
 			expectedStacktrace:  zapcore.DPanicLevel, // default
-			expectedFxLevel:     zapcore.WarnLevel,   // default
+			expectedFxLevel:     zapcore.ErrorLevel,  // default
 			expectedDevelopment: false,               // default
 		},
 		{
@@ -197,23 +197,23 @@ func TestNewConfig_PartialConfiguration(t *testing.T) {
 			},
 			expectedLevel:       zapcore.InfoLevel,   // default
 			expectedStacktrace:  zapcore.DPanicLevel, // default
-			expectedFxLevel:     zapcore.WarnLevel,   // default
+			expectedFxLevel:     zapcore.ErrorLevel,  // default
 			expectedDevelopment: true,
 		},
 		{
 			name: "only stacktrace level specified",
 			setupViper: func(v *viper.Viper) {
-				v.Set("logger.stacktraceLevel", "warn")
+				v.Set("logger.stacktrace-level", "warn")
 			},
 			expectedLevel:       zapcore.InfoLevel, // default
 			expectedStacktrace:  zapcore.WarnLevel,
-			expectedFxLevel:     zapcore.WarnLevel, // default
-			expectedDevelopment: false,             // default
+			expectedFxLevel:     zapcore.ErrorLevel, // default
+			expectedDevelopment: false,              // default
 		},
 		{
-			name: "only fxLevel specified",
+			name: "only fx-level specified",
 			setupViper: func(v *viper.Viper) {
-				v.Set("logger.fxLevel", "info")
+				v.Set("logger.fx-level", "info")
 			},
 			expectedLevel:       zapcore.InfoLevel,   // default
 			expectedStacktrace:  zapcore.DPanicLevel, // default

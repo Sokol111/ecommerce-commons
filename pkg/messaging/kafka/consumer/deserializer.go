@@ -26,8 +26,8 @@ type messageDeserializer struct {
 }
 
 func newMessageDeserializer(
-	inputChan <-chan *kafka.Message,
-	outputChan chan<- *MessageEnvelope,
+	inputChan chan *kafka.Message,
+	outputChan chan *MessageEnvelope,
 	deserializer deserialization.Deserializer,
 	log *zap.Logger,
 	tracer MessageTracer,

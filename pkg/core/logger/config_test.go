@@ -20,6 +20,7 @@ func TestNewConfig_DefaultValues(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, zapcore.InfoLevel, cfg.Level)
 	assert.Equal(t, zapcore.ErrorLevel, cfg.StacktraceLevel)
+	assert.Equal(t, zapcore.WarnLevel, cfg.FxLevel)
 	assert.False(t, cfg.Development)
 }
 
@@ -28,54 +29,66 @@ func TestNewConfig_ValidConfiguration(t *testing.T) {
 		name                string
 		level               string
 		stacktraceLevel     string
+		fxLevel             string
 		development         bool
 		expectedLevel       zapcore.Level
 		expectedStacktrace  zapcore.Level
+		expectedFxLevel     zapcore.Level
 		expectedDevelopment bool
 	}{
 		{
 			name:                "debug level with development mode",
 			level:               "debug",
 			stacktraceLevel:     "warn",
+			fxLevel:             "info",
 			development:         true,
 			expectedLevel:       zapcore.DebugLevel,
 			expectedStacktrace:  zapcore.WarnLevel,
+			expectedFxLevel:     zapcore.InfoLevel,
 			expectedDevelopment: true,
 		},
 		{
 			name:                "info level production",
 			level:               "info",
 			stacktraceLevel:     "error",
+			fxLevel:             "warn",
 			development:         false,
 			expectedLevel:       zapcore.InfoLevel,
 			expectedStacktrace:  zapcore.ErrorLevel,
+			expectedFxLevel:     zapcore.WarnLevel,
 			expectedDevelopment: false,
 		},
 		{
 			name:                "warn level",
 			level:               "warn",
 			stacktraceLevel:     "panic",
+			fxLevel:             "error",
 			development:         false,
 			expectedLevel:       zapcore.WarnLevel,
 			expectedStacktrace:  zapcore.PanicLevel,
+			expectedFxLevel:     zapcore.ErrorLevel,
 			expectedDevelopment: false,
 		},
 		{
 			name:                "error level",
 			level:               "error",
 			stacktraceLevel:     "fatal",
+			fxLevel:             "debug",
 			development:         true,
 			expectedLevel:       zapcore.ErrorLevel,
 			expectedStacktrace:  zapcore.FatalLevel,
+			expectedFxLevel:     zapcore.DebugLevel,
 			expectedDevelopment: true,
 		},
 		{
 			name:                "fatal level",
 			level:               "fatal",
 			stacktraceLevel:     "fatal",
+			fxLevel:             "warn",
 			development:         false,
 			expectedLevel:       zapcore.FatalLevel,
 			expectedStacktrace:  zapcore.FatalLevel,
+			expectedFxLevel:     zapcore.WarnLevel,
 			expectedDevelopment: false,
 		},
 	}
@@ -86,6 +99,7 @@ func TestNewConfig_ValidConfiguration(t *testing.T) {
 			v := viper.New()
 			v.Set("logger.level", tt.level)
 			v.Set("logger.stacktraceLevel", tt.stacktraceLevel)
+			v.Set("logger.fxLevel", tt.fxLevel)
 			v.Set("logger.development", tt.development)
 
 			// When: creating config
@@ -95,6 +109,7 @@ func TestNewConfig_ValidConfiguration(t *testing.T) {
 			require.NoError(t, err)
 			assert.Equal(t, tt.expectedLevel, cfg.Level)
 			assert.Equal(t, tt.expectedStacktrace, cfg.StacktraceLevel)
+			assert.Equal(t, tt.expectedFxLevel, cfg.FxLevel)
 			assert.Equal(t, tt.expectedDevelopment, cfg.Development)
 		})
 	}
@@ -105,24 +120,35 @@ func TestNewConfig_InvalidLevel(t *testing.T) {
 		name        string
 		level       string
 		stacktrace  string
+		fxLevel     string
 		expectedErr string
 	}{
 		{
 			name:        "invalid log level",
 			level:       "invalid",
 			stacktrace:  "error",
+			fxLevel:     "warn",
 			expectedErr: "invalid log level 'invalid'",
 		},
 		{
 			name:        "invalid stacktrace level",
 			level:       "info",
 			stacktrace:  "invalid",
+			fxLevel:     "warn",
 			expectedErr: "invalid stacktrace level 'invalid'",
+		},
+		{
+			name:        "invalid fx level",
+			level:       "info",
+			stacktrace:  "error",
+			fxLevel:     "invalid",
+			expectedErr: "invalid fx level 'invalid'",
 		},
 		{
 			name:        "empty string is invalid",
 			level:       "unknown",
 			stacktrace:  "error",
+			fxLevel:     "warn",
 			expectedErr: "invalid log level 'unknown'",
 		},
 	}
@@ -133,6 +159,7 @@ func TestNewConfig_InvalidLevel(t *testing.T) {
 			v := viper.New()
 			v.Set("logger.level", tt.level)
 			v.Set("logger.stacktraceLevel", tt.stacktrace)
+			v.Set("logger.fxLevel", tt.fxLevel)
 
 			// When: creating config
 			_, err := newConfig(v)
@@ -150,6 +177,7 @@ func TestNewConfig_PartialConfiguration(t *testing.T) {
 		setupViper          func(*viper.Viper)
 		expectedLevel       zapcore.Level
 		expectedStacktrace  zapcore.Level
+		expectedFxLevel     zapcore.Level
 		expectedDevelopment bool
 	}{
 		{
@@ -159,6 +187,7 @@ func TestNewConfig_PartialConfiguration(t *testing.T) {
 			},
 			expectedLevel:       zapcore.DebugLevel,
 			expectedStacktrace:  zapcore.DPanicLevel, // default
+			expectedFxLevel:     zapcore.WarnLevel,   // default
 			expectedDevelopment: false,               // default
 		},
 		{
@@ -168,6 +197,7 @@ func TestNewConfig_PartialConfiguration(t *testing.T) {
 			},
 			expectedLevel:       zapcore.InfoLevel,   // default
 			expectedStacktrace:  zapcore.DPanicLevel, // default
+			expectedFxLevel:     zapcore.WarnLevel,   // default
 			expectedDevelopment: true,
 		},
 		{
@@ -175,9 +205,20 @@ func TestNewConfig_PartialConfiguration(t *testing.T) {
 			setupViper: func(v *viper.Viper) {
 				v.Set("logger.stacktraceLevel", "warn")
 			},
-			expectedLevel:       zapcore.InfoLevel, // default
+			expectedLevel:       zapcore.InfoLevel,  // default
 			expectedStacktrace:  zapcore.WarnLevel,
-			expectedDevelopment: false, // default
+			expectedFxLevel:     zapcore.WarnLevel,  // default
+			expectedDevelopment: false,             // default
+		},
+		{
+			name: "only fxLevel specified",
+			setupViper: func(v *viper.Viper) {
+				v.Set("logger.fxLevel", "info")
+			},
+			expectedLevel:       zapcore.InfoLevel,   // default
+			expectedStacktrace:  zapcore.DPanicLevel, // default
+			expectedFxLevel:     zapcore.InfoLevel,
+			expectedDevelopment: false,              // default
 		},
 	}
 
@@ -194,6 +235,7 @@ func TestNewConfig_PartialConfiguration(t *testing.T) {
 			require.NoError(t, err)
 			assert.Equal(t, tt.expectedLevel, cfg.Level)
 			assert.Equal(t, tt.expectedStacktrace, cfg.StacktraceLevel)
+			assert.Equal(t, tt.expectedFxLevel, cfg.FxLevel)
 			assert.Equal(t, tt.expectedDevelopment, cfg.Development)
 		})
 	}

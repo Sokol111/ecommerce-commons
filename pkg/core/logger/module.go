@@ -26,15 +26,7 @@ func NewZapLoggingModule() fx.Option {
 		}),
 		fx.WithLogger(func(log *zap.Logger, conf Config) fxevent.Logger {
 			zapLogger := &fxevent.ZapLogger{Logger: log}
-
-			// In development mode, show all fx internal events for debugging
-			// In production, only show warnings and errors to reduce noise
-			if conf.Development {
-				zapLogger.UseLogLevel(zap.InfoLevel)
-			} else {
-				zapLogger.UseLogLevel(zap.WarnLevel)
-			}
-
+			zapLogger.UseLogLevel(conf.FxLevel)
 			return zapLogger
 		}),
 	)

@@ -24,9 +24,10 @@ func NewZapLoggingModule() fx.Option {
 				zap.String("stacktraceLevel", conf.StacktraceLevel.String()),
 			)
 		}),
-		fx.WithLogger(func(log *zap.Logger, conf Config) fxevent.Logger {
+		fx.WithLogger(func(log *zap.Logger) fxevent.Logger {
 			zapLogger := &fxevent.ZapLogger{Logger: log}
-			zapLogger.UseLogLevel(conf.FxLevel)
+			// Use DebugLevel so fx events are hidden when logger level is info or higher
+			zapLogger.UseLogLevel(zap.DebugLevel)
 			return zapLogger
 		}),
 	)

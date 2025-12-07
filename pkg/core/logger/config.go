@@ -20,11 +20,6 @@ type Config struct {
 	// Use zapcore constants: DebugLevel, InfoLevel, WarnLevel, ErrorLevel, DPanicLevel, PanicLevel, FatalLevel
 	// Defaults to ErrorLevel.
 	StacktraceLevel zapcore.Level
-
-	// FxLevel specifies the logging level at which fx framework events are logged.
-	// Defaults to DebugLevel, so fx events are hidden when logger level is info or higher.
-	// Set to info or warn to see fx events.
-	FxLevel zapcore.Level
 }
 
 func newConfig(v *viper.Viper) (Config, error) {
@@ -33,7 +28,6 @@ func newConfig(v *viper.Viper) (Config, error) {
 		return Config{
 			Level:           zapcore.InfoLevel,
 			StacktraceLevel: zapcore.ErrorLevel,
-			FxLevel:         zapcore.DebugLevel,
 		}, nil
 	}
 
@@ -42,7 +36,6 @@ func newConfig(v *viper.Viper) (Config, error) {
 		Level           string `mapstructure:"level"`
 		Development     bool   `mapstructure:"development"`
 		StacktraceLevel string `mapstructure:"stacktrace-level"`
-		FxLevel         string `mapstructure:"fx-level"`
 	}
 
 	if err := sub.UnmarshalExact(&rawCfg); err != nil {
@@ -69,21 +62,10 @@ func newConfig(v *viper.Viper) (Config, error) {
 		stacktraceLevel = parsedLevel
 	}
 
-	// Parse fx level string to zapcore.Level
-	fxLevel := zapcore.DebugLevel // default - hidden when logger level is info or higher
-	if rawCfg.FxLevel != "" {
-		parsedLevel, err := zapcore.ParseLevel(rawCfg.FxLevel)
-		if err != nil {
-			return Config{}, fmt.Errorf("invalid fx level '%s': %w", rawCfg.FxLevel, err)
-		}
-		fxLevel = parsedLevel
-	}
-
 	cfg := Config{
 		Level:           level,
 		Development:     rawCfg.Development,
 		StacktraceLevel: stacktraceLevel,
-		FxLevel:         fxLevel,
 	}
 
 	return cfg, nil

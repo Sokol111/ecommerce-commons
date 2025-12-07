@@ -205,9 +205,9 @@ func TestNewConfig_PartialConfiguration(t *testing.T) {
 			setupViper: func(v *viper.Viper) {
 				v.Set("logger.stacktraceLevel", "warn")
 			},
-			expectedLevel:       zapcore.InfoLevel,  // default
+			expectedLevel:       zapcore.InfoLevel, // default
 			expectedStacktrace:  zapcore.WarnLevel,
-			expectedFxLevel:     zapcore.WarnLevel,  // default
+			expectedFxLevel:     zapcore.WarnLevel, // default
 			expectedDevelopment: false,             // default
 		},
 		{
@@ -218,7 +218,7 @@ func TestNewConfig_PartialConfiguration(t *testing.T) {
 			expectedLevel:       zapcore.InfoLevel,   // default
 			expectedStacktrace:  zapcore.DPanicLevel, // default
 			expectedFxLevel:     zapcore.InfoLevel,
-			expectedDevelopment: false,              // default
+			expectedDevelopment: false, // default
 		},
 	}
 

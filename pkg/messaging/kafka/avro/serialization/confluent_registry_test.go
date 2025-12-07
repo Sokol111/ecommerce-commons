@@ -188,7 +188,8 @@ func TestConfluentRegistry_RegisterSchema_MultipleSchemas(t *testing.T) {
 }
 
 func TestConfluentRegistry_RegisterSchema_SubjectNaming(t *testing.T) {
-	// Verify that subject is formed as "{topic}-value"
+	// Verify that subject is formed using RecordNameStrategy: "{schemaName}"
+	// This allows the same schema to be reused across multiple topics
 	// Arrange
 	conf := schemaregistry.NewConfig("mock://")
 	client, err := schemaregistry.NewClient(conf)
@@ -205,7 +206,7 @@ func TestConfluentRegistry_RegisterSchema_SubjectNaming(t *testing.T) {
 	require.NoError(t, err)
 
 	// Assert - Verify schema was registered
-	// Subject should be formed as "{topic}-value"
+	// Subject should be formed as "{schemaName}" (RecordNameStrategy)
 	// With mock client, we can verify schema ID is returned
 	assert.Greater(t, schemaID, 0)
 }
@@ -413,7 +414,9 @@ func TestConfluentRegistry_RegisterSchema_ValidatesSchemaWithRegistry(t *testing
 	require.NoError(t, err)
 
 	// Assert - Verify schema was registered with correct details
-	schemaInfo, err := client.GetBySubjectAndID("product-events-value", schemaID)
+	// Subject uses RecordNameStrategy: "{schemaName}"
+	expectedSubject := binding.SchemaName
+	schemaInfo, err := client.GetBySubjectAndID(expectedSubject, schemaID)
 	require.NoError(t, err)
 	assert.NotNil(t, schemaInfo)
 	assert.Equal(t, "AVRO", schemaInfo.SchemaType)

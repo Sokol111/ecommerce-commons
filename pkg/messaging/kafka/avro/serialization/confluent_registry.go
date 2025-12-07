@@ -10,9 +10,11 @@ import (
 
 // ConfluentRegistry provides integration with Confluent Schema Registry.
 // It handles schema registration and ID caching for Kafka message serialization.
+// Uses RecordNameStrategy for subject naming: "{schemaName}"
+// This allows the same schema to be reused across multiple topics.
 type ConfluentRegistry interface {
 	// RegisterSchema registers a schema in Confluent Schema Registry and returns schema ID
-	// Subject is automatically formed as "{binding.Topic}-value"
+	// Subject is automatically formed as "{binding.SchemaName}" (RecordNameStrategy)
 	RegisterSchema(binding *mapping.SchemaBinding) (int, error)
 	// RegisterAllSchemasAtStartup registers all schemas from TypeMapping at application startup
 	// Returns error immediately if any schema fails to register (fail-fast approach)
@@ -46,8 +48,10 @@ func (cr *confluentRegistry) RegisterSchema(binding *mapping.SchemaBinding) (int
 		return cachedID, nil
 	}
 
-	// Register in Confluent Schema Registry
-	subject := binding.Topic + "-value"
+	// Register in Confluent Schema Registry using RecordNameStrategy
+	// Subject format: {schemaName} - schema is independent of topic
+	// This allows reusing the same schema across multiple topics
+	subject := binding.SchemaName
 	schemaInfo := schemaregistry.SchemaInfo{
 		Schema:     string(binding.SchemaJSON),
 		SchemaType: "AVRO",

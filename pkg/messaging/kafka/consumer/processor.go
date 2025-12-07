@@ -37,7 +37,7 @@ type processor struct {
 }
 
 func newProcessor(
-	envelopeChan <-chan *MessageEnvelope,
+	envelopeChan chan *MessageEnvelope,
 	handler Handler,
 	log *zap.Logger,
 	resultHandler *resultHandler,

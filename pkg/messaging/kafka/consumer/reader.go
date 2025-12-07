@@ -25,7 +25,7 @@ type reader struct {
 
 func newReader(
 	consumer messageReader,
-	messagesChan chan<- *kafka.Message,
+	messagesChan chan *kafka.Message,
 	log *zap.Logger,
 ) *reader {
 	return &reader{

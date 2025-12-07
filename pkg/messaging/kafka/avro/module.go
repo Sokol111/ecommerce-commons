@@ -50,18 +50,22 @@ func provideSchemaRegistryClient(lc fx.Lifecycle, kafkaConf config.Config, log *
 	return client, nil
 }
 
-func provideConfluentRegistry(lc fx.Lifecycle, client schemaregistry.Client, typeMapping *mapping.TypeMapping, log *zap.Logger, cm health.ComponentManager) (serialization.ConfluentRegistry, error) {
+func provideConfluentRegistry(lc fx.Lifecycle, client schemaregistry.Client, typeMapping *mapping.TypeMapping, kafkaConf config.Config, log *zap.Logger, cm health.ComponentManager) (serialization.ConfluentRegistry, error) {
 	var registry = serialization.NewConfluentRegistry(client, typeMapping)
 
 	cm.AddComponent("confluent_schema_registry")
 	lc.Append(fx.Hook{
 		OnStart: func(ctx context.Context) error {
-			err := registry.RegisterAllSchemasAtStartup()
-			if err != nil {
-				return err
+			if kafkaConf.SchemaRegistry.AutoRegisterSchemas {
+				err := registry.RegisterAllSchemasAtStartup()
+				if err != nil {
+					return err
+				}
+				log.Info("all schemas registered at startup")
+			} else {
+				log.Info("auto-registration of schemas is disabled")
 			}
 			cm.MarkReady("confluent_schema_registry")
-			log.Info("all schemas registered at startup")
 			return nil
 		},
 	})

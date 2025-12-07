@@ -30,7 +30,7 @@ func NewZapLoggingModule() fx.Option {
 			// In development mode, show all fx internal events for debugging
 			// In production, only show warnings and errors to reduce noise
 			if conf.Development {
-				zapLogger.UseLogLevel(zap.DebugLevel)
+				zapLogger.UseLogLevel(zap.InfoLevel)
 			} else {
 				zapLogger.UseLogLevel(zap.WarnLevel)
 			}

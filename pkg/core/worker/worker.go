@@ -9,10 +9,6 @@ import (
 	"go.uber.org/zap"
 )
 
-// workerResult is a marker type to satisfy fx.Provide requirements.
-// Workers register themselves with fx.Lifecycle, so the actual value is not used.
-type workerResult struct{}
-
 // runnable is a type that has a Run method that can return a fatal error.
 type runnable interface {
 	Run(ctx context.Context) error
@@ -149,7 +145,7 @@ func registerWorker(lc fx.Lifecycle, w *baseWorker) {
 	})
 }
 
-// Register creates an fx.Annotate that provides a worker for the given dependency type.
+// RunWorker creates an fx.Invoke that registers and starts a worker for the given dependency type.
 // The dependency must have a Run(ctx context.Context) error method.
 //
 // Options:
@@ -159,27 +155,25 @@ func registerWorker(lc fx.Lifecycle, w *baseWorker) {
 //
 // Example:
 //
-//	worker.Register[*reader]("reader", worker.WithTrafficReady(), worker.WithShutdown())
-//	worker.Register[*processor]("processor", worker.WithReady())
-func Register[T runnable](name string, opts ...Option) any {
+//	fx.Invoke(
+//	    worker.RunWorker[*reader]("reader", worker.WithTrafficReady(), worker.WithShutdown()),
+//	    worker.RunWorker[*processor]("processor", worker.WithReady()),
+//	)
+func RunWorker[T runnable](name string, opts ...Option) any {
 	options := Options{}
 	for _, opt := range opts {
 		opt(&options)
 	}
 
-	return fx.Annotate(
-		func(lc fx.Lifecycle, log *zap.Logger, shutdowner fx.Shutdowner, readiness health.ReadinessWaiter, dep T) workerResult {
-			w := &baseWorker{
-				name:       name,
-				log:        log,
-				runFunc:    dep.Run,
-				shutdowner: shutdowner,
-				readiness:  readiness,
-				options:    options,
-			}
-			registerWorker(lc, w)
-			return workerResult{}
-		},
-		fx.ResultTags(`group:"workers"`),
-	)
+	return func(lc fx.Lifecycle, log *zap.Logger, shutdowner fx.Shutdowner, readiness health.ReadinessWaiter, dep T) {
+		w := &baseWorker{
+			name:       name,
+			log:        log,
+			runFunc:    dep.Run,
+			shutdowner: shutdowner,
+			readiness:  readiness,
+			options:    options,
+		}
+		registerWorker(lc, w)
+	}
 }

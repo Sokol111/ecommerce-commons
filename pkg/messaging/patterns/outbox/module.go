@@ -32,12 +32,13 @@ func NewOutboxModule() fx.Option {
 			newTracePropagator,
 			provideEntitiesChannel,
 			provideDeliveryChannel,
-			worker.Register[*fetcher]("outbox-fetcher", worker.WithTrafficReady()),
-			worker.Register[*sender]("outbox-sender", worker.WithTrafficReady()),
-			worker.Register[*confirmer]("outbox-confirmer", worker.WithTrafficReady()),
 		),
-		fx.Invoke(func(*fetcher, *sender, *confirmer, Outbox) {}),
-		fx.Invoke(runMigrations),
+		fx.Invoke(
+			worker.RunWorker[*fetcher]("outbox-fetcher", worker.WithTrafficReady()),
+			worker.RunWorker[*sender]("outbox-sender", worker.WithTrafficReady()),
+			worker.RunWorker[*confirmer]("outbox-confirmer", worker.WithTrafficReady()),
+			runMigrations,
+		),
 	)
 }
 

@@ -61,12 +61,13 @@ func RegisterHandlerAndConsumer(
 			provideMessageChannel,
 			provideEnvelopeChannel,
 			provideDLQHandler,
-			worker.Register[*reader]("reader", worker.WithTrafficReady(), worker.WithShutdown()),
-			worker.Register[*messageDeserializer]("deserializer"),
-			worker.Register[*processor]("processor"),
 			fx.Private,
 		),
-		fx.Invoke(func(c *kafka.Consumer) {}),
+		fx.Invoke(
+			worker.RunWorker[*reader]("reader", worker.WithTrafficReady(), worker.WithShutdown()),
+			worker.RunWorker[*messageDeserializer]("deserializer"),
+			worker.RunWorker[*processor]("processor"),
+		),
 	)
 }
 

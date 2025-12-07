@@ -90,6 +90,8 @@ func (w *baseWorker) run() {
 		w.log.Info("traffic readiness achieved, starting work", zap.String("worker", w.name))
 	}
 
+	w.log.Info("worker started", zap.String("worker", w.name))
+
 	// Run the main function
 	err := w.runFunc(w.ctx)
 	if err == nil {

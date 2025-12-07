@@ -21,9 +21,9 @@ type Config struct {
 	// Defaults to ErrorLevel.
 	StacktraceLevel zapcore.Level
 
-	// FxLevel specifies the logging level for fx framework internal events.
-	// Use zapcore constants: DebugLevel, InfoLevel, WarnLevel, ErrorLevel, DPanicLevel, PanicLevel, FatalLevel
-	// Defaults to ErrorLevel to minimize noise from fx lifecycle events.
+	// FxLevel specifies the logging level at which fx framework events are logged.
+	// Defaults to DebugLevel, so fx events are hidden when logger level is info or higher.
+	// Set to info or warn to see fx events.
 	FxLevel zapcore.Level
 }
 
@@ -33,7 +33,7 @@ func newConfig(v *viper.Viper) (Config, error) {
 		return Config{
 			Level:           zapcore.InfoLevel,
 			StacktraceLevel: zapcore.ErrorLevel,
-			FxLevel:         zapcore.ErrorLevel,
+			FxLevel:         zapcore.DebugLevel,
 		}, nil
 	}
 
@@ -70,7 +70,7 @@ func newConfig(v *viper.Viper) (Config, error) {
 	}
 
 	// Parse fx level string to zapcore.Level
-	fxLevel := zapcore.ErrorLevel // default
+	fxLevel := zapcore.DebugLevel // default - hidden when logger level is info or higher
 	if rawCfg.FxLevel != "" {
 		parsedLevel, err := zapcore.ParseLevel(rawCfg.FxLevel)
 		if err != nil {

@@ -20,7 +20,7 @@ func TestNewConfig_DefaultValues(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, zapcore.InfoLevel, cfg.Level)
 	assert.Equal(t, zapcore.ErrorLevel, cfg.StacktraceLevel)
-	assert.Equal(t, zapcore.ErrorLevel, cfg.FxLevel)
+	assert.Equal(t, zapcore.DebugLevel, cfg.FxLevel)
 	assert.False(t, cfg.Development)
 }
 
@@ -187,7 +187,7 @@ func TestNewConfig_PartialConfiguration(t *testing.T) {
 			},
 			expectedLevel:       zapcore.DebugLevel,
 			expectedStacktrace:  zapcore.DPanicLevel, // default
-			expectedFxLevel:     zapcore.ErrorLevel,  // default
+			expectedFxLevel:     zapcore.DebugLevel,  // default
 			expectedDevelopment: false,               // default
 		},
 		{
@@ -197,7 +197,7 @@ func TestNewConfig_PartialConfiguration(t *testing.T) {
 			},
 			expectedLevel:       zapcore.InfoLevel,   // default
 			expectedStacktrace:  zapcore.DPanicLevel, // default
-			expectedFxLevel:     zapcore.ErrorLevel,  // default
+			expectedFxLevel:     zapcore.DebugLevel,  // default
 			expectedDevelopment: true,
 		},
 		{
@@ -207,7 +207,7 @@ func TestNewConfig_PartialConfiguration(t *testing.T) {
 			},
 			expectedLevel:       zapcore.InfoLevel, // default
 			expectedStacktrace:  zapcore.WarnLevel,
-			expectedFxLevel:     zapcore.ErrorLevel, // default
+			expectedFxLevel:     zapcore.DebugLevel, // default
 			expectedDevelopment: false,              // default
 		},
 		{

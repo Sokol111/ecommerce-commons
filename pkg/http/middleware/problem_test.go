@@ -32,6 +32,12 @@ func TestProblemMiddleware(t *testing.T) {
 			t.Errorf("expected status %d, got %d", http.StatusOK, w.Code)
 		}
 
+		// Verify Content-Type remains standard application/json for successful responses
+		contentType := w.Header().Get("Content-Type")
+		if contentType != "application/json; charset=utf-8" {
+			t.Errorf("expected Content-Type 'application/json; charset=utf-8', got '%s'", contentType)
+		}
+
 		var response map[string]interface{}
 		if err := json.Unmarshal(w.Body.Bytes(), &response); err != nil {
 			t.Fatalf("failed to parse response: %v", err)
@@ -731,7 +737,7 @@ func TestProblemMiddleware(t *testing.T) {
 		}
 	})
 
-	t.Run("content-type header is set to application/json", func(t *testing.T) {
+	t.Run("content-type header is set to application/problem+json for error responses", func(t *testing.T) {
 		middleware := problemMiddleware()
 
 		router := gin.New()
@@ -750,8 +756,8 @@ func TestProblemMiddleware(t *testing.T) {
 		router.ServeHTTP(w, req)
 
 		contentType := w.Header().Get("Content-Type")
-		if contentType != "application/json; charset=utf-8" {
-			t.Errorf("expected Content-Type 'application/json; charset=utf-8', got '%s'", contentType)
+		if contentType != "application/problem+json" {
+			t.Errorf("expected Content-Type 'application/problem+json', got '%s'", contentType)
 		}
 	})
 

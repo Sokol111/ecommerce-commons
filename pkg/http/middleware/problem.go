@@ -66,6 +66,8 @@ func problemMiddleware() gin.HandlerFunc {
 			}
 		}
 
+		// Set Content-Type header as per RFC 7807
+		c.Header("Content-Type", "application/problem+json")
 		c.JSON(problem.Status, problem)
 	}
 }

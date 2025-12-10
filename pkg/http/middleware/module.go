@@ -1,6 +1,9 @@
 package middleware
 
 import (
+	"sort"
+
+	"github.com/gin-gonic/gin"
 	"go.uber.org/fx"
 )
 
@@ -27,6 +30,28 @@ func NewGinModule() fx.Option {
 		RateLimitModule(70),
 		HTTPBulkheadModule(80),
 		OpenAPIValidatorModule(90),
-		fx.Provide(provideGinAndHandler),
+		fx.Invoke(registerMiddlewares),
 	)
+}
+
+// mwIn is used for dependency injection of all middlewares.
+type mwIn struct {
+	fx.In
+	Middlewares []Middleware `group:"gin_mw"`
+}
+
+// registerMiddlewares registers all middlewares on the Gin engine sorted by priority.
+func registerMiddlewares(engine *gin.Engine, in mwIn) {
+	mws := in.Middlewares
+
+	// Sort middlewares by priority (lower priority = executes first)
+	sort.Slice(mws, func(i, j int) bool { return mws[i].Priority < mws[j].Priority })
+
+	// Register middlewares
+	for _, m := range mws {
+		if m.Handler == nil {
+			continue // Skip disabled middlewares
+		}
+		engine.Use(m.Handler)
+	}
 }

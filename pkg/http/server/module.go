@@ -2,6 +2,7 @@ package server
 
 import (
 	"context"
+	"net/http"
 
 	"github.com/Sokol111/ecommerce-commons/pkg/core/health"
 	"github.com/gin-gonic/gin"
@@ -11,9 +12,20 @@ import (
 
 func NewHTTPServerModule() fx.Option {
 	return fx.Options(
-		fx.Provide(newConfig),
+		fx.Provide(
+			newConfig,
+			provideGinEngine,
+		),
 		fx.Invoke(startHTTPServer),
 	)
+}
+
+// provideGinEngine creates a new Gin engine instance.
+func provideGinEngine() (*gin.Engine, http.Handler, gin.IRouter) {
+	engine := gin.New(func(e *gin.Engine) {
+		e.ContextWithFallback = true
+	})
+	return engine, engine, engine
 }
 
 func startHTTPServer(lc fx.Lifecycle, log *zap.Logger, conf Config, engine *gin.Engine, readiness health.ComponentManager, shutdowner fx.Shutdowner) {

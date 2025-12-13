@@ -264,3 +264,25 @@ func (r *GenericRepository[Domain, Entity]) ExistsWithFilter(ctx context.Context
 	}
 	return count > 0, nil
 }
+
+// UpsertIfNewer inserts or replaces an entity only if its version is greater than the existing one.
+// This is useful for CQRS projections where events may arrive out of order.
+// Returns true if the entity was inserted/updated, false if skipped due to version conflict.
+func (r *GenericRepository[Domain, Entity]) UpsertIfNewer(ctx context.Context, domain *Domain) (bool, error) {
+	entity := r.mapper.ToEntity(domain)
+
+	filter := bson.D{
+		{Key: "_id", Value: r.mapper.GetID(entity)},
+		{Key: "version", Value: bson.M{"$lt": r.mapper.GetVersion(entity)}},
+	}
+
+	opts := options.Replace().SetUpsert(true)
+	result, err := r.coll.ReplaceOne(ctx, filter, entity, opts)
+	if err != nil {
+		return false, fmt.Errorf("failed to upsert entity: %w", err)
+	}
+
+	// If no match and no upsert, it means version conflict (existing doc has >= version)
+	updated := result.MatchedCount > 0 || result.UpsertedCount > 0
+	return updated, nil
+}

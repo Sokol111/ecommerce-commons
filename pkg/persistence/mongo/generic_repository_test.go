@@ -575,6 +575,100 @@ func TestGenericRepository_ExistsWithFilter(t *testing.T) {
 	})
 }
 
+// TestGenericRepository_UpsertIfNewer tests the UpsertIfNewer method
+func TestGenericRepository_UpsertIfNewer(t *testing.T) {
+	t.Run("inserts new entity successfully", func(t *testing.T) {
+		mockColl := mongomock.NewMockCollection(t)
+		mapper := &mockMapper{}
+
+		domain := &testDomain{ID: "123", Name: "test", Version: 1}
+		entity := &testEntity{ID: "123", Name: "test", Version: 1}
+
+		mapper.On("ToEntity", domain).Return(entity)
+		mapper.On("GetID", entity).Return("123")
+		mapper.On("GetVersion", entity).Return(1)
+
+		mockColl.EXPECT().ReplaceOne(mock.Anything, mock.Anything, entity, mock.Anything).
+			Return(&mongodriver.UpdateResult{UpsertedCount: 1}, nil)
+
+		repo, _ := NewGenericRepository[testDomain, testEntity](mockColl, mapper)
+		updated, err := repo.UpsertIfNewer(context.Background(), domain)
+
+		assert.NoError(t, err)
+		assert.True(t, updated)
+		mapper.AssertExpectations(t)
+	})
+
+	t.Run("updates existing entity with older version", func(t *testing.T) {
+		mockColl := mongomock.NewMockCollection(t)
+		mapper := &mockMapper{}
+
+		domain := &testDomain{ID: "123", Name: "updated", Version: 2}
+		entity := &testEntity{ID: "123", Name: "updated", Version: 2}
+
+		mapper.On("ToEntity", domain).Return(entity)
+		mapper.On("GetID", entity).Return("123")
+		mapper.On("GetVersion", entity).Return(2)
+
+		mockColl.EXPECT().ReplaceOne(mock.Anything, mock.Anything, entity, mock.Anything).
+			Return(&mongodriver.UpdateResult{MatchedCount: 1}, nil)
+
+		repo, _ := NewGenericRepository[testDomain, testEntity](mockColl, mapper)
+		updated, err := repo.UpsertIfNewer(context.Background(), domain)
+
+		assert.NoError(t, err)
+		assert.True(t, updated)
+		mapper.AssertExpectations(t)
+	})
+
+	t.Run("skips update when existing version is newer or equal", func(t *testing.T) {
+		mockColl := mongomock.NewMockCollection(t)
+		mapper := &mockMapper{}
+
+		domain := &testDomain{ID: "123", Name: "old", Version: 1}
+		entity := &testEntity{ID: "123", Name: "old", Version: 1}
+
+		mapper.On("ToEntity", domain).Return(entity)
+		mapper.On("GetID", entity).Return("123")
+		mapper.On("GetVersion", entity).Return(1)
+
+		// No match and no upsert means version conflict
+		mockColl.EXPECT().ReplaceOne(mock.Anything, mock.Anything, entity, mock.Anything).
+			Return(&mongodriver.UpdateResult{MatchedCount: 0, UpsertedCount: 0}, nil)
+
+		repo, _ := NewGenericRepository[testDomain, testEntity](mockColl, mapper)
+		updated, err := repo.UpsertIfNewer(context.Background(), domain)
+
+		assert.NoError(t, err)
+		assert.False(t, updated)
+		mapper.AssertExpectations(t)
+	})
+
+	t.Run("returns error when replace fails", func(t *testing.T) {
+		mockColl := mongomock.NewMockCollection(t)
+		mapper := &mockMapper{}
+
+		domain := &testDomain{ID: "123", Name: "test", Version: 1}
+		entity := &testEntity{ID: "123", Name: "test", Version: 1}
+		expectedErr := errors.New("replace failed")
+
+		mapper.On("ToEntity", domain).Return(entity)
+		mapper.On("GetID", entity).Return("123")
+		mapper.On("GetVersion", entity).Return(1)
+
+		mockColl.EXPECT().ReplaceOne(mock.Anything, mock.Anything, entity, mock.Anything).
+			Return(nil, expectedErr)
+
+		repo, _ := NewGenericRepository[testDomain, testEntity](mockColl, mapper)
+		updated, err := repo.UpsertIfNewer(context.Background(), domain)
+
+		assert.Error(t, err)
+		assert.False(t, updated)
+		assert.Contains(t, err.Error(), "failed to upsert entity")
+		mapper.AssertExpectations(t)
+	})
+}
+
 // Helper function to convert slice to interface slice for cursor
 func toInterfaceSlice[T any](slice []T) []interface{} {
 	result := make([]interface{}, len(slice))

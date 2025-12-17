@@ -81,8 +81,8 @@ func NewGenericRepository[Domain any, Entity any](
 	}, nil
 }
 
-// Save creates a new entity in MongoDB.
-func (r *GenericRepository[Domain, Entity]) Save(ctx context.Context, domain *Domain) error {
+// Insert creates a new entity in MongoDB.
+func (r *GenericRepository[Domain, Entity]) Insert(ctx context.Context, domain *Domain) error {
 	entity := r.mapper.ToEntity(domain)
 
 	_, err := r.coll.InsertOne(ctx, entity)

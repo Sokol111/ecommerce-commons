@@ -109,7 +109,7 @@ func TestGenericRepository_Save(t *testing.T) {
 		mockColl.EXPECT().InsertOne(mock.Anything, entity).Return(&mongodriver.InsertOneResult{InsertedID: "123"}, nil)
 
 		repo, _ := NewGenericRepository[testDomain, testEntity](mockColl, mapper)
-		err := repo.Save(context.Background(), domain)
+		err := repo.Insert(context.Background(), domain)
 
 		assert.NoError(t, err)
 		mapper.AssertExpectations(t)
@@ -127,7 +127,7 @@ func TestGenericRepository_Save(t *testing.T) {
 		mockColl.EXPECT().InsertOne(mock.Anything, entity).Return(nil, expectedErr)
 
 		repo, _ := NewGenericRepository[testDomain, testEntity](mockColl, mapper)
-		err := repo.Save(context.Background(), domain)
+		err := repo.Insert(context.Background(), domain)
 
 		assert.Error(t, err)
 		assert.Contains(t, err.Error(), "failed to insert entity")

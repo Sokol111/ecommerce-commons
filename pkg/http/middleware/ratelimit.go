@@ -41,7 +41,7 @@ func RateLimitModule(priority int) fx.Option {
 	return fx.Provide(
 		fx.Annotate(
 			func(config server.Config) Middleware {
-				if !*config.RateLimit.Enabled {
+				if !config.RateLimit.Enabled {
 					return Middleware{
 						Priority: priority,
 						Handler:  nil, // Will be skipped in newEngine

@@ -65,7 +65,7 @@ func (s *serializer) SerializeWithTopic(msg interface{}) ([]byte, string, error)
 	}
 
 	// Encode message using encoder with cached parsed schema
-	avroData, err := s.encoder.Encode(msg, binding.ParsedSchema)
+	avroData, err := s.encoder.Encode(msg, binding.ParsedSchema())
 	if err != nil {
 		return nil, "", fmt.Errorf("failed to encode avro data: %w", err)
 	}

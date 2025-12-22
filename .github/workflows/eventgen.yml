@@ -1,0 +1,86 @@
+# Event Code Generator Workflow
+# This workflow validates that generated event code is up to date.
+# It can also be used as a reusable workflow by other repositories.
+
+name: Event Code Generator
+
+on:
+  workflow_call:
+    inputs:
+      payloads-dir:
+        description: 'Directory containing *_payload.avsc files'
+        required: false
+        default: 'avro'
+        type: string
+      output-dir:
+        description: 'Output directory for generated code'
+        required: false
+        default: 'gen/events'
+        type: string
+      package-name:
+        description: 'Go package name for generated code'
+        required: false
+        default: 'events'
+        type: string
+      asyncapi-file:
+        description: 'AsyncAPI spec file (optional)'
+        required: false
+        default: ''
+        type: string
+      go-version:
+        description: 'Go version to use'
+        required: false
+        default: '1.25'
+        type: string
+      eventgen-version:
+        description: 'eventgen version to use'
+        required: false
+        default: 'latest'
+        type: string
+      check-diff:
+        description: 'Fail if generated code differs from committed code'
+        required: false
+        default: true
+        type: boolean
+
+jobs:
+  generate:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: ${{ inputs.go-version }}
+
+      - name: Install avrogen
+        run: go install github.com/hamba/avro/v2/cmd/avrogen@latest
+
+      - name: Install eventgen
+        run: go install github.com/Sokol111/ecommerce-commons/cmd/eventgen@${{ inputs.eventgen-version }}
+
+      - name: Generate event code
+        run: |
+          ARGS="--payloads ${{ inputs.payloads-dir }} --output ${{ inputs.output-dir }} --package ${{ inputs.package-name }} --verbose"
+          
+          if [ -n "${{ inputs.asyncapi-file }}" ]; then
+            ARGS="$ARGS --asyncapi ${{ inputs.asyncapi-file }}"
+          fi
+          
+          eventgen generate $ARGS
+
+      - name: Check for differences
+        if: ${{ inputs.check-diff }}
+        run: |
+          if ! git diff --exit-code; then
+            echo "::error::Generated code differs from committed code. Please run 'make generate-events' locally and commit the changes."
+            exit 1
+          fi
+
+      - name: Upload generated code
+        uses: actions/upload-artifact@v4
+        with:
+          name: generated-events
+          path: ${{ inputs.output-dir }}

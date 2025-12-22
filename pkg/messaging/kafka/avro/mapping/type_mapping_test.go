@@ -88,7 +88,7 @@ func TestTypeMapping_Register_Success(t *testing.T) {
 	assert.Equal(t, goType, binding.GoType)
 	assert.Equal(t, "ecommerce.product.ProductCreated", binding.SchemaName)
 	assert.Equal(t, "product-events", binding.Topic)
-	assert.NotNil(t, binding.ParsedSchema)
+	assert.NotNil(t, binding.ParsedSchema())
 	assert.Equal(t, []byte(productCreatedSchema), binding.SchemaJSON)
 }
 
@@ -356,8 +356,8 @@ func TestSchemaBinding_ParsedSchemaCaching(t *testing.T) {
 
 	// Assert - Both should return the same binding with cached parsed schema
 	assert.Equal(t, binding1, binding2)
-	assert.NotNil(t, binding1.ParsedSchema)
-	assert.IsType(t, (*hambavro.RecordSchema)(nil), binding1.ParsedSchema)
+	assert.NotNil(t, binding1.ParsedSchema())
+	assert.IsType(t, (*hambavro.RecordSchema)(nil), binding1.ParsedSchema())
 }
 
 func TestTypeMapping_SchemaBinding_AllFields(t *testing.T) {
@@ -380,10 +380,10 @@ func TestTypeMapping_SchemaBinding_AllFields(t *testing.T) {
 	assert.Equal(t, schemaJSON, binding.SchemaJSON)
 	assert.Equal(t, schemaName, binding.SchemaName)
 	assert.Equal(t, topic, binding.Topic)
-	assert.NotNil(t, binding.ParsedSchema)
+	assert.NotNil(t, binding.ParsedSchema())
 
 	// Verify parsed schema details
-	namedSchema, ok := binding.ParsedSchema.(hambavro.NamedSchema)
+	namedSchema, ok := binding.ParsedSchema().(hambavro.NamedSchema)
 	assert.True(t, ok)
 	assert.Equal(t, "ProductCreated", namedSchema.Name())
 	assert.Equal(t, "ecommerce.product", namedSchema.Namespace())

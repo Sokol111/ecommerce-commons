@@ -137,7 +137,7 @@ func TestSerializer_Serialize_Success(t *testing.T) {
 	require.NoError(t, err)
 
 	mockRegistry.On("RegisterSchema", binding).Return(schemaID, nil)
-	mockEncoder.On("Encode", msg, binding.ParsedSchema).Return(avroData, nil)
+	mockEncoder.On("Encode", msg, binding.ParsedSchema()).Return(avroData, nil)
 	mockBuilder.On("Build", schemaID, avroData).Return(expectedWireFormat)
 
 	serializer := NewSerializer(tm, mockRegistry, mockEncoder, mockBuilder)
@@ -221,7 +221,7 @@ func TestSerializer_Serialize_EncoderError(t *testing.T) {
 	require.NoError(t, err)
 
 	mockRegistry.On("RegisterSchema", binding).Return(schemaID, nil)
-	mockEncoder.On("Encode", msg, binding.ParsedSchema).Return(nil, encoderError)
+	mockEncoder.On("Encode", msg, binding.ParsedSchema()).Return(nil, encoderError)
 
 	serializer := NewSerializer(tm, mockRegistry, mockEncoder, mockBuilder)
 
@@ -260,7 +260,7 @@ func TestSerializer_Serialize_MultipleMessages(t *testing.T) {
 	for _, msg := range messages {
 		avroData := []byte{0x01, 0x02, 0x03}
 		wireFormat := []byte{0x00, 0x00, 0x00, 0x00, 0x2A, 0x01, 0x02, 0x03}
-		mockEncoder.On("Encode", msg, binding.ParsedSchema).Return(avroData, nil).Once()
+		mockEncoder.On("Encode", msg, binding.ParsedSchema()).Return(avroData, nil).Once()
 		mockBuilder.On("Build", schemaID, avroData).Return(wireFormat).Once()
 	}
 
@@ -302,8 +302,8 @@ func TestSerializer_Serialize_DifferentTypes(t *testing.T) {
 	productAvroData := []byte{0x01}
 	categoryAvroData := []byte{0x02}
 
-	mockEncoder.On("Encode", product, productBinding.ParsedSchema).Return(productAvroData, nil)
-	mockEncoder.On("Encode", category, categoryBinding.ParsedSchema).Return(categoryAvroData, nil)
+	mockEncoder.On("Encode", product, productBinding.ParsedSchema()).Return(productAvroData, nil)
+	mockEncoder.On("Encode", category, categoryBinding.ParsedSchema()).Return(categoryAvroData, nil)
 
 	mockBuilder.On("Build", productSchemaID, productAvroData).Return([]byte{0x00, 0x00, 0x00, 0x00, 0x64, 0x01})
 	mockBuilder.On("Build", categorySchemaID, categoryAvroData).Return([]byte{0x00, 0x00, 0x00, 0x00, 0xC8, 0x02})
@@ -341,8 +341,8 @@ func TestSerializer_Serialize_WithPointerAndValue(t *testing.T) {
 	require.NoError(t, err)
 
 	mockRegistry.On("RegisterSchema", binding).Return(schemaID, nil)
-	mockEncoder.On("Encode", msgPointer, binding.ParsedSchema).Return([]byte{0x01}, nil)
-	mockEncoder.On("Encode", msgValue, binding.ParsedSchema).Return([]byte{0x02}, nil)
+	mockEncoder.On("Encode", msgPointer, binding.ParsedSchema()).Return([]byte{0x01}, nil)
+	mockEncoder.On("Encode", msgValue, binding.ParsedSchema()).Return([]byte{0x02}, nil)
 	mockBuilder.On("Build", schemaID, []byte{0x01}).Return([]byte{0x00, 0x00, 0x00, 0x00, 0x2A, 0x01})
 	mockBuilder.On("Build", schemaID, []byte{0x02}).Return([]byte{0x00, 0x00, 0x00, 0x00, 0x2A, 0x02})
 
@@ -411,7 +411,7 @@ func TestSerializer_Serialize_EmptyStruct(t *testing.T) {
 	require.NoError(t, err)
 
 	mockRegistry.On("RegisterSchema", binding).Return(schemaID, nil)
-	mockEncoder.On("Encode", msg, binding.ParsedSchema).Return(avroData, nil)
+	mockEncoder.On("Encode", msg, binding.ParsedSchema()).Return(avroData, nil)
 	mockBuilder.On("Build", schemaID, avroData).Return(wireFormat)
 
 	serializer := NewSerializer(tm, mockRegistry, mockEncoder, mockBuilder)
@@ -444,7 +444,7 @@ func TestSerializer_Serialize_LargeSchemaID(t *testing.T) {
 	require.NoError(t, err)
 
 	mockRegistry.On("RegisterSchema", binding).Return(schemaID, nil)
-	mockEncoder.On("Encode", msg, binding.ParsedSchema).Return(avroData, nil)
+	mockEncoder.On("Encode", msg, binding.ParsedSchema()).Return(avroData, nil)
 	mockBuilder.On("Build", schemaID, avroData).Return(wireFormat)
 
 	serializer := NewSerializer(tm, mockRegistry, mockEncoder, mockBuilder)
@@ -513,7 +513,7 @@ func TestSerializer_SerializeWithTopic_Success(t *testing.T) {
 	require.NoError(t, err)
 
 	mockRegistry.On("RegisterSchema", binding).Return(schemaID, nil)
-	mockEncoder.On("Encode", msg, binding.ParsedSchema).Return(avroData, nil)
+	mockEncoder.On("Encode", msg, binding.ParsedSchema()).Return(avroData, nil)
 	mockBuilder.On("Build", schemaID, avroData).Return(expectedWireFormat)
 
 	serializer := NewSerializer(tm, mockRegistry, mockEncoder, mockBuilder)
@@ -599,7 +599,7 @@ func TestSerializer_SerializeWithTopic_EncoderError(t *testing.T) {
 	require.NoError(t, err)
 
 	mockRegistry.On("RegisterSchema", binding).Return(schemaID, nil)
-	mockEncoder.On("Encode", msg, binding.ParsedSchema).Return(nil, encoderError)
+	mockEncoder.On("Encode", msg, binding.ParsedSchema()).Return(nil, encoderError)
 
 	serializer := NewSerializer(tm, mockRegistry, mockEncoder, mockBuilder)
 
@@ -640,8 +640,8 @@ func TestSerializer_SerializeWithTopic_DifferentTypes(t *testing.T) {
 	productAvroData := []byte{0x01}
 	categoryAvroData := []byte{0x02}
 
-	mockEncoder.On("Encode", product, productBinding.ParsedSchema).Return(productAvroData, nil)
-	mockEncoder.On("Encode", category, categoryBinding.ParsedSchema).Return(categoryAvroData, nil)
+	mockEncoder.On("Encode", product, productBinding.ParsedSchema()).Return(productAvroData, nil)
+	mockEncoder.On("Encode", category, categoryBinding.ParsedSchema()).Return(categoryAvroData, nil)
 
 	mockBuilder.On("Build", productSchemaID, productAvroData).Return([]byte{0x00, 0x00, 0x00, 0x00, 0x64, 0x01})
 	mockBuilder.On("Build", categorySchemaID, categoryAvroData).Return([]byte{0x00, 0x00, 0x00, 0x00, 0xC8, 0x02})
@@ -682,7 +682,7 @@ func TestSerializer_Serialize_DelegatesToSerializeWithTopic(t *testing.T) {
 	require.NoError(t, err)
 
 	mockRegistry.On("RegisterSchema", binding).Return(schemaID, nil)
-	mockEncoder.On("Encode", msg, binding.ParsedSchema).Return(avroData, nil)
+	mockEncoder.On("Encode", msg, binding.ParsedSchema()).Return(avroData, nil)
 	mockBuilder.On("Build", schemaID, avroData).Return(expectedWireFormat)
 
 	serializer := NewSerializer(tm, mockRegistry, mockEncoder, mockBuilder)
@@ -696,7 +696,7 @@ func TestSerializer_Serialize_DelegatesToSerializeWithTopic(t *testing.T) {
 	mockBuilder2 := new(MockWireFormatBuilder)
 
 	mockRegistry2.On("RegisterSchema", binding).Return(schemaID, nil)
-	mockEncoder2.On("Encode", msg, binding.ParsedSchema).Return(avroData, nil)
+	mockEncoder2.On("Encode", msg, binding.ParsedSchema()).Return(avroData, nil)
 	mockBuilder2.On("Build", schemaID, avroData).Return(expectedWireFormat)
 
 	serializer2 := NewSerializer(tm, mockRegistry2, mockEncoder2, mockBuilder2)

@@ -1,0 +1,139 @@
+{
+  "doc": "Event envelope for ProductCreated",
+  "fields": [
+    {
+      "doc": "Event metadata containing technical and observability fields",
+      "name": "metadata",
+      "type": {
+        "doc": "Common event metadata used by all domain events. Contains technical/observability fields separate from business payload.",
+        "fields": [
+          {
+            "name": "event_id",
+            "type": "string",
+            "doc": "Unique event identifier (UUID)"
+          },
+          {
+            "name": "event_type",
+            "type": "string",
+            "doc": "Type of the event (e.g., ProductCreated, ProductUpdated)"
+          },
+          {
+            "name": "source",
+            "type": "string",
+            "doc": "Source service that produced the event"
+          },
+          {
+            "name": "timestamp",
+            "type": {
+              "logicalType": "timestamp-millis",
+              "type": "long"
+            },
+            "doc": "Event creation timestamp in milliseconds since epoch"
+          },
+          {
+            "name": "trace_id",
+            "type": [
+              "null",
+              "string"
+            ],
+            "doc": "OpenTelemetry trace ID for distributed tracing"
+          },
+          {
+            "name": "correlation_id",
+            "type": [
+              "null",
+              "string"
+            ],
+            "doc": "Correlation ID for request tracking across services"
+          }
+        ],
+        "name": "EventMetadata",
+        "type": "record"
+      }
+    },
+    {
+      "doc": "Business data for product created event",
+      "name": "payload",
+      "type": {
+        "doc": "Business data for product creation event",
+        "fields": [
+          {
+            "name": "product_id",
+            "type": "string",
+            "doc": "Unique product identifier (UUID)"
+          },
+          {
+            "name": "name",
+            "type": "string",
+            "doc": "Product name"
+          },
+          {
+            "name": "description",
+            "type": [
+              "null",
+              "string"
+            ],
+            "doc": "Optional product description"
+          },
+          {
+            "name": "price",
+            "type": "float",
+            "doc": "Product price"
+          },
+          {
+            "name": "quantity",
+            "type": "int",
+            "doc": "Available quantity"
+          },
+          {
+            "name": "image_id",
+            "type": [
+              "null",
+              "string"
+            ],
+            "doc": "Optional image identifier"
+          },
+          {
+            "name": "category_id",
+            "type": [
+              "null",
+              "string"
+            ],
+            "doc": "Optional category identifier (UUID)"
+          },
+          {
+            "name": "enabled",
+            "type": "boolean",
+            "doc": "Whether the product is enabled"
+          },
+          {
+            "name": "version",
+            "type": "int",
+            "doc": "Entity version for optimistic locking"
+          },
+          {
+            "name": "created_at",
+            "type": {
+              "logicalType": "timestamp-millis",
+              "type": "long"
+            },
+            "doc": "Product creation timestamp"
+          },
+          {
+            "name": "modified_at",
+            "type": {
+              "logicalType": "timestamp-millis",
+              "type": "long"
+            },
+            "doc": "Product last modification timestamp"
+          }
+        ],
+        "name": "ProductCreatedPayload",
+        "type": "record"
+      }
+    }
+  ],
+  "name": "ProductCreatedEvent",
+  "namespace": "com.ecommerce.events.product",
+  "type": "record"
+}

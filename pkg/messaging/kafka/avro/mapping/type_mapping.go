@@ -17,8 +17,13 @@ type SchemaBinding struct {
 	SchemaName string
 	// Topic is the Kafka topic this schema is associated with
 	Topic string
-	// ParsedSchema is the parsed Avro schema (cached for performance)
-	ParsedSchema hambavro.Schema
+	// parsedSchema is the parsed Avro schema (cached for performance, populated by RegisterBinding)
+	parsedSchema hambavro.Schema
+}
+
+// ParsedSchema returns the cached parsed Avro schema.
+func (b *SchemaBinding) ParsedSchema() hambavro.Schema {
+	return b.parsedSchema
 }
 
 // TypeMapping is a local registry for mapping between Go types, Avro schemas, and Kafka topics.
@@ -39,38 +44,14 @@ func NewTypeMapping() *TypeMapping {
 
 // Register adds a schema binding to the type mapping.
 // This registers the binding for both serialization (by Go type) and deserialization (by schema name).
+// Deprecated: Use RegisterBinding instead.
 func (tm *TypeMapping) Register(goType reflect.Type, schemaJSON []byte, schemaName string, topic string) error {
-	if goType == nil {
-		return fmt.Errorf("goType cannot be nil")
-	}
-	if len(schemaJSON) == 0 {
-		return fmt.Errorf("schemaJSON cannot be empty")
-	}
-	if schemaName == "" {
-		return fmt.Errorf("schemaName cannot be empty")
-	}
-	if topic == "" {
-		return fmt.Errorf("topic cannot be empty")
-	}
-
-	// Parse Avro schema immediately to validate and cache it
-	parsedSchema, err := hambavro.Parse(string(schemaJSON))
-	if err != nil {
-		return fmt.Errorf("failed to parse Avro schema: %w", err)
-	}
-
-	binding := &SchemaBinding{
-		GoType:       goType,
-		SchemaJSON:   schemaJSON,
-		SchemaName:   schemaName,
-		Topic:        topic,
-		ParsedSchema: parsedSchema,
-	}
-
-	tm.typeToBinding[goType] = binding
-	tm.nameToBinding[schemaName] = binding
-
-	return nil
+	return tm.RegisterBinding(SchemaBinding{
+		GoType:     goType,
+		SchemaJSON: schemaJSON,
+		SchemaName: schemaName,
+		Topic:      topic,
+	})
 }
 
 // GetByType returns schema binding by Go type (used for serialization).
@@ -108,4 +89,53 @@ func (tm *TypeMapping) GetAllBindings() []*SchemaBinding {
 		bindings = append(bindings, binding)
 	}
 	return bindings
+}
+
+// RegisterBinding adds a SchemaBinding to the type mapping.
+// ParsedSchema will be populated automatically if not set.
+func (tm *TypeMapping) RegisterBinding(b SchemaBinding) error {
+	if b.GoType == nil {
+		return fmt.Errorf("goType cannot be nil")
+	}
+	if len(b.SchemaJSON) == 0 {
+		return fmt.Errorf("schemaJSON cannot be empty")
+	}
+	if b.SchemaName == "" {
+		return fmt.Errorf("schemaName cannot be empty")
+	}
+	if b.Topic == "" {
+		return fmt.Errorf("topic cannot be empty")
+	}
+
+	// Parse Avro schema
+	parsedSchema, err := hambavro.Parse(string(b.SchemaJSON))
+	if err != nil {
+		return fmt.Errorf("failed to parse Avro schema: %w", err)
+	}
+
+	binding := &SchemaBinding{
+		GoType:       b.GoType,
+		SchemaJSON:   b.SchemaJSON,
+		SchemaName:   b.SchemaName,
+		Topic:        b.Topic,
+		parsedSchema: parsedSchema,
+	}
+
+	tm.typeToBinding[b.GoType] = binding
+	tm.nameToBinding[b.SchemaName] = binding
+
+	return nil
+}
+
+// RegisterBindings registers multiple SchemaBindings at once.
+// This is useful for registering all generated event schemas:
+//
+//	typeMapping.RegisterBindings(events.SchemaBindings)
+func (tm *TypeMapping) RegisterBindings(bindings []SchemaBinding) error {
+	for _, b := range bindings {
+		if err := tm.RegisterBinding(b); err != nil {
+			return err
+		}
+	}
+	return nil
 }

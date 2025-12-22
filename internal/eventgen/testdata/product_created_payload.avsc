@@ -1,0 +1,72 @@
+{
+  "type": "record",
+  "name": "ProductCreatedPayload",
+  "namespace": "com.ecommerce.events.product",
+  "doc": "Business data for product creation event",
+  "fields": [
+    {
+      "name": "product_id",
+      "type": "string",
+      "doc": "Unique product identifier (UUID)"
+    },
+    {
+      "name": "name",
+      "type": "string",
+      "doc": "Product name"
+    },
+    {
+      "name": "description",
+      "type": ["null", "string"],
+      "default": null,
+      "doc": "Optional product description"
+    },
+    {
+      "name": "price",
+      "type": "float",
+      "doc": "Product price"
+    },
+    {
+      "name": "quantity",
+      "type": "int",
+      "doc": "Available quantity"
+    },
+    {
+      "name": "image_id",
+      "type": ["null", "string"],
+      "default": null,
+      "doc": "Optional image identifier"
+    },
+    {
+      "name": "category_id",
+      "type": ["null", "string"],
+      "default": null,
+      "doc": "Optional category identifier (UUID)"
+    },
+    {
+      "name": "enabled",
+      "type": "boolean",
+      "doc": "Whether the product is enabled"
+    },
+    {
+      "name": "version",
+      "type": "int",
+      "doc": "Entity version for optimistic locking"
+    },
+    {
+      "name": "created_at",
+      "type": {
+        "type": "long",
+        "logicalType": "timestamp-millis"
+      },
+      "doc": "Product creation timestamp"
+    },
+    {
+      "name": "modified_at",
+      "type": {
+        "type": "long",
+        "logicalType": "timestamp-millis"
+      },
+      "doc": "Product last modification timestamp"
+    }
+  ]
+}

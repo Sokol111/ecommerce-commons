@@ -1,0 +1,43 @@
+{
+  "type": "record",
+  "name": "EventMetadata",
+  "namespace": "com.ecommerce.events",
+  "doc": "Common event metadata used by all domain events. Contains technical/observability fields separate from business payload.",
+  "fields": [
+    {
+      "name": "event_id",
+      "type": "string",
+      "doc": "Unique event identifier (UUID)"
+    },
+    {
+      "name": "event_type",
+      "type": "string",
+      "doc": "Type of the event (e.g., ProductCreated, ProductUpdated)"
+    },
+    {
+      "name": "source",
+      "type": "string",
+      "doc": "Source service that produced the event"
+    },
+    {
+      "name": "timestamp",
+      "type": {
+        "type": "long",
+        "logicalType": "timestamp-millis"
+      },
+      "doc": "Event creation timestamp in milliseconds since epoch"
+    },
+    {
+      "name": "trace_id",
+      "type": ["null", "string"],
+      "default": null,
+      "doc": "OpenTelemetry trace ID for distributed tracing"
+    },
+    {
+      "name": "correlation_id",
+      "type": ["null", "string"],
+      "default": null,
+      "doc": "Correlation ID for request tracking across services"
+    }
+  ]
+}

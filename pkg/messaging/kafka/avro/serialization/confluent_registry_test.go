@@ -63,28 +63,28 @@ const (
 func createConfluentTestTypeMapping(t *testing.T) *mapping.TypeMapping {
 	tm := mapping.NewTypeMapping()
 
-	err := tm.Register(
-		reflect.TypeOf(ProductEvent{}),
-		[]byte(productEventSchema),
-		"ecommerce.product.ProductEvent",
-		"product-events",
-	)
+	err := tm.RegisterBinding(mapping.SchemaBinding{
+		GoType:     reflect.TypeOf(ProductEvent{}),
+		SchemaJSON: []byte(productEventSchema),
+		SchemaName: "ecommerce.product.ProductEvent",
+		Topic:      "product-events",
+	})
 	require.NoError(t, err)
 
-	err = tm.Register(
-		reflect.TypeOf(CategoryEvent{}),
-		[]byte(categoryEventSchema),
-		"ecommerce.category.CategoryEvent",
-		"category-events",
-	)
+	err = tm.RegisterBinding(mapping.SchemaBinding{
+		GoType:     reflect.TypeOf(CategoryEvent{}),
+		SchemaJSON: []byte(categoryEventSchema),
+		SchemaName: "ecommerce.category.CategoryEvent",
+		Topic:      "category-events",
+	})
 	require.NoError(t, err)
 
-	err = tm.Register(
-		reflect.TypeOf(OrderEvent{}),
-		[]byte(orderEventSchema),
-		"ecommerce.order.OrderEvent",
-		"order-events",
-	)
+	err = tm.RegisterBinding(mapping.SchemaBinding{
+		GoType:     reflect.TypeOf(OrderEvent{}),
+		SchemaJSON: []byte(orderEventSchema),
+		SchemaName: "ecommerce.order.OrderEvent",
+		Topic:      "order-events",
+	})
 	require.NoError(t, err)
 
 	return tm
@@ -333,22 +333,22 @@ func TestConfluentRegistry_RegisterSchema_WithDifferentTopicsSameSchema(t *testi
 	tm := mapping.NewTypeMapping()
 
 	// Register same schema for different topics
-	err = tm.Register(
-		reflect.TypeOf(ProductEvent{}),
-		[]byte(productEventSchema),
-		"ecommerce.product.ProductEvent",
-		"product-events-v1",
-	)
+	err = tm.RegisterBinding(mapping.SchemaBinding{
+		GoType:     reflect.TypeOf(ProductEvent{}),
+		SchemaJSON: []byte(productEventSchema),
+		SchemaName: "ecommerce.product.ProductEvent",
+		Topic:      "product-events-v1",
+	})
 	require.NoError(t, err)
 
 	// Create a second type mapping with different topic
 	tm2 := mapping.NewTypeMapping()
-	err = tm2.Register(
-		reflect.TypeOf(ProductEvent{}),
-		[]byte(productEventSchema),
-		"ecommerce.product.ProductEvent",
-		"product-events-v2",
-	)
+	err = tm2.RegisterBinding(mapping.SchemaBinding{
+		GoType:     reflect.TypeOf(ProductEvent{}),
+		SchemaJSON: []byte(productEventSchema),
+		SchemaName: "ecommerce.product.ProductEvent",
+		Topic:      "product-events-v2",
+	})
 	require.NoError(t, err)
 
 	registry := NewConfluentRegistry(client, tm)

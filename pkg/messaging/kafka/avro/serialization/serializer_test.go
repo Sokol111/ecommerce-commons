@@ -87,20 +87,20 @@ func (m *MockWireFormatBuilder) Build(schemaID int, payload []byte) []byte {
 func createTestTypeMapping(t *testing.T) *mapping.TypeMapping {
 	tm := mapping.NewTypeMapping()
 
-	err := tm.Register(
-		reflect.TypeOf(TestProduct{}),
-		[]byte(testProductSchema),
-		"test.TestProduct",
-		"test-product-events",
-	)
+	err := tm.RegisterBinding(mapping.SchemaBinding{
+		GoType:     reflect.TypeOf(TestProduct{}),
+		SchemaJSON: []byte(testProductSchema),
+		SchemaName: "test.TestProduct",
+		Topic:      "test-product-events",
+	})
 	require.NoError(t, err)
 
-	err = tm.Register(
-		reflect.TypeOf(TestCategory{}),
-		[]byte(testCategorySchema),
-		"test.TestCategory",
-		"test-category-events",
-	)
+	err = tm.RegisterBinding(mapping.SchemaBinding{
+		GoType:     reflect.TypeOf(TestCategory{}),
+		SchemaJSON: []byte(testCategorySchema),
+		SchemaName: "test.TestCategory",
+		Topic:      "test-category-events",
+	})
 	require.NoError(t, err)
 
 	return tm

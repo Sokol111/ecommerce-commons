@@ -67,13 +67,18 @@ func TestNewTypeMapping(t *testing.T) {
 	assert.Empty(t, tm.nameToBinding)
 }
 
-func TestTypeMapping_Register_Success(t *testing.T) {
+func TestTypeMapping_RegisterBinding_Success(t *testing.T) {
 	// Arrange
 	tm := NewTypeMapping()
 	goType := reflect.TypeOf(ProductCreated{})
 
 	// Act
-	err := tm.Register(goType, []byte(productCreatedSchema), "ecommerce.product.ProductCreated", "product-events")
+	err := tm.RegisterBinding(SchemaBinding{
+		GoType:     goType,
+		SchemaJSON: []byte(productCreatedSchema),
+		SchemaName: "ecommerce.product.ProductCreated",
+		Topic:      "product-events",
+	})
 
 	// Assert
 	require.NoError(t, err)
@@ -92,12 +97,17 @@ func TestTypeMapping_Register_Success(t *testing.T) {
 	assert.Equal(t, []byte(productCreatedSchema), binding.SchemaJSON)
 }
 
-func TestTypeMapping_Register_NilGoType(t *testing.T) {
+func TestTypeMapping_RegisterBinding_NilGoType(t *testing.T) {
 	// Arrange
 	tm := NewTypeMapping()
 
 	// Act
-	err := tm.Register(nil, []byte(productCreatedSchema), "ecommerce.product.ProductCreated", "product-events")
+	err := tm.RegisterBinding(SchemaBinding{
+		GoType:     nil,
+		SchemaJSON: []byte(productCreatedSchema),
+		SchemaName: "ecommerce.product.ProductCreated",
+		Topic:      "product-events",
+	})
 
 	// Assert
 	assert.Error(t, err)
@@ -106,13 +116,18 @@ func TestTypeMapping_Register_NilGoType(t *testing.T) {
 	assert.Empty(t, tm.nameToBinding)
 }
 
-func TestTypeMapping_Register_EmptySchemaJSON(t *testing.T) {
+func TestTypeMapping_RegisterBinding_EmptySchemaJSON(t *testing.T) {
 	// Arrange
 	tm := NewTypeMapping()
 	goType := reflect.TypeOf(ProductCreated{})
 
 	// Act
-	err := tm.Register(goType, []byte{}, "ecommerce.product.ProductCreated", "product-events")
+	err := tm.RegisterBinding(SchemaBinding{
+		GoType:     goType,
+		SchemaJSON: []byte{},
+		SchemaName: "ecommerce.product.ProductCreated",
+		Topic:      "product-events",
+	})
 
 	// Assert
 	assert.Error(t, err)
@@ -121,13 +136,18 @@ func TestTypeMapping_Register_EmptySchemaJSON(t *testing.T) {
 	assert.Empty(t, tm.nameToBinding)
 }
 
-func TestTypeMapping_Register_EmptySchemaName(t *testing.T) {
+func TestTypeMapping_RegisterBinding_EmptySchemaName(t *testing.T) {
 	// Arrange
 	tm := NewTypeMapping()
 	goType := reflect.TypeOf(ProductCreated{})
 
 	// Act
-	err := tm.Register(goType, []byte(productCreatedSchema), "", "product-events")
+	err := tm.RegisterBinding(SchemaBinding{
+		GoType:     goType,
+		SchemaJSON: []byte(productCreatedSchema),
+		SchemaName: "",
+		Topic:      "product-events",
+	})
 
 	// Assert
 	assert.Error(t, err)
@@ -136,13 +156,18 @@ func TestTypeMapping_Register_EmptySchemaName(t *testing.T) {
 	assert.Empty(t, tm.nameToBinding)
 }
 
-func TestTypeMapping_Register_EmptyTopic(t *testing.T) {
+func TestTypeMapping_RegisterBinding_EmptyTopic(t *testing.T) {
 	// Arrange
 	tm := NewTypeMapping()
 	goType := reflect.TypeOf(ProductCreated{})
 
 	// Act
-	err := tm.Register(goType, []byte(productCreatedSchema), "ecommerce.product.ProductCreated", "")
+	err := tm.RegisterBinding(SchemaBinding{
+		GoType:     goType,
+		SchemaJSON: []byte(productCreatedSchema),
+		SchemaName: "ecommerce.product.ProductCreated",
+		Topic:      "",
+	})
 
 	// Assert
 	assert.Error(t, err)
@@ -151,13 +176,18 @@ func TestTypeMapping_Register_EmptyTopic(t *testing.T) {
 	assert.Empty(t, tm.nameToBinding)
 }
 
-func TestTypeMapping_Register_InvalidSchemaJSON(t *testing.T) {
+func TestTypeMapping_RegisterBinding_InvalidSchemaJSON(t *testing.T) {
 	// Arrange
 	tm := NewTypeMapping()
 	goType := reflect.TypeOf(ProductCreated{})
 
 	// Act
-	err := tm.Register(goType, []byte(invalidSchema), "ecommerce.product.ProductCreated", "product-events")
+	err := tm.RegisterBinding(SchemaBinding{
+		GoType:     goType,
+		SchemaJSON: []byte(invalidSchema),
+		SchemaName: "ecommerce.product.ProductCreated",
+		Topic:      "product-events",
+	})
 
 	// Assert
 	assert.Error(t, err)
@@ -166,29 +196,29 @@ func TestTypeMapping_Register_InvalidSchemaJSON(t *testing.T) {
 	assert.Empty(t, tm.nameToBinding)
 }
 
-func TestTypeMapping_Register_MultipleSchemas(t *testing.T) {
+func TestTypeMapping_RegisterBinding_MultipleSchemas(t *testing.T) {
 	// Arrange
 	tm := NewTypeMapping()
 
 	// Act - Register multiple schemas
-	err1 := tm.Register(
-		reflect.TypeOf(ProductCreated{}),
-		[]byte(productCreatedSchema),
-		"ecommerce.product.ProductCreated",
-		"product-events",
-	)
-	err2 := tm.Register(
-		reflect.TypeOf(CategoryCreated{}),
-		[]byte(categoryCreatedSchema),
-		"ecommerce.category.CategoryCreated",
-		"category-events",
-	)
-	err3 := tm.Register(
-		reflect.TypeOf(OrderPlaced{}),
-		[]byte(orderPlacedSchema),
-		"ecommerce.order.OrderPlaced",
-		"order-events",
-	)
+	err1 := tm.RegisterBinding(SchemaBinding{
+		GoType:     reflect.TypeOf(ProductCreated{}),
+		SchemaJSON: []byte(productCreatedSchema),
+		SchemaName: "ecommerce.product.ProductCreated",
+		Topic:      "product-events",
+	})
+	err2 := tm.RegisterBinding(SchemaBinding{
+		GoType:     reflect.TypeOf(CategoryCreated{}),
+		SchemaJSON: []byte(categoryCreatedSchema),
+		SchemaName: "ecommerce.category.CategoryCreated",
+		Topic:      "category-events",
+	})
+	err3 := tm.RegisterBinding(SchemaBinding{
+		GoType:     reflect.TypeOf(OrderPlaced{}),
+		SchemaJSON: []byte(orderPlacedSchema),
+		SchemaName: "ecommerce.order.OrderPlaced",
+		Topic:      "order-events",
+	})
 
 	// Assert
 	require.NoError(t, err1)
@@ -203,7 +233,12 @@ func TestTypeMapping_GetByType_Success(t *testing.T) {
 	// Arrange
 	tm := NewTypeMapping()
 	goType := reflect.TypeOf(ProductCreated{})
-	err := tm.Register(goType, []byte(productCreatedSchema), "ecommerce.product.ProductCreated", "product-events")
+	err := tm.RegisterBinding(SchemaBinding{
+		GoType:     goType,
+		SchemaJSON: []byte(productCreatedSchema),
+		SchemaName: "ecommerce.product.ProductCreated",
+		Topic:      "product-events",
+	})
 	require.NoError(t, err)
 
 	// Act
@@ -236,7 +271,12 @@ func TestTypeMapping_GetByValue_Success(t *testing.T) {
 	// Arrange
 	tm := NewTypeMapping()
 	goType := reflect.TypeOf(ProductCreated{})
-	err := tm.Register(goType, []byte(productCreatedSchema), "ecommerce.product.ProductCreated", "product-events")
+	err := tm.RegisterBinding(SchemaBinding{
+		GoType:     goType,
+		SchemaJSON: []byte(productCreatedSchema),
+		SchemaName: "ecommerce.product.ProductCreated",
+		Topic:      "product-events",
+	})
 	require.NoError(t, err)
 
 	// Act - Test with value (not pointer)
@@ -253,7 +293,12 @@ func TestTypeMapping_GetByValue_Pointer(t *testing.T) {
 	// Arrange
 	tm := NewTypeMapping()
 	goType := reflect.TypeOf(ProductCreated{})
-	err := tm.Register(goType, []byte(productCreatedSchema), "ecommerce.product.ProductCreated", "product-events")
+	err := tm.RegisterBinding(SchemaBinding{
+		GoType:     goType,
+		SchemaJSON: []byte(productCreatedSchema),
+		SchemaName: "ecommerce.product.ProductCreated",
+		Topic:      "product-events",
+	})
 	require.NoError(t, err)
 
 	// Act - Test with pointer
@@ -270,7 +315,12 @@ func TestTypeMapping_GetBySchemaName_Success(t *testing.T) {
 	// Arrange
 	tm := NewTypeMapping()
 	goType := reflect.TypeOf(ProductCreated{})
-	err := tm.Register(goType, []byte(productCreatedSchema), "ecommerce.product.ProductCreated", "product-events")
+	err := tm.RegisterBinding(SchemaBinding{
+		GoType:     goType,
+		SchemaJSON: []byte(productCreatedSchema),
+		SchemaName: "ecommerce.product.ProductCreated",
+		Topic:      "product-events",
+	})
 	require.NoError(t, err)
 
 	// Act
@@ -313,18 +363,18 @@ func TestTypeMapping_GetAllBindings_Multiple(t *testing.T) {
 	// Arrange
 	tm := NewTypeMapping()
 
-	err1 := tm.Register(
-		reflect.TypeOf(ProductCreated{}),
-		[]byte(productCreatedSchema),
-		"ecommerce.product.ProductCreated",
-		"product-events",
-	)
-	err2 := tm.Register(
-		reflect.TypeOf(CategoryCreated{}),
-		[]byte(categoryCreatedSchema),
-		"ecommerce.category.CategoryCreated",
-		"category-events",
-	)
+	err1 := tm.RegisterBinding(SchemaBinding{
+		GoType:     reflect.TypeOf(ProductCreated{}),
+		SchemaJSON: []byte(productCreatedSchema),
+		SchemaName: "ecommerce.product.ProductCreated",
+		Topic:      "product-events",
+	})
+	err2 := tm.RegisterBinding(SchemaBinding{
+		GoType:     reflect.TypeOf(CategoryCreated{}),
+		SchemaJSON: []byte(categoryCreatedSchema),
+		SchemaName: "ecommerce.category.CategoryCreated",
+		Topic:      "category-events",
+	})
 	require.NoError(t, err1)
 	require.NoError(t, err2)
 
@@ -347,7 +397,12 @@ func TestSchemaBinding_ParsedSchemaCaching(t *testing.T) {
 	// Arrange
 	tm := NewTypeMapping()
 	goType := reflect.TypeOf(ProductCreated{})
-	err := tm.Register(goType, []byte(productCreatedSchema), "ecommerce.product.ProductCreated", "product-events")
+	err := tm.RegisterBinding(SchemaBinding{
+		GoType:     goType,
+		SchemaJSON: []byte(productCreatedSchema),
+		SchemaName: "ecommerce.product.ProductCreated",
+		Topic:      "product-events",
+	})
 	require.NoError(t, err)
 
 	// Act
@@ -369,7 +424,12 @@ func TestTypeMapping_SchemaBinding_AllFields(t *testing.T) {
 	topic := "product-events"
 
 	// Act
-	err := tm.Register(goType, schemaJSON, schemaName, topic)
+	err := tm.RegisterBinding(SchemaBinding{
+		GoType:     goType,
+		SchemaJSON: schemaJSON,
+		SchemaName: schemaName,
+		Topic:      topic,
+	})
 	require.NoError(t, err)
 
 	binding, err := tm.GetByType(goType)

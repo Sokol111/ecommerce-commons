@@ -42,18 +42,6 @@ func NewTypeMapping() *TypeMapping {
 	}
 }
 
-// Register adds a schema binding to the type mapping.
-// This registers the binding for both serialization (by Go type) and deserialization (by schema name).
-// Deprecated: Use RegisterBinding instead.
-func (tm *TypeMapping) Register(goType reflect.Type, schemaJSON []byte, schemaName string, topic string) error {
-	return tm.RegisterBinding(SchemaBinding{
-		GoType:     goType,
-		SchemaJSON: schemaJSON,
-		SchemaName: schemaName,
-		Topic:      topic,
-	})
-}
-
 // GetByType returns schema binding by Go type (used for serialization).
 func (tm *TypeMapping) GetByType(goType reflect.Type) (*SchemaBinding, error) {
 	binding, ok := tm.typeToBinding[goType]

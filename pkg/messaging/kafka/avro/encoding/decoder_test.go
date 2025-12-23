@@ -25,12 +25,12 @@ func TestNewHambaDecoder(t *testing.T) {
 func TestDecoder_Decode_Success(t *testing.T) {
 	// Arrange
 	tm := mapping.NewTypeMapping()
-	err := tm.Register(
-		reflect.TypeOf(TestProduct{}),
-		[]byte(testProductSchema),
-		"test.TestProduct",
-		"test-topic",
-	)
+	err := tm.RegisterBinding(mapping.SchemaBinding{
+		GoType:     reflect.TypeOf(TestProduct{}),
+		SchemaJSON: []byte(testProductSchema),
+		SchemaName: "test.TestProduct",
+		Topic:      "test-topic",
+	})
 	require.NoError(t, err)
 
 	decoder := NewHambaDecoder(tm)
@@ -78,12 +78,12 @@ func TestDecoder_Decode_SchemaNotRegistered(t *testing.T) {
 func TestDecoder_Decode_InvalidPayload(t *testing.T) {
 	// Arrange
 	tm := mapping.NewTypeMapping()
-	err := tm.Register(
-		reflect.TypeOf(TestProduct{}),
-		[]byte(testProductSchema),
-		"test.TestProduct",
-		"test-topic",
-	)
+	err := tm.RegisterBinding(mapping.SchemaBinding{
+		GoType:     reflect.TypeOf(TestProduct{}),
+		SchemaJSON: []byte(testProductSchema),
+		SchemaName: "test.TestProduct",
+		Topic:      "test-topic",
+	})
 	require.NoError(t, err)
 
 	decoder := NewHambaDecoder(tm)
@@ -105,12 +105,12 @@ func TestDecoder_Decode_InvalidPayload(t *testing.T) {
 func TestDecoder_Decode_CorruptedSchema(t *testing.T) {
 	// Arrange
 	tm := mapping.NewTypeMapping()
-	err := tm.Register(
-		reflect.TypeOf(TestProduct{}),
-		[]byte(testProductSchema),
-		"test.TestProduct",
-		"test-topic",
-	)
+	err := tm.RegisterBinding(mapping.SchemaBinding{
+		GoType:     reflect.TypeOf(TestProduct{}),
+		SchemaJSON: []byte(testProductSchema),
+		SchemaName: "test.TestProduct",
+		Topic:      "test-topic",
+	})
 	require.NoError(t, err)
 
 	// Corrupt schema
@@ -125,12 +125,12 @@ func TestDecoder_Decode_CorruptedSchema(t *testing.T) {
 func TestDecoder_Decode_EmptyPayload(t *testing.T) {
 	// Arrange
 	tm := mapping.NewTypeMapping()
-	err := tm.Register(
-		reflect.TypeOf(TestProduct{}),
-		[]byte(testProductSchema),
-		"test.TestProduct",
-		"test-topic",
-	)
+	err := tm.RegisterBinding(mapping.SchemaBinding{
+		GoType:     reflect.TypeOf(TestProduct{}),
+		SchemaJSON: []byte(testProductSchema),
+		SchemaName: "test.TestProduct",
+		Topic:      "test-topic",
+	})
 	require.NoError(t, err)
 
 	decoder := NewHambaDecoder(tm)
@@ -150,20 +150,20 @@ func TestDecoder_Decode_DifferentSchemas(t *testing.T) {
 	tm := mapping.NewTypeMapping()
 
 	// Register both schemas
-	err := tm.Register(
-		reflect.TypeOf(TestProduct{}),
-		[]byte(testProductSchema),
-		"test.TestProduct",
-		"test-topic",
-	)
+	err := tm.RegisterBinding(mapping.SchemaBinding{
+		GoType:     reflect.TypeOf(TestProduct{}),
+		SchemaJSON: []byte(testProductSchema),
+		SchemaName: "test.TestProduct",
+		Topic:      "test-topic",
+	})
 	require.NoError(t, err)
 
-	err = tm.Register(
-		reflect.TypeOf(TestCategory{}),
-		[]byte(testCategorySchema),
-		"test.TestCategory",
-		"test-topic",
-	)
+	err = tm.RegisterBinding(mapping.SchemaBinding{
+		GoType:     reflect.TypeOf(TestCategory{}),
+		SchemaJSON: []byte(testCategorySchema),
+		SchemaName: "test.TestCategory",
+		Topic:      "test-topic",
+	})
 	require.NoError(t, err)
 
 	decoder := NewHambaDecoder(tm)
@@ -202,12 +202,12 @@ func TestDecoder_Decode_ReturnsPointer(t *testing.T) {
 	// Verify that decoder returns a pointer, not a value
 	// Arrange
 	tm := mapping.NewTypeMapping()
-	err := tm.Register(
-		reflect.TypeOf(TestProduct{}),
-		[]byte(testProductSchema),
-		"test.TestProduct",
-		"test-topic",
-	)
+	err := tm.RegisterBinding(mapping.SchemaBinding{
+		GoType:     reflect.TypeOf(TestProduct{}),
+		SchemaJSON: []byte(testProductSchema),
+		SchemaName: "test.TestProduct",
+		Topic:      "test-topic",
+	})
 	require.NoError(t, err)
 
 	decoder := NewHambaDecoder(tm)
@@ -244,12 +244,12 @@ func TestDecoder_Decode_SchemaEvolution(t *testing.T) {
 		ID string `avro:"id"`
 	}
 
-	err := tm.Register(
-		reflect.TypeOf(SimpleProduct{}),
-		[]byte(readerSchema),
-		"test.TestProduct",
-		"test-topic",
-	)
+	err := tm.RegisterBinding(mapping.SchemaBinding{
+		GoType:     reflect.TypeOf(SimpleProduct{}),
+		SchemaJSON: []byte(readerSchema),
+		SchemaName: "test.TestProduct",
+		Topic:      "test-topic",
+	})
 	require.NoError(t, err)
 
 	decoder := NewHambaDecoder(tm)
@@ -275,12 +275,12 @@ func TestDecoder_Decode_MultipleMessages(t *testing.T) {
 	// Test decoding multiple messages with same decoder
 	// Arrange
 	tm := mapping.NewTypeMapping()
-	err := tm.Register(
-		reflect.TypeOf(TestProduct{}),
-		[]byte(testProductSchema),
-		"test.TestProduct",
-		"test-topic",
-	)
+	err := tm.RegisterBinding(mapping.SchemaBinding{
+		GoType:     reflect.TypeOf(TestProduct{}),
+		SchemaJSON: []byte(testProductSchema),
+		SchemaName: "test.TestProduct",
+		Topic:      "test-topic",
+	})
 	require.NoError(t, err)
 
 	decoder := NewHambaDecoder(tm)
@@ -307,12 +307,12 @@ func TestDecoder_Decode_MultipleMessages(t *testing.T) {
 func TestDecoder_Decode_SpecialCharacters(t *testing.T) {
 	// Arrange
 	tm := mapping.NewTypeMapping()
-	err := tm.Register(
-		reflect.TypeOf(TestProduct{}),
-		[]byte(testProductSchema),
-		"test.TestProduct",
-		"test-topic",
-	)
+	err := tm.RegisterBinding(mapping.SchemaBinding{
+		GoType:     reflect.TypeOf(TestProduct{}),
+		SchemaJSON: []byte(testProductSchema),
+		SchemaName: "test.TestProduct",
+		Topic:      "test-topic",
+	})
 	require.NoError(t, err)
 
 	decoder := NewHambaDecoder(tm)

@@ -113,8 +113,9 @@ func loggerHandler(log *zap.Logger) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		traceID, spanID := GetTraceIDAndSpanID(c.Request.Context())
 		if traceID != "" {
-			log = log.With(zap.String("trace_id", traceID), zap.String("span_id", spanID))
-			c.Request = c.Request.WithContext(logger.With(c.Request.Context(), log))
+			// Create a new logger instance with trace fields for this request only
+			reqLog := log.With(zap.String("trace_id", traceID), zap.String("span_id", spanID))
+			c.Request = c.Request.WithContext(logger.With(c.Request.Context(), reqLog))
 		}
 		c.Next()
 	}

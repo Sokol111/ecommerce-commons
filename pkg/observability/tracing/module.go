@@ -8,9 +8,7 @@ import (
 	"github.com/Sokol111/ecommerce-commons/pkg/core/logger"
 	"github.com/Sokol111/ecommerce-commons/pkg/http/middleware"
 	otelconfig "github.com/Sokol111/ecommerce-commons/pkg/observability/config"
-	otelinternal "github.com/Sokol111/ecommerce-commons/pkg/observability/internal"
 	"github.com/gin-gonic/gin"
-	"go.opentelemetry.io/contrib/instrumentation/github.com/gin-gonic/gin/otelgin"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/propagation"
 	"go.opentelemetry.io/otel/trace"
@@ -30,6 +28,9 @@ type providerParams struct {
 
 // NewTracingModule returns fx.Option for tracing.
 // If tracing is disabled, it provides a nil TracerProvider and empty middlewares.
+//
+// Note: HTTP request tracing is handled by ogen-generated servers automatically.
+// This module only provides the TracerProvider and logger middleware for trace context propagation.
 func NewTracingModule() fx.Option {
 	return fx.Options(
 		fx.Provide(
@@ -40,15 +41,6 @@ func NewTracingModule() fx.Option {
 				}
 				return provideTracerProvider(p)
 			},
-			fx.Annotate(
-				func(appCfg appconfig.AppConfig, tp trace.TracerProvider) middleware.Middleware {
-					if tp == nil {
-						return middleware.Middleware{}
-					}
-					return provideHTTPMiddleware(appCfg, tp)
-				},
-				fx.ResultTags(`group:"gin_mw"`),
-			),
 			fx.Annotate(
 				func(log *zap.Logger, tp trace.TracerProvider) middleware.Middleware {
 					if tp == nil {
@@ -90,16 +82,6 @@ func provideTracerProvider(p providerParams) (trace.TracerProvider, error) {
 	})
 
 	return tp, nil
-}
-
-func provideHTTPMiddleware(appCfg appconfig.AppConfig, tp trace.TracerProvider) middleware.Middleware {
-	return middleware.Middleware{
-		Priority: 5,
-		Handler: otelgin.Middleware(appCfg.ServiceName,
-			otelgin.WithTracerProvider(tp),
-			otelgin.WithGinFilter(otelinternal.FilterPaths),
-		),
-	}
 }
 
 func provideLoggerMiddleware(log *zap.Logger) middleware.Middleware {

@@ -18,7 +18,9 @@ import (
 //	60 - CircuitBreaker   - protects against cascading failures
 //	70 - RateLimit        - limits requests/second
 //	80 - HTTPBulkhead     - limits concurrent requests
-//	90 - OpenAPIValidator - validates against schema
+//
+// Note: OpenAPI validation is NOT included here - use ogen-generated servers
+// which provide built-in validation with better type safety.
 func NewGinModule() fx.Option {
 	return fx.Options(
 		RecoveryModule(10),
@@ -29,7 +31,6 @@ func NewGinModule() fx.Option {
 		CircuitBreakerModule(60),
 		RateLimitModule(70),
 		HTTPBulkheadModule(80),
-		OpenAPIValidatorModule(90),
 		fx.Invoke(registerMiddlewares),
 	)
 }

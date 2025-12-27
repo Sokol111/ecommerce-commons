@@ -5,10 +5,7 @@ import (
 
 	appconfig "github.com/Sokol111/ecommerce-commons/pkg/core/config"
 	"github.com/Sokol111/ecommerce-commons/pkg/core/health"
-	"github.com/Sokol111/ecommerce-commons/pkg/http/middleware"
 	otelconfig "github.com/Sokol111/ecommerce-commons/pkg/observability/config"
-	otelinternal "github.com/Sokol111/ecommerce-commons/pkg/observability/internal"
-	"go.opentelemetry.io/contrib/instrumentation/github.com/gin-gonic/gin/otelgin"
 	otelruntime "go.opentelemetry.io/contrib/instrumentation/runtime"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/metric"
@@ -27,6 +24,9 @@ type providerParams struct {
 }
 
 // NewMetricsModule returns fx.Option for metrics.
+//
+// Note: HTTP request metrics are handled by ogen-generated servers automatically.
+// This module only provides the MeterProvider and runtime metrics.
 func NewMetricsModule() fx.Option {
 	return fx.Options(
 		fx.Provide(
@@ -37,15 +37,6 @@ func NewMetricsModule() fx.Option {
 				}
 				return provideMeterProvider(p)
 			},
-			fx.Annotate(
-				func(appCfg appconfig.AppConfig, mp metric.MeterProvider) middleware.Middleware {
-					if mp == nil {
-						return middleware.Middleware{}
-					}
-					return httpMiddleware(appCfg, mp)
-				},
-				fx.ResultTags(`group:"gin_mw"`),
-			),
 		),
 		fx.Invoke(func(metric.MeterProvider) {}),
 	)
@@ -78,14 +69,4 @@ func provideMeterProvider(p providerParams) (metric.MeterProvider, error) {
 	})
 
 	return provider, nil
-}
-
-func httpMiddleware(appCfg appconfig.AppConfig, mp metric.MeterProvider) middleware.Middleware {
-	return middleware.Middleware{
-		Priority: 6, // After tracing middleware (5)
-		Handler: otelgin.Middleware(appCfg.ServiceName,
-			otelgin.WithMeterProvider(mp),
-			otelgin.WithGinFilter(otelinternal.FilterPaths),
-		),
-	}
 }

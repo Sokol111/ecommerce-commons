@@ -12,24 +12,33 @@ permissions:
   contents: write
 
 jobs:
-  prepare:
+  release:
     runs-on: ubuntu-latest
-    outputs:
-      version: ${{ steps.version.outputs.version }}
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
-      - id: version
+      - name: Prepare version
+        id: version
         run: |
-          VERSION_INPUT=$(cat VERSION | tr -d '\n' | tr -d '\r')
-          VERSION_INPUT="v$VERSION_INPUT"
+          VERSION="v$(cat VERSION | tr -d '\n' | tr -d '\r')"
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
 
-          echo "version=$VERSION_INPUT" >> $GITHUB_OUTPUT
+      - name: Check if tag already exists
+        run: |
+          if git rev-parse "refs/tags/${{ steps.version.outputs.version }}" >/dev/null 2>&1; then
+            echo "❌ Tag ${{ steps.version.outputs.version }} already exists"
+            exit 1
+          fi
 
-          echo "Extracted version: $VERSION_INPUT"
+      - name: Create Git tag
+        run: |
+          git tag ${{ steps.version.outputs.version }}
+          git push origin ${{ steps.version.outputs.version }}
 
-  release-tag:
-    needs: prepare
-    uses: Sokol111/ecommerce-infrastructure/.github/workflows/release-tag.yml@master
-    with:
-      version: ${{ needs.prepare.outputs.version }}
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.version.outputs.version }}
+          name: Release ${{ steps.version.outputs.version }}

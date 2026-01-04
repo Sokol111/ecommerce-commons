@@ -33,21 +33,25 @@ func NewErrorHandler() ogenerrors.ErrorHandler {
 			Instance: r.URL.Path,
 		}
 
-		// Add trace ID if available
-		if sc := trace.SpanContextFromContext(ctx); sc.IsValid() {
-			problem.TraceID = sc.TraceID().String()
-		}
-
 		// Log error
-		log := logger.Get(ctx)
-		log.Error("Request error",
+		fields := []zap.Field{
 			zap.String("method", r.Method),
 			zap.String("path", r.URL.Path),
 			zap.String("query", r.URL.RawQuery),
 			zap.Int("status", code),
 			zap.String("error", err.Error()),
-			zap.Any("meta", &problem),
-		)
+		}
+
+		// Add trace ID if available
+		if sc := trace.SpanContextFromContext(ctx); sc.IsValid() {
+			problem.TraceID = sc.TraceID().String()
+			fields = append(fields,
+				zap.String("trace_id", sc.TraceID().String()),
+				zap.String("span_id", sc.SpanID().String()),
+			)
+		}
+
+		logger.Get(ctx).Error("Request error", fields...)
 
 		w.Header().Set("Content-Type", "application/problem+json")
 		w.WriteHeader(code)

@@ -3,6 +3,7 @@ package modules
 import (
 	"github.com/Sokol111/ecommerce-commons/pkg/http/health"
 	"github.com/Sokol111/ecommerce-commons/pkg/http/middleware"
+	"github.com/Sokol111/ecommerce-commons/pkg/http/problems"
 	"github.com/Sokol111/ecommerce-commons/pkg/http/server"
 	"go.uber.org/fx"
 )
@@ -12,6 +13,7 @@ import (
 func NewHTTPModule() fx.Option {
 	return fx.Options(
 		server.NewHTTPServerModule(),
+		problems.NewErrorHandlerModule(),
 		health.NewHealthRoutesModule(),
 		middleware.NewOgenMiddlewareModule(),
 	)

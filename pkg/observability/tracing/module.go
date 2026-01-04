@@ -86,7 +86,7 @@ func provideTracerProvider(p providerParams) (trace.TracerProvider, error) {
 
 func provideLoggerMiddleware(log *zap.Logger) appmiddleware.Middleware {
 	return appmiddleware.Middleware{
-		Priority: 25,
+		Priority: 15,
 		Handler:  loggerHandler(log),
 	}
 }

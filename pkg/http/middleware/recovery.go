@@ -1,29 +1,32 @@
 package middleware
 
 import (
-	"net/http"
+	"errors"
 	"runtime/debug"
 
 	"github.com/Sokol111/ecommerce-commons/pkg/core/logger"
-	"github.com/gin-gonic/gin"
+	"github.com/ogen-go/ogen/middleware"
 	"go.uber.org/fx"
 	"go.uber.org/zap"
 )
 
-// recoveryMiddleware handles panics and converts them to 500 errors.
-func recoveryMiddleware() gin.HandlerFunc {
-	return func(c *gin.Context) {
+// ErrPanic is returned when a panic is recovered.
+var ErrPanic = errors.New("internal server error")
+
+// recoveryMiddleware handles panics and converts them to errors.
+func recoveryMiddleware() middleware.Middleware {
+	return func(req middleware.Request, next middleware.Next) (resp middleware.Response, err error) {
 		defer func() {
 			if r := recover(); r != nil {
-				fields := append(requestFields(c),
+				fields := append(requestFields(req.Raw),
 					zap.Any("panic", r),
 					zap.ByteString("stack", debug.Stack()),
 				)
-				logger.Get(c).Error("Panic recovered", fields...)
-				c.AbortWithStatus(http.StatusInternalServerError)
+				logger.Get(req.Context).Error("Panic recovered", fields...)
+				err = ErrPanic
 			}
 		}()
-		c.Next()
+		return next(req)
 	}
 }
 
@@ -34,7 +37,7 @@ func RecoveryModule(priority int) fx.Option {
 			func() Middleware {
 				return Middleware{Priority: priority, Handler: recoveryMiddleware()}
 			},
-			fx.ResultTags(`group:"gin_mw"`),
+			fx.ResultTags(`group:"ogen_mw"`),
 		),
 	)
 }

@@ -1,22 +1,23 @@
 package middleware
 
 import (
-	"github.com/gin-gonic/gin"
+	"net/http"
+
+	"github.com/ogen-go/ogen/middleware"
 	"go.uber.org/zap"
 )
 
-// Middleware represents a Gin middleware with priority.
+// Middleware represents an ogen middleware with priority.
 type Middleware struct {
 	Priority int
-	Handler  gin.HandlerFunc
+	Handler  middleware.Middleware
 }
 
 // requestFields returns common request fields for logging.
-func requestFields(c *gin.Context) []zap.Field {
+func requestFields(r *http.Request) []zap.Field {
 	return []zap.Field{
-		zap.String("method", c.Request.Method),
-		zap.String("path", c.Request.URL.Path),
-		zap.String("query", c.Request.URL.RawQuery),
-		zap.String("client_ip", c.ClientIP()),
+		zap.String("method", r.Method),
+		zap.String("path", r.URL.Path),
+		zap.String("query", r.URL.RawQuery),
 	}
 }

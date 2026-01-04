@@ -2,14 +2,15 @@ package middleware
 
 import (
 	"errors"
-	"net/http"
 
-	"github.com/Sokol111/ecommerce-commons/pkg/http/problems"
 	"github.com/Sokol111/ecommerce-commons/pkg/http/server"
-	"github.com/gin-gonic/gin"
+	"github.com/ogen-go/ogen/middleware"
 	"go.uber.org/fx"
 	"golang.org/x/time/rate"
 )
+
+// ErrRateLimitExceeded is returned when rate limit is exceeded.
+var ErrRateLimitExceeded = errors.New("rate limit exceeded")
 
 // rateLimiter defines the interface for rate limiting.
 type rateLimiter interface {
@@ -17,22 +18,12 @@ type rateLimiter interface {
 }
 
 // newRateLimitMiddleware creates a rate limiting middleware.
-func newRateLimitMiddleware(limiter rateLimiter) gin.HandlerFunc {
-	return func(c *gin.Context) {
-		// Allow health checks without rate limiting
-		if c.Request.URL.Path == "/health/live" || c.Request.URL.Path == "/health/ready" {
-			c.Next()
-			return
-		}
-
-		// Check rate limit
+func newRateLimitMiddleware(limiter rateLimiter) middleware.Middleware {
+	return func(req middleware.Request, next middleware.Next) (middleware.Response, error) {
 		if !limiter.Allow() {
-			problem := problems.Problem{Detail: "rate limit exceeded, please try again later"}
-			_ = c.AbortWithError(http.StatusTooManyRequests, errors.New("rate limit exceeded")).SetMeta(problem) //nolint:errcheck // error already logged via AbortWithError
-			return
+			return middleware.Response{}, ErrRateLimitExceeded
 		}
-
-		c.Next()
+		return next(req)
 	}
 }
 
@@ -44,7 +35,7 @@ func RateLimitModule(priority int) fx.Option {
 				if !config.RateLimit.Enabled {
 					return Middleware{
 						Priority: priority,
-						Handler:  nil, // Will be skipped in newEngine
+						Handler:  nil, // Will be skipped
 					}
 				}
 				limiter := rate.NewLimiter(rate.Limit(config.RateLimit.RequestsPerSecond), config.RateLimit.Burst)
@@ -53,7 +44,7 @@ func RateLimitModule(priority int) fx.Option {
 					Handler:  newRateLimitMiddleware(limiter),
 				}
 			},
-			fx.ResultTags(`group:"gin_mw"`),
+			fx.ResultTags(`group:"ogen_mw"`),
 		),
 	)
 }

@@ -5,36 +5,30 @@ import (
 	"net/http"
 
 	"github.com/Sokol111/ecommerce-commons/pkg/core/health"
-	"github.com/gin-gonic/gin"
 	"go.uber.org/fx"
 	"go.uber.org/zap"
 )
 
 func NewHTTPServerModule() fx.Option {
 	return fx.Options(
-		fx.Provide(
-			newConfig,
-			provideGinEngine,
-		),
+		fx.Provide(newConfig),
+		fx.Provide(newServeMux),
 		fx.Invoke(startHTTPServer),
 	)
 }
 
-// provideGinEngine creates a new Gin engine instance.
-func provideGinEngine() (*gin.Engine, http.Handler, gin.IRouter) {
-	engine := gin.New(func(e *gin.Engine) {
-		e.ContextWithFallback = true
-	})
-	return engine, engine, engine
+func newServeMux() (*http.ServeMux, http.Handler) {
+	mux := http.NewServeMux()
+	return mux, mux
 }
 
-func startHTTPServer(lc fx.Lifecycle, log *zap.Logger, conf Config, engine *gin.Engine, readiness health.ComponentManager, shutdowner fx.Shutdowner) {
+func startHTTPServer(lc fx.Lifecycle, log *zap.Logger, conf Config, handler http.Handler, readiness health.ComponentManager, shutdowner fx.Shutdowner) {
 	var srv Server
 	readiness.AddComponent("http-server")
 	lc.Append(fx.Hook{
 		OnStart: func(ctx context.Context) error {
 			// Create server in OnStart - all routes are registered by now
-			srv = newServer(log, conf, engine)
+			srv = newServer(log, conf, handler)
 
 			go func() {
 				if err := srv.ServeWithReadyCallback(func() {

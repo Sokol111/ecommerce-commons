@@ -3,7 +3,6 @@ package swaggerui
 import (
 	"net/http"
 
-	"github.com/gin-gonic/gin"
 	"go.uber.org/fx"
 )
 
@@ -12,18 +11,21 @@ type SwaggerConfig struct {
 	Route          string
 }
 
-func registerSwaggerUI(router *gin.Engine, cfg SwaggerConfig) {
-	router.GET("/openapi.yaml", func(c *gin.Context) {
-		c.Data(http.StatusOK, "application/yaml", cfg.OpenAPIContent)
+func registerSwaggerUI(mux *http.ServeMux, cfg SwaggerConfig) {
+	mux.HandleFunc("/openapi.yaml", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/yaml")
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write(cfg.OpenAPIContent)
 	})
 
 	route := cfg.Route
 	if route == "" {
 		route = "/swagger"
 	}
-	router.GET(route, func(c *gin.Context) {
-		c.Header("Content-Type", "text/html")
-		c.String(http.StatusOK, `<!DOCTYPE html>
+	mux.HandleFunc(route, func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "text/html")
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte(`<!DOCTYPE html>
 <html>
 <head>
   <title>Swagger UI</title>
@@ -39,12 +41,12 @@ func registerSwaggerUI(router *gin.Engine, cfg SwaggerConfig) {
     });
   </script>
 </body>
-</html>`)
+</html>`))
 	})
 }
 
 func NewSwaggerModule(cfg SwaggerConfig) fx.Option {
-	return fx.Invoke(func(r *gin.Engine) {
-		registerSwaggerUI(r, cfg)
+	return fx.Invoke(func(mux *http.ServeMux) {
+		registerSwaggerUI(mux, cfg)
 	})
 }

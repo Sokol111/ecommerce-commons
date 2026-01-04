@@ -6,9 +6,9 @@ import (
 	appconfig "github.com/Sokol111/ecommerce-commons/pkg/core/config"
 	"github.com/Sokol111/ecommerce-commons/pkg/core/health"
 	"github.com/Sokol111/ecommerce-commons/pkg/core/logger"
-	"github.com/Sokol111/ecommerce-commons/pkg/http/middleware"
+	appmiddleware "github.com/Sokol111/ecommerce-commons/pkg/http/middleware"
 	otelconfig "github.com/Sokol111/ecommerce-commons/pkg/observability/config"
-	"github.com/gin-gonic/gin"
+	"github.com/ogen-go/ogen/middleware"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/propagation"
 	"go.opentelemetry.io/otel/trace"
@@ -42,13 +42,13 @@ func NewTracingModule() fx.Option {
 				return provideTracerProvider(p)
 			},
 			fx.Annotate(
-				func(log *zap.Logger, tp trace.TracerProvider) middleware.Middleware {
+				func(log *zap.Logger, tp trace.TracerProvider) appmiddleware.Middleware {
 					if tp == nil {
-						return middleware.Middleware{}
+						return appmiddleware.Middleware{}
 					}
 					return provideLoggerMiddleware(log)
 				},
-				fx.ResultTags(`group:"gin_mw"`),
+				fx.ResultTags(`group:"ogen_mw"`),
 			),
 		),
 		fx.Invoke(func(trace.TracerProvider) {}),
@@ -84,21 +84,21 @@ func provideTracerProvider(p providerParams) (trace.TracerProvider, error) {
 	return tp, nil
 }
 
-func provideLoggerMiddleware(log *zap.Logger) middleware.Middleware {
-	return middleware.Middleware{
+func provideLoggerMiddleware(log *zap.Logger) appmiddleware.Middleware {
+	return appmiddleware.Middleware{
 		Priority: 45,
 		Handler:  loggerHandler(log),
 	}
 }
 
-func loggerHandler(log *zap.Logger) gin.HandlerFunc {
-	return func(c *gin.Context) {
-		traceID, spanID := GetTraceIDAndSpanID(c.Request.Context())
+func loggerHandler(log *zap.Logger) middleware.Middleware {
+	return func(req middleware.Request, next middleware.Next) (middleware.Response, error) {
+		traceID, spanID := GetTraceIDAndSpanID(req.Context)
 		if traceID != "" {
 			// Create a new logger instance with trace fields for this request only
 			reqLog := log.With(zap.String("trace_id", traceID), zap.String("span_id", spanID))
-			c.Request = c.Request.WithContext(logger.With(c.Request.Context(), reqLog))
+			req.SetContext(logger.With(req.Context, reqLog))
 		}
-		c.Next()
+		return next(req)
 	}
 }

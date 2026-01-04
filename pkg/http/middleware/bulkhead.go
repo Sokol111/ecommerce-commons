@@ -2,44 +2,33 @@ package middleware
 
 import (
 	"context"
-	"fmt"
-	"net/http"
+	"errors"
 	"time"
 
-	"github.com/Sokol111/ecommerce-commons/pkg/http/problems"
 	"github.com/Sokol111/ecommerce-commons/pkg/http/server"
-	"github.com/gin-gonic/gin"
+	"github.com/ogen-go/ogen/middleware"
 	"go.uber.org/fx"
 	"go.uber.org/zap"
 	"golang.org/x/sync/semaphore"
 )
 
+// ErrBulkheadFull is returned when bulkhead is full.
+var ErrBulkheadFull = errors.New("too many concurrent requests")
+
 // newHTTPBulkheadMiddleware creates an HTTP bulkhead middleware that limits concurrent requests.
-func newHTTPBulkheadMiddleware(maxConcurrent int, timeout time.Duration) gin.HandlerFunc {
-	// Create semaphore for bulkhead
+func newHTTPBulkheadMiddleware(maxConcurrent int, timeout time.Duration) middleware.Middleware {
 	sem := semaphore.NewWeighted(int64(maxConcurrent))
 
-	return func(c *gin.Context) {
-		// Allow health checks without bulkhead
-		if c.Request.URL.Path == "/health/live" || c.Request.URL.Path == "/health/ready" {
-			c.Next()
-			return
-		}
-
-		// Create timeout context for acquiring bulkhead slot
-		ctx, cancel := context.WithTimeout(c.Request.Context(), timeout)
+	return func(req middleware.Request, next middleware.Next) (middleware.Response, error) {
+		ctx, cancel := context.WithTimeout(req.Context, timeout)
 		defer cancel()
 
-		// Try to acquire semaphore slot
 		if err := sem.Acquire(ctx, 1); err != nil {
-			problem := problems.Problem{Detail: "too many concurrent requests, please try again later"}
-			_ = c.AbortWithError(http.StatusServiceUnavailable, fmt.Errorf("bulkhead acquisition failed: %w", err)).SetMeta(problem) //nolint:errcheck // error already logged via AbortWithError
-			return
+			return middleware.Response{}, ErrBulkheadFull
 		}
 		defer sem.Release(1)
 
-		// Process request
-		c.Next()
+		return next(req)
 	}
 }
 
@@ -48,11 +37,10 @@ func HTTPBulkheadModule(priority int) fx.Option {
 	return fx.Provide(
 		fx.Annotate(
 			func(serverConfig server.Config, log *zap.Logger) Middleware {
-				// Skip if disabled
 				if !serverConfig.Bulkhead.Enabled {
 					return Middleware{
 						Priority: priority,
-						Handler:  nil, // Will be skipped in newEngine
+						Handler:  nil, // Will be skipped
 					}
 				}
 
@@ -65,7 +53,7 @@ func HTTPBulkheadModule(priority int) fx.Option {
 					Handler:  newHTTPBulkheadMiddleware(serverConfig.Bulkhead.MaxConcurrent, serverConfig.Bulkhead.Timeout),
 				}
 			},
-			fx.ResultTags(`group:"gin_mw"`),
+			fx.ResultTags(`group:"ogen_mw"`),
 		),
 	)
 }

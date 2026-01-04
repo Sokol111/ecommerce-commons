@@ -1,18 +1,20 @@
 package health
 
 import (
-	"github.com/gin-gonic/gin"
+	"net/http"
+
 	"go.uber.org/fx"
 )
 
-func NewHealthRoutesModule() fx.Option {
+// NewHealthModule registers health endpoints on the ServeMux.
+func NewHealthModule() fx.Option {
 	return fx.Options(
 		fx.Provide(newHealthHandler),
 		fx.Invoke(registerHealthRoutes),
 	)
 }
 
-func registerHealthRoutes(r *gin.Engine, handler *healthHandler) {
-	r.GET("/health/ready", handler.IsReady)
-	r.GET("/health/live", handler.IsLive)
+func registerHealthRoutes(mux *http.ServeMux, h *healthHandler) {
+	mux.HandleFunc("/health/ready", h.IsReady)
+	mux.HandleFunc("/health/live", h.IsLive)
 }

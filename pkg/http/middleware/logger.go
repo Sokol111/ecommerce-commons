@@ -4,34 +4,34 @@ import (
 	"time"
 
 	"github.com/Sokol111/ecommerce-commons/pkg/core/logger"
-	"github.com/gin-gonic/gin"
+	"github.com/ogen-go/ogen/middleware"
 	"go.uber.org/fx"
 	"go.uber.org/zap"
 )
 
 // loggerMiddleware logs incoming HTTP requests.
-func loggerMiddleware() gin.HandlerFunc {
-	return func(c *gin.Context) {
-		path := c.Request.URL.Path
-		if path == "/health/live" || path == "/health/ready" {
-			c.Next()
-			return
+func loggerMiddleware() middleware.Middleware {
+	return func(req middleware.Request, next middleware.Next) (middleware.Response, error) {
+		// Skip health checks
+		if req.OperationName == "healthLive" || req.OperationName == "healthReady" {
+			return next(req)
 		}
 
 		start := time.Now()
 
-		c.Next()
+		resp, err := next(req)
 
 		latency := time.Since(start)
-		status := c.Writer.Status()
 
-		fields := append(requestFields(c),
-			zap.Int("status", status),
+		fields := append(requestFields(req.Raw),
+			zap.String("operation", req.OperationName),
 			zap.Duration("latency", latency),
-			zap.String("user_agent", c.Request.UserAgent()),
+			zap.String("user_agent", req.Raw.UserAgent()),
 		)
 
-		logger.Get(c).Debug("Incoming request", fields...)
+		logger.Get(req.Context).Debug("Incoming request", fields...)
+
+		return resp, err
 	}
 }
 
@@ -42,7 +42,7 @@ func LoggerModule(priority int) fx.Option {
 			func() Middleware {
 				return Middleware{Priority: priority, Handler: loggerMiddleware()}
 			},
-			fx.ResultTags(`group:"gin_mw"`),
+			fx.ResultTags(`group:"ogen_mw"`),
 		),
 	)
 }

@@ -1,10 +1,10 @@
 package health
 
 import (
+	"encoding/json"
 	"net/http"
 
 	coreHealth "github.com/Sokol111/ecommerce-commons/pkg/core/health"
-	"github.com/gin-gonic/gin"
 )
 
 type healthHandler struct {
@@ -19,15 +19,17 @@ func newHealthHandler(r coreHealth.ReadinessChecker, tc coreHealth.TrafficContro
 	}
 }
 
-func (h *healthHandler) IsReady(c *gin.Context) {
+func (h *healthHandler) IsReady(w http.ResponseWriter, r *http.Request) {
 	// Support both simple text and detailed JSON responses
-	if c.Query("format") == "json" || c.GetHeader("Accept") == "application/json" {
+	if r.URL.Query().Get("format") == "json" || r.Header.Get("Accept") == "application/json" {
 		status := h.readiness.GetStatus()
+		w.Header().Set("Content-Type", "application/json")
 		if status.Ready {
-			c.JSON(http.StatusOK, status)
+			w.WriteHeader(http.StatusOK)
 		} else {
-			c.JSON(http.StatusServiceUnavailable, status)
+			w.WriteHeader(http.StatusServiceUnavailable)
 		}
+		_ = json.NewEncoder(w).Encode(status)
 		return
 	}
 
@@ -35,12 +37,15 @@ func (h *healthHandler) IsReady(c *gin.Context) {
 	if h.readiness.IsReady() {
 		// Notify that we're ready for traffic (idempotent - safe to call multiple times)
 		h.trafficControl.MarkTrafficReady()
-		c.String(http.StatusOK, "ready")
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte("ready"))
 	} else {
-		c.String(http.StatusServiceUnavailable, "not ready")
+		w.WriteHeader(http.StatusServiceUnavailable)
+		_, _ = w.Write([]byte("not ready"))
 	}
 }
 
-func (h *healthHandler) IsLive(c *gin.Context) {
-	c.String(http.StatusOK, "alive")
+func (h *healthHandler) IsLive(w http.ResponseWriter, _ *http.Request) {
+	w.WriteHeader(http.StatusOK)
+	_, _ = w.Write([]byte("alive"))
 }

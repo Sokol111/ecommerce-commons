@@ -6,8 +6,8 @@ import (
 	"go.uber.org/fx"
 )
 
-// NewHealthModule registers health endpoints on the ServeMux.
-func NewHealthModule() fx.Option {
+// NewHealthRoutesModule registers health endpoints on the ServeMux.
+func NewHealthRoutesModule() fx.Option {
 	return fx.Options(
 		fx.Provide(newHealthHandler),
 		fx.Invoke(registerHealthRoutes),

@@ -13,9 +13,9 @@ import (
 //
 //	10 - Recovery         - catches panics (must be first)
 //	20 - Logger           - logs all requests
-//	50 - Timeout          - kills hanging requests
-//	70 - RateLimit        - limits requests/second
-//	80 - HTTPBulkhead     - limits concurrent requests
+//	30 - Timeout          - kills hanging requests
+//	40 - RateLimit        - limits requests/second
+//	50 - HTTPBulkhead     - limits concurrent requests
 //
 // Note: ErrorLogger and Problem middlewares are not needed with ogen -
 // use OgenErrorHandler which handles both logging and RFC 7807 responses.
@@ -23,9 +23,9 @@ func NewOgenMiddlewareModule() fx.Option {
 	return fx.Options(
 		RecoveryModule(10),
 		LoggerModule(20),
-		TimeoutModule(50),
-		RateLimitModule(70),
-		HTTPBulkheadModule(80),
+		TimeoutModule(30),
+		RateLimitModule(40),
+		HTTPBulkheadModule(50),
 		fx.Provide(provideMiddlewareChain),
 	)
 }

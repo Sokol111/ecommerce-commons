@@ -12,11 +12,6 @@ import (
 // loggerMiddleware logs incoming HTTP requests.
 func loggerMiddleware() middleware.Middleware {
 	return func(req middleware.Request, next middleware.Next) (middleware.Response, error) {
-		// Skip health checks
-		if req.OperationName == "healthLive" || req.OperationName == "healthReady" {
-			return next(req)
-		}
-
 		start := time.Now()
 
 		resp, err := next(req)

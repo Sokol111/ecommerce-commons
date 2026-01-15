@@ -6,6 +6,7 @@ import (
 	"github.com/Sokol111/ecommerce-commons/pkg/core/config"
 	"github.com/Sokol111/ecommerce-commons/pkg/core/health"
 	"github.com/Sokol111/ecommerce-commons/pkg/core/logger"
+	"github.com/Sokol111/ecommerce-commons/pkg/security"
 	"go.uber.org/fx"
 )
 
@@ -22,5 +23,6 @@ func NewCoreModule() fx.Option {
 		config.NewViperModule(),
 		logger.NewZapLoggingModule(),
 		health.NewReadinessModule(),
+		security.NewSecurityModule(),
 	)
 }

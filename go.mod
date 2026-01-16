@@ -3,6 +3,7 @@ module github.com/Sokol111/ecommerce-commons
 go 1.25.5
 
 require (
+	aidanwoods.dev/go-paseto v1.6.0
 	github.com/cenkalti/backoff/v4 v4.3.0
 	github.com/confluentinc/confluent-kafka-go/v2 v2.12.0
 	github.com/golang-migrate/migrate/v4 v4.19.1
@@ -28,6 +29,7 @@ require (
 )
 
 require (
+	aidanwoods.dev/go-result v0.3.1 // indirect
 	github.com/cenkalti/backoff/v5 v5.0.3 // indirect
 	github.com/cespare/xxhash/v2 v2.3.0 // indirect
 	github.com/davecgh/go-spew v1.1.2-0.20180830191138-d8f796af33cc // indirect

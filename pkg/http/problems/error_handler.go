@@ -8,6 +8,7 @@ import (
 
 	"github.com/Sokol111/ecommerce-commons/pkg/core/logger"
 	"github.com/Sokol111/ecommerce-commons/pkg/http/middleware"
+	"github.com/Sokol111/ecommerce-commons/pkg/security/token"
 	"github.com/ogen-go/ogen/ogenerrors"
 	"go.opentelemetry.io/otel/trace"
 	"go.uber.org/fx"
@@ -70,6 +71,10 @@ func errorToStatusCode(err error) int {
 		return http.StatusServiceUnavailable
 	case errors.Is(err, middleware.ErrPanic):
 		return http.StatusInternalServerError
+	case errors.Is(err, token.ErrInvalidPublicKey):
+		return http.StatusInternalServerError
+	case errors.Is(err, token.ErrInsufficientPermissions):
+		return http.StatusForbidden
 	default:
 		return ogenerrors.ErrorCode(err)
 	}

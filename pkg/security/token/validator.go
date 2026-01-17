@@ -21,8 +21,8 @@ type tokenValidator struct {
 
 // newTokenValidator creates a new token validator with the given public key.
 // The publicKey should be a hex-encoded 32-byte Ed25519 public key.
-func newTokenValidator(publicKeyHex string) (TokenValidator, error) {
-	keyBytes, err := hex.DecodeString(publicKeyHex)
+func newTokenValidator(config Config) (TokenValidator, error) {
+	keyBytes, err := hex.DecodeString(config.PublicKey)
 	if err != nil {
 		return nil, ErrInvalidPublicKey
 	}

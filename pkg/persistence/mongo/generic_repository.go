@@ -130,6 +130,40 @@ func (r *GenericRepository[Domain, Entity]) FindAll(ctx context.Context) ([]*Dom
 	return domains, nil
 }
 
+// FindAllWithFilter retrieves all entities matching the filter with optional sorting (no pagination).
+func (r *GenericRepository[Domain, Entity]) FindAllWithFilter(
+	ctx context.Context,
+	filter bson.D,
+	sort bson.D,
+) ([]*Domain, error) {
+	if filter == nil {
+		filter = bson.D{}
+	}
+
+	findOpts := options.Find()
+	if sort != nil {
+		findOpts.SetSort(sort)
+	}
+
+	cursor, err := r.coll.Find(ctx, filter, findOpts)
+	if err != nil {
+		return nil, fmt.Errorf("failed to query entities: %w", err)
+	}
+	defer func() { _ = cursor.Close(ctx) }()
+
+	var entities []Entity
+	if err = cursor.All(ctx, &entities); err != nil {
+		return nil, fmt.Errorf("failed to decode entities: %w", err)
+	}
+
+	domains := make([]*Domain, 0, len(entities))
+	for i := range entities {
+		domains = append(domains, r.mapper.ToDomain(&entities[i]))
+	}
+
+	return domains, nil
+}
+
 // FindWithOptions retrieves entities with filtering, pagination and sorting.
 func (r *GenericRepository[Domain, Entity]) FindWithOptions(
 	ctx context.Context,

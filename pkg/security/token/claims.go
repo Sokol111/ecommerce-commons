@@ -1,4 +1,3 @@
-// Package token provides PASETO v4 token validation for microservices.
 package token
 
 import (

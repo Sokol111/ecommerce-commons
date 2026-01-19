@@ -9,7 +9,7 @@ import (
 var ErrInsufficientPermissions = errors.New("insufficient permissions")
 
 // HandleBearerAuth validates a token and checks permissions.
-// It returns the context with claims stored, the claims, and any error.
+// It returns the context with claims and token stored, the claims, and any error.
 //
 // Usage in your service:
 //
@@ -40,6 +40,9 @@ func HandleBearerAuth(
 		}
 	}
 
-	// Store claims in context
-	return ContextWithClaims(ctx, claims), claims, nil
+	// Store claims and token in context
+	ctx = ContextWithClaims(ctx, claims)
+	ctx = ContextWithToken(ctx, tokenString)
+
+	return ctx, claims, nil
 }

@@ -164,7 +164,7 @@ func main() {
         Metadata: events.EventMetadata{
             EventId:   "uuid-here",
             EventType: events.EventTypeProductCreated,
-            Source:    "product-service",
+            Source:    "catalog-service",
             Timestamp: time.Now().UnixMilli(),
         },
         Payload: events.ProductCreatedPayload{

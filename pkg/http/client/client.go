@@ -25,8 +25,8 @@ const (
 // yaml example:
 //
 //	clients:
-//	  attribute-service:
-//	    base-url: http://attribute-service:8080
+//	  catalog-service:
+//	    base-url: http://catalog-service:8080
 //	    timeout: 10s
 //	    max-idle-conns-per-host: 10
 //	    idle-conn-timeout: 10s
@@ -91,7 +91,7 @@ func newHTTPClient(cfg ClientConfig) *http.Client {
 // ProvideHTTPClient returns a provider function that creates an HTTP client from config
 // Usage with fx:
 //
-//	fx.Provide(fx.Private, httpclient.ProvideHTTPClient("attribute-service"))
+//	fx.Provide(fx.Private, httpclient.ProvideHTTPClient("catalog-service"))
 func ProvideHTTPClient(name string) func(*viper.Viper) (*http.Client, ClientConfig, error) {
 	return func(cfg *viper.Viper) (*http.Client, ClientConfig, error) {
 		var clientCfg ClientConfig

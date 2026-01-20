@@ -18,9 +18,23 @@ func NewTemplateRenderer(cfg *Config) *TemplateRenderer {
 }
 
 // RenderConstants renders the constants.gen.go file.
-func (r *TemplateRenderer) RenderConstants(envelopes []*EnvelopeSchema, topics []*TopicInfo, asyncSpec *AsyncAPISpec) ([]byte, error) {
+func (r *TemplateRenderer) RenderConstants(envelopes []*EnvelopeSchema, topics []*TopicInfo, asyncSpec *AsyncAPISpec, eventTopicMap map[string]string) ([]byte, error) {
 	funcs := template.FuncMap{
 		"topicConstName": TopicToConstName,
+		"eventTopic": func(eventTypeName string) string {
+			if topic, ok := eventTopicMap[eventTypeName]; ok {
+				return TopicToConstName(topic)
+			}
+			// Fallback: try without "Event" suffix
+			baseName := eventTypeName
+			if len(baseName) > 5 && baseName[len(baseName)-5:] == "Event" {
+				baseName = baseName[:len(baseName)-5]
+			}
+			if topic, ok := eventTopicMap[baseName]; ok {
+				return TopicToConstName(topic)
+			}
+			return `""`
+		},
 	}
 
 	tmpl, err := template.New("constants").Funcs(funcs).Parse(constantsTemplate)
@@ -35,17 +49,11 @@ func (r *TemplateRenderer) RenderConstants(envelopes []*EnvelopeSchema, topics [
 		})
 	}
 
-	// Get default topic
-	var defaultTopic string
-	if asyncSpec != nil && len(topics) > 0 {
-		defaultTopic = topics[0].Name
-	}
-
 	data := constantsData{
-		Package:      r.config.Package,
-		Envelopes:    envelopes,
-		Topics:       topics,
-		DefaultTopic: defaultTopic,
+		Package:       r.config.Package,
+		Envelopes:     envelopes,
+		Topics:        topics,
+		EventTopicMap: eventTopicMap,
 	}
 
 	var buf bytes.Buffer
@@ -80,10 +88,10 @@ func (r *TemplateRenderer) RenderSchemas(envelopes []*EnvelopeSchema, hasAsyncAP
 // Template data structures
 
 type constantsData struct {
-	Package      string
-	Envelopes    []*EnvelopeSchema
-	Topics       []*TopicInfo
-	DefaultTopic string
+	Package       string
+	Envelopes     []*EnvelopeSchema
+	Topics        []*TopicInfo
+	EventTopicMap map[string]string
 }
 
 type schemasData struct {
@@ -142,7 +150,7 @@ var SchemaBindings = []mapping.SchemaBinding{
 		GoType:     reflect.TypeOf({{.Payload.EventTypeName}}{}),
 		SchemaJSON: {{.Payload.EventName}}Schema,
 		SchemaName: SchemaName{{.Payload.EventName}},
-		Topic:      {{if $.DefaultTopic}}{{topicConstName $.DefaultTopic}}{{else}}""{{end}},
+		Topic:      {{eventTopic .Payload.EventTypeName}},
 	},
 {{- end}}
 }

@@ -78,6 +78,7 @@ func (g *Generator) Generate() error {
 	// Parse AsyncAPI spec (if provided)
 	var topics []*TopicInfo
 	var asyncSpec *AsyncAPISpec
+	var eventTopicMap map[string]string
 	if g.config.AsyncAPIFile != "" {
 		g.log("Parsing AsyncAPI spec from %s", g.config.AsyncAPIFile)
 		asyncSpec, err = g.asyncAPI.Parse()
@@ -85,6 +86,7 @@ func (g *Generator) Generate() error {
 			return fmt.Errorf("failed to parse AsyncAPI: %w", err)
 		}
 		topics = g.asyncAPI.ExtractTopics(asyncSpec)
+		eventTopicMap = g.asyncAPI.BuildEventTopicMapping(asyncSpec)
 		g.log("Found %d topics", len(topics))
 	}
 
@@ -120,7 +122,7 @@ func (g *Generator) Generate() error {
 	}
 
 	// Generate constants.gen.go
-	if err := g.generateConstants(envelopes, topics, asyncSpec); err != nil {
+	if err := g.generateConstants(envelopes, topics, asyncSpec, eventTopicMap); err != nil {
 		return err
 	}
 
@@ -290,12 +292,12 @@ func (e *%s) GetMetadata() *events.EventMetadata { return &e.Metadata }
 }
 
 // generateConstants generates the constants.gen.go file.
-func (g *Generator) generateConstants(envelopes []*EnvelopeSchema, topics []*TopicInfo, asyncSpec *AsyncAPISpec) error {
+func (g *Generator) generateConstants(envelopes []*EnvelopeSchema, topics []*TopicInfo, asyncSpec *AsyncAPISpec, eventTopicMap map[string]string) error {
 	g.log("Generating constants...")
 
 	outputFile := filepath.Join(g.config.OutputDir, "constants.gen.go")
 
-	content, err := g.templates.RenderConstants(envelopes, topics, asyncSpec)
+	content, err := g.templates.RenderConstants(envelopes, topics, asyncSpec, eventTopicMap)
 	if err != nil {
 		return fmt.Errorf("failed to render constants: %w", err)
 	}

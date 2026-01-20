@@ -23,23 +23,13 @@ type AsyncAPIInfo struct {
 
 // AsyncAPIChannel represents a channel (topic) in AsyncAPI.
 type AsyncAPIChannel struct {
-	Description string             `yaml:"description"`
-	Publish     *AsyncAPIOperation `yaml:"publish"`
-	Subscribe   *AsyncAPIOperation `yaml:"subscribe"`
+	Description string                        `yaml:"description"`
+	Messages    map[string]AsyncAPIMessageRef `yaml:"messages"`
 }
 
-// AsyncAPIOperation represents a publish or subscribe operation.
-type AsyncAPIOperation struct {
-	OperationID string           `yaml:"operationId"`
-	Summary     string           `yaml:"summary"`
-	Message     *AsyncAPIMessage `yaml:"message"`
-}
-
-// AsyncAPIMessage represents a message in AsyncAPI.
-type AsyncAPIMessage struct {
-	Name        string `yaml:"name"`
-	ContentType string `yaml:"contentType"`
-	SchemaRef   string `yaml:"$ref"`
+// AsyncAPIMessageRef represents a message reference in a channel.
+type AsyncAPIMessageRef struct {
+	// Empty struct - we only need the message name (map key)
 }
 
 // AsyncAPIParser handles parsing of AsyncAPI specifications.
@@ -84,18 +74,34 @@ func (p *AsyncAPIParser) ExtractTopics(spec *AsyncAPISpec) []*TopicInfo {
 			Description: channel.Description,
 		}
 
-		// Extract event types from publish/subscribe operations
-		if channel.Publish != nil && channel.Publish.Message != nil {
-			topic.EventTypes = append(topic.EventTypes, channel.Publish.Message.Name)
-		}
-		if channel.Subscribe != nil && channel.Subscribe.Message != nil {
-			topic.EventTypes = append(topic.EventTypes, channel.Subscribe.Message.Name)
+		// Extract message names from channel
+		for msgName := range channel.Messages {
+			topic.EventNames = append(topic.EventNames, msgName)
 		}
 
 		topics = append(topics, topic)
 	}
 
 	return topics
+}
+
+// BuildEventTopicMapping creates a mapping from event name to topic name.
+// Event names are matched by prefix (e.g., "ProductCreated" matches "ProductCreatedEvent").
+func (p *AsyncAPIParser) BuildEventTopicMapping(spec *AsyncAPISpec) map[string]string {
+	if spec == nil {
+		return nil
+	}
+
+	mapping := make(map[string]string)
+	for topicName, channel := range spec.Channels {
+		for msgName := range channel.Messages {
+			// Store both the exact name and with "Event" suffix
+			mapping[msgName] = topicName
+			mapping[msgName+"Event"] = topicName
+		}
+	}
+
+	return mapping
 }
 
 // GetDefaultTopic returns the first topic from the spec, or empty string if none.

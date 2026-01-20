@@ -144,7 +144,7 @@ func (s *AvroSchema) ToJSON() ([]byte, error) {
 type TopicInfo struct {
 	Name        string
 	Description string
-	EventTypes  []string // Event types published to this topic
+	EventNames  []string // Event names from channel messages
 }
 
 // GenerationResult holds the result of code generation.

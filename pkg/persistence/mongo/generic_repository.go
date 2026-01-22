@@ -95,7 +95,12 @@ func (r *GenericRepository[Domain, Entity]) Insert(ctx context.Context, domain *
 
 // FindByID retrieves an entity by ID.
 func (r *GenericRepository[Domain, Entity]) FindByID(ctx context.Context, id string) (*Domain, error) {
-	result := r.coll.FindOne(ctx, bson.D{{Key: "_id", Value: id}})
+	return r.FindOneByFilter(ctx, bson.D{{Key: "_id", Value: id}})
+}
+
+// FindOneByFilter retrieves a single entity matching the filter.
+func (r *GenericRepository[Domain, Entity]) FindOneByFilter(ctx context.Context, filter bson.D) (*Domain, error) {
+	result := r.coll.FindOne(ctx, filter)
 
 	var entity Entity
 	err := result.Decode(&entity)

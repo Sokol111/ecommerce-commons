@@ -4,8 +4,10 @@ import (
 	"context"
 	"embed"
 
+	"github.com/Sokol111/ecommerce-commons/pkg/core/config"
 	"github.com/Sokol111/ecommerce-commons/pkg/core/health"
 	"github.com/Sokol111/ecommerce-commons/pkg/core/worker"
+	"github.com/Sokol111/ecommerce-commons/pkg/messaging/kafka/events"
 	"github.com/Sokol111/ecommerce-commons/pkg/persistence/mongo/migrations"
 	"github.com/confluentinc/confluent-kafka-go/v2/kafka"
 	"go.uber.org/fx"
@@ -30,6 +32,7 @@ func NewOutboxModule() fx.Option {
 			newConfirmer,
 			newOutbox,
 			newTracePropagator,
+			newMetadataPopulator,
 			provideEntitiesChannel,
 			provideDeliveryChannel,
 		),
@@ -40,6 +43,10 @@ func NewOutboxModule() fx.Option {
 			runMigrations,
 		),
 	)
+}
+
+func newMetadataPopulator(appCfg config.AppConfig) events.MetadataPopulator {
+	return events.NewMetadataPopulator(appCfg.ServiceName)
 }
 
 func runMigrations(lc fx.Lifecycle, log *zap.Logger, migrator migrations.Migrator, readiness health.ComponentManager) {

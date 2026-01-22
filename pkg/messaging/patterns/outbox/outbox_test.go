@@ -6,12 +6,37 @@ import (
 	"testing"
 
 	"github.com/Sokol111/ecommerce-commons/pkg/core/logger"
+	"github.com/Sokol111/ecommerce-commons/pkg/messaging/kafka/events"
 	"github.com/confluentinc/confluent-kafka-go/v2/kafka"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"go.opentelemetry.io/otel/trace"
 	"go.uber.org/zap"
 )
+
+// mockEvent is a mock implementation of events.Event for testing
+type mockEvent struct {
+	metadata events.EventMetadata
+}
+
+func (m *mockEvent) GetMetadata() *events.EventMetadata {
+	return &m.metadata
+}
+
+// mockMetadataPopulator is a mock implementation of events.MetadataPopulator
+type mockMetadataPopulator struct {
+	populateFunc func(ctx context.Context, event events.Event) string
+}
+
+func (m *mockMetadataPopulator) PopulateMetadata(ctx context.Context, event events.Event) string {
+	if m.populateFunc != nil {
+		return m.populateFunc(ctx, event)
+	}
+	event.GetMetadata().EventID = "generated-event-id"
+	event.GetMetadata().EventType = "MockEvent"
+	event.GetMetadata().Source = "test-service"
+	return "generated-event-id"
+}
 
 // mockSerializer is a mock implementation of serialization.Serializer
 type mockSerializer struct {
@@ -63,13 +88,13 @@ func TestOutbox_Create(t *testing.T) {
 		entitiesChan := make(chan *outboxEntity, 10)
 		serializer := &mockSerializer{}
 		propagator := &mockTracePropagator{}
+		metadataPopulator := &mockMetadataPopulator{}
 		log := zap.NewNop()
 
-		o := newOutbox(log, repo, entitiesChan, serializer, propagator)
+		o := newOutbox(log, repo, entitiesChan, serializer, propagator, metadataPopulator)
 
 		msg := Message{
-			Payload: "test-message",
-			EventID: "event-123",
+			Event:   &mockEvent{},
 			Key:     "partition-key",
 			Headers: map[string]string{"custom": "header"},
 		}
@@ -80,7 +105,7 @@ func TestOutbox_Create(t *testing.T) {
 		require.NoError(t, err)
 		assert.NotNil(t, sendFunc)
 		assert.Len(t, repo.created, 1)
-		assert.Equal(t, "event-123", repo.created[0].ID)
+		assert.Equal(t, "generated-event-id", repo.created[0].ID)
 		assert.Equal(t, "partition-key", repo.created[0].Key)
 		assert.Equal(t, "test-topic", repo.created[0].Topic)
 	})
@@ -94,13 +119,13 @@ func TestOutbox_Create(t *testing.T) {
 			},
 		}
 		propagator := &mockTracePropagator{}
+		metadataPopulator := &mockMetadataPopulator{}
 		log := zap.NewNop()
 
-		o := newOutbox(log, repo, entitiesChan, serializer, propagator)
+		o := newOutbox(log, repo, entitiesChan, serializer, propagator, metadataPopulator)
 
 		msg := Message{
-			Payload: "test-message",
-			EventID: "event-123",
+			Event: &mockEvent{},
 		}
 
 		ctx := logger.With(context.Background(), log)
@@ -117,13 +142,13 @@ func TestOutbox_Create(t *testing.T) {
 		entitiesChan := make(chan *outboxEntity, 10)
 		serializer := &mockSerializer{}
 		propagator := &mockTracePropagator{}
+		metadataPopulator := &mockMetadataPopulator{}
 		log := zap.NewNop()
 
-		o := newOutbox(log, repo, entitiesChan, serializer, propagator)
+		o := newOutbox(log, repo, entitiesChan, serializer, propagator, metadataPopulator)
 
 		msg := Message{
-			Payload: "test-message",
-			EventID: "event-123",
+			Event: &mockEvent{},
 		}
 
 		ctx := logger.With(context.Background(), log)
@@ -147,13 +172,13 @@ func TestOutbox_Create(t *testing.T) {
 				return headers
 			},
 		}
+		metadataPopulator := &mockMetadataPopulator{}
 		log := zap.NewNop()
 
-		o := newOutbox(log, repo, entitiesChan, serializer, propagator)
+		o := newOutbox(log, repo, entitiesChan, serializer, propagator, metadataPopulator)
 
 		msg := Message{
-			Payload: "test-message",
-			EventID: "event-123",
+			Event:   &mockEvent{},
 			Headers: map[string]string{"existing": "header"},
 		}
 
@@ -173,13 +198,13 @@ func TestOutbox_SendFunc(t *testing.T) {
 		entitiesChan := make(chan *outboxEntity, 10)
 		serializer := &mockSerializer{}
 		propagator := &mockTracePropagator{}
+		metadataPopulator := &mockMetadataPopulator{}
 		log := zap.NewNop()
 
-		o := newOutbox(log, repo, entitiesChan, serializer, propagator)
+		o := newOutbox(log, repo, entitiesChan, serializer, propagator, metadataPopulator)
 
 		msg := Message{
-			Payload: "test-message",
-			EventID: "event-123",
+			Event: &mockEvent{},
 		}
 
 		ctx := logger.With(context.Background(), log)
@@ -191,7 +216,7 @@ func TestOutbox_SendFunc(t *testing.T) {
 
 		select {
 		case entity := <-entitiesChan:
-			assert.Equal(t, "event-123", entity.ID)
+			assert.Equal(t, "generated-event-id", entity.ID)
 		default:
 			t.Fatal("expected entity in channel")
 		}
@@ -202,13 +227,13 @@ func TestOutbox_SendFunc(t *testing.T) {
 		entitiesChan := make(chan *outboxEntity) // unbuffered channel
 		serializer := &mockSerializer{}
 		propagator := &mockTracePropagator{}
+		metadataPopulator := &mockMetadataPopulator{}
 		log := zap.NewNop()
 
-		o := newOutbox(log, repo, entitiesChan, serializer, propagator)
+		o := newOutbox(log, repo, entitiesChan, serializer, propagator, metadataPopulator)
 
 		msg := Message{
-			Payload: "test-message",
-			EventID: "event-123",
+			Event: &mockEvent{},
 		}
 
 		ctx := logger.With(context.Background(), log)
@@ -228,13 +253,13 @@ func TestOutbox_SendFunc(t *testing.T) {
 		entitiesChan := make(chan *outboxEntity) // unbuffered, no receiver
 		serializer := &mockSerializer{}
 		propagator := &mockTracePropagator{}
+		metadataPopulator := &mockMetadataPopulator{}
 		log := zap.NewNop()
 
-		o := newOutbox(log, repo, entitiesChan, serializer, propagator)
+		o := newOutbox(log, repo, entitiesChan, serializer, propagator, metadataPopulator)
 
 		msg := Message{
-			Payload: "test-message",
-			EventID: "event-123",
+			Event: &mockEvent{},
 		}
 
 		ctx := logger.With(context.Background(), log)
@@ -254,13 +279,13 @@ func TestOutbox_NilHeaders(t *testing.T) {
 		entitiesChan := make(chan *outboxEntity, 10)
 		serializer := &mockSerializer{}
 		propagator := &mockTracePropagator{}
+		metadataPopulator := &mockMetadataPopulator{}
 		log := zap.NewNop()
 
-		o := newOutbox(log, repo, entitiesChan, serializer, propagator)
+		o := newOutbox(log, repo, entitiesChan, serializer, propagator, metadataPopulator)
 
 		msg := Message{
-			Payload: "test-message",
-			EventID: "event-123",
+			Event:   &mockEvent{},
 			Headers: nil,
 		}
 

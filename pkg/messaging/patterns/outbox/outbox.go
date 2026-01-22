@@ -7,14 +7,14 @@ import (
 
 	"github.com/Sokol111/ecommerce-commons/pkg/core/logger"
 	"github.com/Sokol111/ecommerce-commons/pkg/messaging/kafka/avro/serialization"
+	"github.com/Sokol111/ecommerce-commons/pkg/messaging/kafka/events"
 	"go.uber.org/zap"
 )
 
 type Message struct {
-	Payload any               // The actual message payload to be sent
-	EventID string            // Unique event identifier - used as outbox record ID for idempotency (prevents duplicate messages)
+	Event   events.Event      // Event payload - must implement events.Event interface
 	Key     string            // Kafka partition key for ordering guarantees
-	Headers map[string]string // Kafka headers for trace propagation, event_type, etc.
+	Headers map[string]string // Kafka headers for trace propagation, etc.
 }
 
 type Outbox interface {
@@ -22,35 +22,40 @@ type Outbox interface {
 }
 
 type outbox struct {
-	outboxRepository repository
-	logger           *zap.Logger
-	entitiesChan     chan<- *outboxEntity
-	serializer       serialization.Serializer
-	tracePropagator  tracePropagator
+	outboxRepository  repository
+	logger            *zap.Logger
+	entitiesChan      chan<- *outboxEntity
+	serializer        serialization.Serializer
+	tracePropagator   tracePropagator
+	metadataPopulator events.MetadataPopulator
 }
 
-func newOutbox(logger *zap.Logger, outboxRepository repository, entitiesChan chan *outboxEntity, serializer serialization.Serializer, tracePropagator tracePropagator) Outbox {
+func newOutbox(logger *zap.Logger, outboxRepository repository, entitiesChan chan *outboxEntity, serializer serialization.Serializer, tracePropagator tracePropagator, metadataPopulator events.MetadataPopulator) Outbox {
 	return &outbox{
-		outboxRepository: outboxRepository,
-		logger:           logger,
-		entitiesChan:     entitiesChan,
-		serializer:       serializer,
-		tracePropagator:  tracePropagator,
+		outboxRepository:  outboxRepository,
+		logger:            logger,
+		entitiesChan:      entitiesChan,
+		serializer:        serializer,
+		tracePropagator:   tracePropagator,
+		metadataPopulator: metadataPopulator,
 	}
 }
 
 type SendFunc func(ctx context.Context) error
 
 func (o *outbox) Create(ctx context.Context, msg Message) (SendFunc, error) {
+	// Populate event metadata automatically (EventID, EventType, Source, Timestamp, TraceID)
+	eventID := o.metadataPopulator.PopulateMetadata(ctx, msg.Event)
+
 	// Save trace context into headers for storage in outbox
 	msg.Headers = o.tracePropagator.SaveTraceContext(ctx, msg.Headers)
 
-	serializedMsg, topic, err := o.serializer.SerializeWithTopic(msg.Payload)
+	serializedMsg, topic, err := o.serializer.SerializeWithTopic(msg.Event)
 	if err != nil {
 		return nil, fmt.Errorf("failed to serialize outbox message: %w", err)
 	}
 
-	entity, err := o.outboxRepository.Create(ctx, serializedMsg, msg.EventID, msg.Key, topic, msg.Headers)
+	entity, err := o.outboxRepository.Create(ctx, serializedMsg, eventID, msg.Key, topic, msg.Headers)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create outbox message: %w", err)
 	}

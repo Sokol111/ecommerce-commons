@@ -63,9 +63,6 @@ Example:
 
 	// Optional flags
 	cmd.Flags().StringVarP(&cfg.Package, "package", "n", "events", "Go package name for generated code")
-	cmd.Flags().StringVarP(&cfg.MetadataFile, "metadata", "m", "", "Custom EventMetadata schema file (uses embedded if not specified)")
-	cmd.Flags().StringVar(&cfg.MetadataNamespace, "metadata-namespace", "com.ecommerce.events", "Namespace for EventMetadata")
-	cmd.Flags().BoolVarP(&cfg.Verbose, "verbose", "v", false, "Enable verbose output")
 
 	_ = cmd.MarkFlagRequired("payloads")
 	_ = cmd.MarkFlagRequired("output")
@@ -74,12 +71,11 @@ Example:
 }
 
 func runGenerate(cfg *eventgen.Config) error {
-	gen, err := eventgen.New(cfg)
-	if err != nil {
-		return fmt.Errorf("failed to create generator: %w", err)
+	if err := cfg.Validate(); err != nil {
+		return fmt.Errorf("invalid config: %w", err)
 	}
 
-	if err := gen.Generate(); err != nil {
+	if err := eventgen.Generate(cfg); err != nil {
 		return fmt.Errorf("generation failed: %w", err)
 	}
 

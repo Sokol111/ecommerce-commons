@@ -42,10 +42,6 @@ type PayloadSchema struct {
 
 	// Topic is the Kafka topic for this event (from schema "topic" field)
 	Topic string
-
-	// CombinedJSON is the envelope schema with EventMetadata inlined (for Avro serialization)
-	// Populated by Parser.CreateEnvelope()
-	CombinedJSON []byte
 }
 
 // EventName returns the event name in PascalCase (e.g., "ProductCreated").
@@ -86,15 +82,6 @@ func ParseAvroSchema(data []byte) (*AvroSchema, error) {
 	if err := json.Unmarshal(data, &schema); err != nil {
 		return nil, fmt.Errorf("failed to parse Avro schema: %w", err)
 	}
-
-	if schema.Type != "record" {
-		return nil, fmt.Errorf("expected record type, got %q", schema.Type)
-	}
-
-	if schema.Name == "" {
-		return nil, fmt.Errorf("schema name is required")
-	}
-
 	return &schema, nil
 }
 

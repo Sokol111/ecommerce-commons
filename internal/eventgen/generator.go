@@ -109,7 +109,6 @@ func (c *Config) AbsolutePaths() error {
 type Generator struct {
 	config   *Config
 	metadata *AvroSchema
-	parser   *Parser
 }
 
 // New creates a new Generator with the given configuration.
@@ -128,12 +127,9 @@ func New(cfg *Config) (*Generator, error) {
 		return nil, fmt.Errorf("failed to load metadata schema: %w", err)
 	}
 
-	parser := NewParser(cfg, metadata)
-
 	return &Generator{
 		config:   cfg,
 		metadata: metadata,
-		parser:   parser,
 	}, nil
 }
 
@@ -145,9 +141,9 @@ func (g *Generator) Generate() error {
 
 	g.log("Starting code generation...")
 
-	// Parse payload schemas
+	// Parse payload schemas (returns fully populated with CombinedJSON)
 	g.log("Parsing payload schemas from %s", g.config.PayloadsDir)
-	payloads, err := g.parser.ParsePayloads()
+	payloads, err := ParsePayloads(g.config, g.metadata)
 	if err != nil {
 		return fmt.Errorf("failed to parse payloads: %w", err)
 	}
@@ -158,62 +154,32 @@ func (g *Generator) Generate() error {
 		return err
 	}
 
-	// Generate envelope schemas
-	g.log("Generating envelope schemas...")
-	envelopes := make([]*EnvelopeSchema, 0, len(payloads))
-	for _, payload := range payloads {
-		envelope, err := g.parser.CreateEnvelope(payload)
-		if err != nil {
-			return fmt.Errorf("failed to create envelope for %s: %w", payload.BaseName, err)
-		}
-		envelopes = append(envelopes, envelope)
-	}
-
-	// Sort envelopes by name for consistent output
-	sort.Slice(envelopes, func(i, j int) bool {
-		return envelopes[i].Payload.EventName < envelopes[j].Payload.EventName
+	// Sort payloads by name for consistent output
+	sort.Slice(payloads, func(i, j int) bool {
+		return payloads[i].EventName() < payloads[j].EventName()
 	})
 
 	// Write schema files
-	if err := g.writeSchemaFiles(envelopes); err != nil {
+	if err := g.writeSchemaFiles(payloads); err != nil {
 		return err
 	}
 
 	// Generate Go code using jennifer
-	if err := g.generateGoTypes(envelopes); err != nil {
+	if err := g.generateGoTypes(payloads); err != nil {
 		return err
 	}
 
 	// Generate constants.gen.go
-	if err := g.generateConstants(envelopes); err != nil {
+	if err := g.generateConstants(payloads); err != nil {
 		return err
 	}
 
 	// Generate schemas.gen.go
-	if err := g.generateSchemaEmbeddings(envelopes); err != nil {
+	if err := g.generateSchemaEmbeddings(payloads); err != nil {
 		return err
 	}
 
 	g.log("✓ Code generation complete!")
-	return nil
-}
-
-// Validate validates payload schemas without generating code.
-func (g *Generator) Validate() error {
-	payloads, err := g.parser.ParsePayloads()
-	if err != nil {
-		return err
-	}
-
-	for _, payload := range payloads {
-		// Try to create envelope to validate
-		_, err := g.parser.CreateEnvelope(payload)
-		if err != nil {
-			return fmt.Errorf("invalid schema %s: %w", payload.FilePath, err)
-		}
-		g.log("✓ %s", filepath.Base(payload.FilePath))
-	}
-
 	return nil
 }
 
@@ -234,33 +200,33 @@ func (g *Generator) createOutputDirs() error {
 }
 
 // writeSchemaFiles writes combined schema files.
-func (g *Generator) writeSchemaFiles(envelopes []*EnvelopeSchema) error {
+func (g *Generator) writeSchemaFiles(payloads []*PayloadSchema) error {
 	g.log("Writing schema files...")
 
 	// Write combined schemas (with metadata inlined) - this is the only schema needed for Avro
-	for _, env := range envelopes {
-		schemaPath := filepath.Join(g.config.OutputDir, "schemas", env.Payload.BaseName+".avsc")
-		if err := os.WriteFile(schemaPath, env.CombinedJSON, 0644); err != nil {
+	for _, p := range payloads {
+		schemaPath := filepath.Join(g.config.OutputDir, "schemas", p.BaseName+".avsc")
+		if err := os.WriteFile(schemaPath, p.CombinedJSON, 0644); err != nil {
 			return fmt.Errorf("failed to write schema: %w", err)
 		}
 
-		g.log("  Created %s.avsc", env.Payload.BaseName)
+		g.log("  Created %s.avsc", p.BaseName)
 	}
 
 	return nil
 }
 
 // generateGoTypes uses avrogen for payload types and jennifer for event wrappers.
-func (g *Generator) generateGoTypes(envelopes []*EnvelopeSchema) error {
+func (g *Generator) generateGoTypes(payloads []*PayloadSchema) error {
 	g.log("Generating Go types...")
 
 	// Step 1: Generate payload types with avrogen (from payload schemas directly)
-	if err := g.generatePayloadTypes(envelopes); err != nil {
+	if err := g.generatePayloadTypes(payloads); err != nil {
 		return err
 	}
 
 	// Step 2: Generate event wrappers with jennifer
-	if err := g.generateEventWrappers(envelopes); err != nil {
+	if err := g.generateEventWrappers(payloads); err != nil {
 		return err
 	}
 
@@ -269,11 +235,11 @@ func (g *Generator) generateGoTypes(envelopes []*EnvelopeSchema) error {
 }
 
 // generatePayloadTypes uses avrogen to generate payload structs from payload schemas.
-func (g *Generator) generatePayloadTypes(envelopes []*EnvelopeSchema) error {
-	// Build list of payload schema files (original payloads, not envelopes)
-	schemaFiles := make([]string, 0, len(envelopes))
-	for _, env := range envelopes {
-		schemaFiles = append(schemaFiles, env.Payload.FilePath)
+func (g *Generator) generatePayloadTypes(payloads []*PayloadSchema) error {
+	// Build list of payload schema files
+	schemaFiles := make([]string, 0, len(payloads))
+	for _, p := range payloads {
+		schemaFiles = append(schemaFiles, p.FilePath)
 	}
 
 	outputFile := filepath.Join(g.config.OutputDir, "types.gen.go")
@@ -296,19 +262,19 @@ func (g *Generator) generatePayloadTypes(envelopes []*EnvelopeSchema) error {
 }
 
 // generateEventWrappers generates event envelope structs using jennifer.
-func (g *Generator) generateEventWrappers(envelopes []*EnvelopeSchema) error {
+func (g *Generator) generateEventWrappers(payloads []*PayloadSchema) error {
 	f := jen.NewFile(g.config.Package)
 	f.HeaderComment("Code generated by eventgen. DO NOT EDIT.")
 
-	for _, env := range envelopes {
+	for _, p := range payloads {
 		// Event struct with commons.EventMetadata
-		f.Commentf("%s is the event envelope for %s.", env.Payload.EventTypeName, env.Payload.EventName)
-		f.Type().Id(env.Payload.EventTypeName).Struct(
+		f.Commentf("%s is the event envelope for %s.", p.EventTypeName(), p.EventName())
+		f.Type().Id(p.EventTypeName()).Struct(
 			jen.Id("Metadata").Qual(commonsEventsImport, "EventMetadata").Tag(map[string]string{
 				"avro": "metadata",
 				"json": "metadata",
 			}),
-			jen.Id("Payload").Id(env.Payload.PayloadTypeName).Tag(map[string]string{
+			jen.Id("Payload").Id(p.PayloadTypeName()).Tag(map[string]string{
 				"avro": "payload",
 				"json": "payload",
 			}),
@@ -317,7 +283,7 @@ func (g *Generator) generateEventWrappers(envelopes []*EnvelopeSchema) error {
 
 		// GetMetadata method for Event interface
 		f.Func().
-			Params(jen.Id("e").Op("*").Id(env.Payload.EventTypeName)).
+			Params(jen.Id("e").Op("*").Id(p.EventTypeName())).
 			Id("GetMetadata").
 			Params().
 			Op("*").Qual(commonsEventsImport, "EventMetadata").
@@ -330,7 +296,7 @@ func (g *Generator) generateEventWrappers(envelopes []*EnvelopeSchema) error {
 }
 
 // generateConstants generates the constants.gen.go file using jennifer.
-func (g *Generator) generateConstants(envelopes []*EnvelopeSchema) error {
+func (g *Generator) generateConstants(payloads []*PayloadSchema) error {
 	g.log("Generating constants...")
 
 	f := jen.NewFile(g.config.Package)
@@ -343,17 +309,17 @@ func (g *Generator) generateConstants(envelopes []*EnvelopeSchema) error {
 	// Event type constants
 	f.Comment("Event type constants - match Avro schema names")
 	f.Const().DefsFunc(func(group *jen.Group) {
-		for _, env := range envelopes {
-			group.Id("EventType" + env.Payload.EventName).Op("=").Lit(env.Payload.EventTypeName)
+		for _, p := range payloads {
+			group.Id("EventType" + p.EventName()).Op("=").Lit(p.EventTypeName())
 		}
 	})
 	f.Line()
 
 	// Collect unique topics
 	topicSet := make(map[string]bool)
-	for _, env := range envelopes {
-		if env.Payload.Topic != "" {
-			topicSet[env.Payload.Topic] = true
+	for _, p := range payloads {
+		if p.Topic != "" {
+			topicSet[p.Topic] = true
 		}
 	}
 
@@ -378,8 +344,8 @@ func (g *Generator) generateConstants(envelopes []*EnvelopeSchema) error {
 	// Schema name constants
 	f.Comment("Schema name constants - Avro schema full names (namespace.name)")
 	f.Const().DefsFunc(func(group *jen.Group) {
-		for _, env := range envelopes {
-			group.Id("SchemaName" + env.Payload.EventName).Op("=").Lit(env.Schema.FullName())
+		for _, p := range payloads {
+			group.Id("SchemaName" + p.EventName()).Op("=").Lit(p.SchemaFullName())
 		}
 	})
 	f.Line()
@@ -390,17 +356,17 @@ func (g *Generator) generateConstants(envelopes []*EnvelopeSchema) error {
 	f.Comment("")
 	f.Comment("\ttypeMapping.RegisterBindings(events.SchemaBindings)")
 	f.Var().Id("SchemaBindings").Op("=").Index().Qual(commonsMappingImport, "SchemaBinding").ValuesFunc(func(group *jen.Group) {
-		for _, env := range envelopes {
+		for _, p := range payloads {
 			var topicStmt *jen.Statement
-			if env.Payload.Topic != "" {
-				topicStmt = jen.Id(TopicToConstName(env.Payload.Topic))
+			if p.Topic != "" {
+				topicStmt = jen.Id(TopicToConstName(p.Topic))
 			} else {
 				topicStmt = jen.Lit("")
 			}
 			group.Values(jen.Dict{
-				jen.Id("GoType"):     jen.Qual("reflect", "TypeOf").Call(jen.Id(env.Payload.EventTypeName).Values()),
-				jen.Id("SchemaJSON"): jen.Id(env.Payload.EventName + "Schema"),
-				jen.Id("SchemaName"): jen.Id("SchemaName" + env.Payload.EventName),
+				jen.Id("GoType"):     jen.Qual("reflect", "TypeOf").Call(jen.Id(p.EventTypeName()).Values()),
+				jen.Id("SchemaJSON"): jen.Id(p.EventName() + "Schema"),
+				jen.Id("SchemaName"): jen.Id("SchemaName" + p.EventName()),
 				jen.Id("Topic"):      topicStmt,
 			})
 		}
@@ -416,7 +382,7 @@ func (g *Generator) generateConstants(envelopes []*EnvelopeSchema) error {
 }
 
 // generateSchemaEmbeddings generates the schemas.gen.go file using jennifer.
-func (g *Generator) generateSchemaEmbeddings(envelopes []*EnvelopeSchema) error {
+func (g *Generator) generateSchemaEmbeddings(payloads []*PayloadSchema) error {
 	g.log("Generating schema embeddings...")
 
 	f := jen.NewFile(g.config.Package)
@@ -428,9 +394,9 @@ func (g *Generator) generateSchemaEmbeddings(envelopes []*EnvelopeSchema) error 
 
 	// Event schema embeddings
 	f.Comment("Event schemas with EventMetadata inlined (ready for Avro serialization)")
-	for _, env := range envelopes {
-		f.Comment(fmt.Sprintf("//go:embed schemas/%s.avsc", env.Payload.BaseName))
-		f.Var().Id(env.Payload.EventName + "Schema").Index().Byte()
+	for _, p := range payloads {
+		f.Comment(fmt.Sprintf("//go:embed schemas/%s.avsc", p.BaseName))
+		f.Var().Id(p.EventName() + "Schema").Index().Byte()
 		f.Line()
 	}
 

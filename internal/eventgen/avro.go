@@ -3,19 +3,19 @@ package eventgen
 import (
 	"encoding/json"
 	"fmt"
+	"strings"
 )
 
 // AvroSchema represents a parsed Avro schema.
 type AvroSchema struct {
-	Type      string         `json:"type"`
-	Name      string         `json:"name"`
-	Namespace string         `json:"namespace,omitempty"`
-	Doc       string         `json:"doc,omitempty"`
-	Topic     string         `json:"topic,omitempty"` // Kafka topic for this event
-	Fields    []AvroField    `json:"fields,omitempty"`
-	Aliases   []string       `json:"aliases,omitempty"`
-	Default   any            `json:"default,omitempty"`
-	Extra     map[string]any `json:"-"` // Additional fields not in the struct
+	Type      string      `json:"type"`
+	Name      string      `json:"name"`
+	Namespace string      `json:"namespace,omitempty"`
+	Doc       string      `json:"doc,omitempty"`
+	Topic     string      `json:"topic,omitempty"` // Kafka topic for this event
+	Fields    []AvroField `json:"fields,omitempty"`
+	Aliases   []string    `json:"aliases,omitempty"`
+	Default   any         `json:"default,omitempty"`
 }
 
 // AvroField represents a field in an Avro record.
@@ -28,19 +28,10 @@ type AvroField struct {
 	Aliases []string `json:"aliases,omitempty"`
 }
 
-// AvroLogicalType represents an Avro logical type.
-type AvroLogicalType struct {
-	Type        string `json:"type"`
-	LogicalType string `json:"logicalType"`
-}
-
 // PayloadSchema represents a parsed payload schema with metadata.
 type PayloadSchema struct {
 	// Original is the original parsed Avro schema
 	Original *AvroSchema
-
-	// RawJSON is the raw JSON bytes of the schema
-	RawJSON []byte
 
 	// FilePath is the path to the source file
 	FilePath string
@@ -49,35 +40,36 @@ type PayloadSchema struct {
 	// e.g., "product_created" from "product_created_payload.avsc"
 	BaseName string
 
-	// EventName is the derived event name in PascalCase
-	// e.g., "ProductCreated" from "product_created"
-	EventName string
-
-	// EventTypeName is the full event type name
-	// e.g., "ProductCreatedEvent"
-	EventTypeName string
-
-	// PayloadTypeName is the payload type name
-	// e.g., "ProductCreatedPayload"
-	PayloadTypeName string
-
 	// Topic is the Kafka topic for this event (from schema "topic" field)
 	Topic string
+
+	// CombinedJSON is the envelope schema with EventMetadata inlined (for Avro serialization)
+	// Populated by Parser.CreateEnvelope()
+	CombinedJSON []byte
 }
 
-// EnvelopeSchema represents a generated envelope schema (metadata + payload).
-type EnvelopeSchema struct {
-	// Payload is the source payload schema
-	Payload *PayloadSchema
+// EventName returns the event name in PascalCase (e.g., "ProductCreated").
+func (p *PayloadSchema) EventName() string {
+	return toPascalCase(p.BaseName)
+}
 
-	// Schema is the complete envelope schema
-	Schema *AvroSchema
+// EventTypeName returns the full event type name (e.g., "ProductCreatedEvent").
+func (p *PayloadSchema) EventTypeName() string {
+	return p.EventName() + "Event"
+}
 
-	// SchemaJSON is the envelope schema as JSON bytes
-	SchemaJSON []byte
+// PayloadTypeName returns the payload type name (e.g., "ProductCreatedPayload").
+func (p *PayloadSchema) PayloadTypeName() string {
+	return p.EventName() + "Payload"
+}
 
-	// CombinedJSON is the schema with EventMetadata inlined (for Avro serialization)
-	CombinedJSON []byte
+// SchemaFullName returns the full qualified schema name (namespace.EventTypeName).
+// e.g., "com.ecommerce.events.ProductCreatedEvent"
+func (p *PayloadSchema) SchemaFullName() string {
+	if p.Original.Namespace == "" {
+		return p.EventTypeName()
+	}
+	return p.Original.Namespace + "." + p.EventTypeName()
 }
 
 // FullName returns the fully qualified schema name (namespace.name).
@@ -109,4 +101,16 @@ func ParseAvroSchema(data []byte) (*AvroSchema, error) {
 // ToJSON converts the schema to formatted JSON bytes.
 func (s *AvroSchema) ToJSON() ([]byte, error) {
 	return json.MarshalIndent(s, "", "  ")
+}
+
+// toPascalCase converts snake_case to PascalCase.
+// e.g., "product_created" -> "ProductCreated"
+func toPascalCase(s string) string {
+	parts := strings.Split(s, "_")
+	for i, part := range parts {
+		if len(part) > 0 {
+			parts[i] = strings.ToUpper(part[:1]) + strings.ToLower(part[1:])
+		}
+	}
+	return strings.Join(parts, "")
 }

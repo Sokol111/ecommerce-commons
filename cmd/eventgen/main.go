@@ -34,7 +34,6 @@ func newRootCmd() *cobra.Command {
 	}
 
 	rootCmd.AddCommand(newGenerateCmd())
-	rootCmd.AddCommand(newValidateCmd())
 
 	return rootCmd
 }
@@ -74,30 +73,6 @@ Example:
 	return cmd
 }
 
-func newValidateCmd() *cobra.Command {
-	var payloadsDir string
-	var verbose bool
-
-	cmd := &cobra.Command{
-		Use:   "validate",
-		Short: "Validate Avro payload schemas",
-		Long: `Validate Avro payload schemas without generating code.
-
-Example:
-  eventgen validate --payloads ./avro`,
-		RunE: func(cmd *cobra.Command, args []string) error {
-			return runValidate(payloadsDir, verbose)
-		},
-	}
-
-	cmd.Flags().StringVarP(&payloadsDir, "payloads", "p", "", "Directory containing *_payload.avsc files (required)")
-	cmd.Flags().BoolVarP(&verbose, "verbose", "v", false, "Enable verbose output")
-
-	_ = cmd.MarkFlagRequired("payloads")
-
-	return cmd
-}
-
 func runGenerate(cfg *eventgen.Config) error {
 	gen, err := eventgen.New(cfg)
 	if err != nil {
@@ -108,24 +83,5 @@ func runGenerate(cfg *eventgen.Config) error {
 		return fmt.Errorf("generation failed: %w", err)
 	}
 
-	return nil
-}
-
-func runValidate(payloadsDir string, verbose bool) error {
-	cfg := &eventgen.Config{
-		PayloadsDir: payloadsDir,
-		Verbose:     verbose,
-	}
-
-	gen, err := eventgen.New(cfg)
-	if err != nil {
-		return fmt.Errorf("failed to create generator: %w", err)
-	}
-
-	if err := gen.Validate(); err != nil {
-		return fmt.Errorf("validation failed: %w", err)
-	}
-
-	fmt.Println("✓ All schemas are valid")
 	return nil
 }

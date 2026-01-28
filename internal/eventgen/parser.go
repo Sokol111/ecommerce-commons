@@ -70,6 +70,7 @@ func (p *Parser) parsePayloadFile(filePath string) (*PayloadSchema, error) {
 		EventName:       eventName,
 		EventTypeName:   eventName + "Event",
 		PayloadTypeName: eventName + "Payload",
+		Topic:           schema.Topic,
 	}
 
 	// Validate that the schema name matches expected payload name

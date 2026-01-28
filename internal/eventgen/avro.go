@@ -11,6 +11,7 @@ type AvroSchema struct {
 	Name      string         `json:"name"`
 	Namespace string         `json:"namespace,omitempty"`
 	Doc       string         `json:"doc,omitempty"`
+	Topic     string         `json:"topic,omitempty"` // Kafka topic for this event
 	Fields    []AvroField    `json:"fields,omitempty"`
 	Aliases   []string       `json:"aliases,omitempty"`
 	Default   any            `json:"default,omitempty"`
@@ -59,6 +60,9 @@ type PayloadSchema struct {
 	// PayloadTypeName is the payload type name
 	// e.g., "ProductCreatedPayload"
 	PayloadTypeName string
+
+	// Topic is the Kafka topic for this event (from schema "topic" field)
+	Topic string
 }
 
 // EnvelopeSchema represents a generated envelope schema (metadata + payload).
@@ -84,39 +88,6 @@ func (s *AvroSchema) FullName() string {
 	return s.Namespace + "." + s.Name
 }
 
-// Clone creates a deep copy of the schema.
-func (s *AvroSchema) Clone() *AvroSchema {
-	if s == nil {
-		return nil
-	}
-
-	clone := &AvroSchema{
-		Type:      s.Type,
-		Name:      s.Name,
-		Namespace: s.Namespace,
-		Doc:       s.Doc,
-		Default:   s.Default,
-	}
-
-	if s.Fields != nil {
-		clone.Fields = make([]AvroField, len(s.Fields))
-		copy(clone.Fields, s.Fields)
-	}
-
-	if s.Aliases != nil {
-		clone.Aliases = make([]string, len(s.Aliases))
-		copy(clone.Aliases, s.Aliases)
-	}
-
-	return clone
-}
-
-// MarshalJSON implements custom JSON marshaling for AvroSchema.
-func (s *AvroSchema) MarshalJSON() ([]byte, error) {
-	type Alias AvroSchema
-	return json.Marshal((*Alias)(s))
-}
-
 // ParseAvroSchema parses JSON bytes into an AvroSchema.
 func ParseAvroSchema(data []byte) (*AvroSchema, error) {
 	var schema AvroSchema
@@ -138,26 +109,4 @@ func ParseAvroSchema(data []byte) (*AvroSchema, error) {
 // ToJSON converts the schema to formatted JSON bytes.
 func (s *AvroSchema) ToJSON() ([]byte, error) {
 	return json.MarshalIndent(s, "", "  ")
-}
-
-// TopicInfo holds information about a Kafka topic from AsyncAPI.
-type TopicInfo struct {
-	Name        string
-	Description string
-	EventNames  []string // Event names from channel messages
-}
-
-// GenerationResult holds the result of code generation.
-type GenerationResult struct {
-	// Payloads are the parsed payload schemas
-	Payloads []*PayloadSchema
-
-	// Envelopes are the generated envelope schemas
-	Envelopes []*EnvelopeSchema
-
-	// Topics are the topics extracted from AsyncAPI (if provided)
-	Topics []*TopicInfo
-
-	// GeneratedFiles is a list of generated file paths
-	GeneratedFiles []string
 }

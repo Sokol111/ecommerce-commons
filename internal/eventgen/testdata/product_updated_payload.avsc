@@ -2,6 +2,7 @@
   "type": "record",
   "name": "ProductUpdatedPayload",
   "namespace": "com.ecommerce.events.product",
+  "topic": "catalog.product.events",
   "doc": "Business data for product update event",
   "fields": [
     {

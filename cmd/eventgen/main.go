@@ -52,8 +52,7 @@ combines them with EventMetadata to create envelope schemas,
 and generates Go types, constants, and schema embeddings.
 
 Example:
-  eventgen generate --payloads ./avro --output ./gen/events --package events
-  eventgen generate -p ./avro -o ./gen/events -n events --asyncapi ./asyncapi/asyncapi.yaml`,
+  eventgen generate --payloads ./avro --output ./gen/events --package events`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runGenerate(cfg)
 		},
@@ -65,7 +64,6 @@ Example:
 
 	// Optional flags
 	cmd.Flags().StringVarP(&cfg.Package, "package", "n", "events", "Go package name for generated code")
-	cmd.Flags().StringVarP(&cfg.AsyncAPIFile, "asyncapi", "a", "", "AsyncAPI spec file for topic extraction")
 	cmd.Flags().StringVarP(&cfg.MetadataFile, "metadata", "m", "", "Custom EventMetadata schema file (uses embedded if not specified)")
 	cmd.Flags().StringVar(&cfg.MetadataNamespace, "metadata-namespace", "com.ecommerce.events", "Namespace for EventMetadata")
 	cmd.Flags().BoolVarP(&cfg.Verbose, "verbose", "v", false, "Enable verbose output")

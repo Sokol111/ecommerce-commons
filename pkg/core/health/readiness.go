@@ -45,7 +45,7 @@ func newReadiness(logger *zap.Logger, isKubernetes bool) *readiness {
 	return r
 }
 
-func (r *readiness) AddComponent(name string) {
+func (r *readiness) AddComponent(name string) func() {
 	if name == "" {
 		panic("readiness: component name cannot be empty")
 	}
@@ -53,68 +53,61 @@ func (r *readiness) AddComponent(name string) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 
-	if _, exists := r.components[name]; !exists {
-		r.components[name] = &component{
-			name:      name,
-			ready:     false,
-			startedAt: time.Now(),
-		}
-		r.logger.Debug("Component added",
-			zap.String("component", name),
-		)
-	} else {
+	if _, exists := r.components[name]; exists {
 		r.logger.Warn("Component already exists",
 			zap.String("component", name),
 		)
-	}
-}
-
-func (r *readiness) MarkReady(name string) {
-	if name == "" {
-		panic("readiness: component name cannot be empty")
+		return func() {}
 	}
 
-	r.mu.Lock()
-	defer r.mu.Unlock()
-
-	comp, exists := r.components[name]
-	if !exists {
-		panic("readiness: component '" + name + "' does not exist, must call AddComponent first")
+	r.components[name] = &component{
+		name:      name,
+		ready:     false,
+		startedAt: time.Now(),
 	}
-
-	if comp.ready {
-		r.logger.Debug("Component already marked as ready",
-			zap.String("component", name),
-		)
-		return
-	}
-
-	comp.ready = true
-	comp.readyAt = time.Now()
-	duration := comp.readyAt.Sub(comp.startedAt)
-
-	r.logger.Info("Component ready",
+	r.logger.Debug("Component added",
 		zap.String("component", name),
-		zap.Duration("initialization_time", duration),
 	)
 
-	// Check if all components are ready
-	allReady := len(r.components) > 0
-	for _, c := range r.components {
-		if !c.ready {
-			allReady = false
-			break
-		}
-	}
+	return func() {
+		r.mu.Lock()
+		defer r.mu.Unlock()
 
-	if allReady {
-		r.readyOnce.Do(func() {
-			close(r.readyChan)
-			r.logger.Info("All components are ready",
-				zap.Int("component_count", len(r.components)),
-				zap.Time("ready_at", time.Now()),
+		comp := r.components[name]
+		if comp.ready {
+			r.logger.Debug("Component already marked as ready",
+				zap.String("component", name),
 			)
-		})
+			return
+		}
+
+		comp.ready = true
+		comp.readyAt = time.Now()
+		duration := comp.readyAt.Sub(comp.startedAt)
+
+		r.logger.Info("Component ready",
+			zap.String("component", name),
+			zap.Duration("initialization_time", duration),
+		)
+
+		// Check if all components are ready
+		allReady := len(r.components) > 0
+		for _, c := range r.components {
+			if !c.ready {
+				allReady = false
+				break
+			}
+		}
+
+		if allReady {
+			r.readyOnce.Do(func() {
+				close(r.readyChan)
+				r.logger.Info("All components are ready",
+					zap.Int("component_count", len(r.components)),
+					zap.Time("ready_at", time.Now()),
+				)
+			})
+		}
 	}
 }
 

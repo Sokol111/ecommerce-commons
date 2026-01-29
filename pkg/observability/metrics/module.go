@@ -43,7 +43,7 @@ func NewMetricsModule() fx.Option {
 }
 
 func provideMeterProvider(p providerParams) (metric.MeterProvider, error) {
-	p.Readiness.AddComponent(otelconfig.MetricsComponentName)
+	markReady := p.Readiness.AddComponent(otelconfig.MetricsComponentName)
 
 	provider, err := newProvider(context.Background(), p.Cfg.OtelCollectorEndpoint, p.Cfg.Metrics.Interval, p.AppCfg)
 	if err != nil {
@@ -58,7 +58,7 @@ func provideMeterProvider(p providerParams) (metric.MeterProvider, error) {
 				zap.String("endpoint", p.Cfg.OtelCollectorEndpoint),
 				zap.Duration("interval", p.Cfg.Metrics.Interval),
 			)
-			p.Readiness.MarkReady(otelconfig.MetricsComponentName)
+			markReady()
 			return nil
 		},
 		OnStop: func(ctx context.Context) error {

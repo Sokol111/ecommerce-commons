@@ -24,8 +24,9 @@ func TestAddComponent(t *testing.T) {
 		logger := zap.NewNop()
 		r := newReadiness(logger, false)
 
-		r.AddComponent("database")
+		markReady := r.AddComponent("database")
 
+		assert.NotNil(t, markReady)
 		assert.Len(t, r.components, 1)
 		assert.Contains(t, r.components, "database")
 		assert.False(t, r.components["database"].ready)
@@ -45,51 +46,32 @@ func TestAddComponent(t *testing.T) {
 		r := newReadiness(logger, false)
 
 		r.AddComponent("database")
-		r.AddComponent("database") // Should log warning but not panic
+		markReady := r.AddComponent("database") // Should log warning but not panic
 
 		assert.Len(t, r.components, 1)
+		assert.NotNil(t, markReady) // Should return a no-op function
 	})
-}
 
-func TestMarkReady(t *testing.T) {
-	t.Run("successfully marks component ready", func(t *testing.T) {
+	t.Run("returned function marks component as ready", func(t *testing.T) {
 		logger := zap.NewNop()
 		r := newReadiness(logger, false)
 
-		r.AddComponent("database")
-		r.MarkReady("database")
+		markReady := r.AddComponent("database")
+		markReady()
 
 		assert.True(t, r.components["database"].ready)
 		assert.False(t, r.components["database"].readyAt.IsZero())
 	})
 
-	t.Run("panics on empty component name", func(t *testing.T) {
+	t.Run("returned function handles multiple calls", func(t *testing.T) {
 		logger := zap.NewNop()
 		r := newReadiness(logger, false)
 
-		assert.Panics(t, func() {
-			r.MarkReady("")
-		})
-	})
-
-	t.Run("panics on non-existent component", func(t *testing.T) {
-		logger := zap.NewNop()
-		r := newReadiness(logger, false)
-
-		assert.PanicsWithValue(t, "readiness: component 'database' does not exist, must call AddComponent first", func() {
-			r.MarkReady("database")
-		})
-	})
-
-	t.Run("handles marking already ready component", func(t *testing.T) {
-		logger := zap.NewNop()
-		r := newReadiness(logger, false)
-
-		r.AddComponent("database")
-		r.MarkReady("database")
+		markReady := r.AddComponent("database")
+		markReady()
 		firstReadyAt := r.components["database"].readyAt
 
-		r.MarkReady("database") // Should not update readyAt
+		markReady() // Should not update readyAt
 
 		assert.Equal(t, firstReadyAt, r.components["database"].readyAt)
 	})
@@ -117,9 +99,9 @@ func TestIsReady(t *testing.T) {
 		logger := zap.NewNop()
 		r := newReadiness(logger, false)
 
-		r.AddComponent("database")
+		markDBReady := r.AddComponent("database")
 		r.AddComponent("cache")
-		r.MarkReady("database")
+		markDBReady()
 
 		assert.False(t, r.IsReady())
 	})
@@ -128,10 +110,10 @@ func TestIsReady(t *testing.T) {
 		logger := zap.NewNop()
 		r := newReadiness(logger, false)
 
-		r.AddComponent("database")
-		r.AddComponent("cache")
-		r.MarkReady("database")
-		r.MarkReady("cache")
+		markDBReady := r.AddComponent("database")
+		markCacheReady := r.AddComponent("cache")
+		markDBReady()
+		markCacheReady()
 
 		assert.True(t, r.IsReady())
 	})
@@ -140,8 +122,8 @@ func TestIsReady(t *testing.T) {
 		logger := zap.NewNop()
 		r := newReadiness(logger, false)
 
-		r.AddComponent("database")
-		r.MarkReady("database")
+		markReady := r.AddComponent("database")
+		markReady()
 
 		assert.True(t, r.IsReady())
 	})
@@ -180,17 +162,17 @@ func TestGetStatus(t *testing.T) {
 		logger := zap.NewNop()
 		r := newReadiness(logger, false)
 
-		r.AddComponent("database")
-		r.AddComponent("cache")
+		markDBReady := r.AddComponent("database")
+		markCacheReady := r.AddComponent("cache")
 
 		status := r.GetStatus()
 		assert.False(t, status.Ready)
 
-		r.MarkReady("database")
+		markDBReady()
 		status = r.GetStatus()
 		assert.False(t, status.Ready)
 
-		r.MarkReady("cache")
+		markCacheReady()
 		status = r.GetStatus()
 		assert.True(t, status.Ready)
 		assert.False(t, status.ReadyAt.IsZero())
@@ -200,13 +182,13 @@ func TestGetStatus(t *testing.T) {
 		logger := zap.NewNop()
 		r := newReadiness(logger, false)
 
-		r.AddComponent("database")
-		r.MarkReady("database")
+		markDBReady := r.AddComponent("database")
+		markDBReady()
 
 		time.Sleep(10 * time.Millisecond) // Ensure different timestamps
 
-		r.AddComponent("cache")
-		r.MarkReady("cache")
+		markCacheReady := r.AddComponent("cache")
+		markCacheReady()
 
 		status := r.GetStatus()
 
@@ -227,7 +209,7 @@ func TestWaitReady(t *testing.T) {
 		logger := zap.NewNop()
 		r := newReadiness(logger, false)
 
-		r.AddComponent("database")
+		markReady := r.AddComponent("database")
 
 		ready := make(chan struct{})
 		go func() {
@@ -245,7 +227,7 @@ func TestWaitReady(t *testing.T) {
 			// Expected
 		}
 
-		r.MarkReady("database")
+		markReady()
 
 		// Should become ready
 		select {
@@ -260,8 +242,8 @@ func TestWaitReady(t *testing.T) {
 		logger := zap.NewNop()
 		r := newReadiness(logger, false)
 
-		r.AddComponent("database")
-		r.MarkReady("database")
+		markReady := r.AddComponent("database")
+		markReady()
 
 		ctx, cancel := context.WithTimeout(context.Background(), 100*time.Millisecond)
 		defer cancel()
@@ -312,8 +294,8 @@ func TestMarkTrafficReady(t *testing.T) {
 		logger := zap.NewNop()
 		r := newReadiness(logger, false)
 
-		r.AddComponent("database")
-		r.MarkReady("database")
+		markReady := r.AddComponent("database")
+		markReady()
 
 		r.MarkTrafficReady()
 
@@ -325,8 +307,8 @@ func TestMarkTrafficReady(t *testing.T) {
 		logger := zap.NewNop()
 		r := newReadiness(logger, true)
 
-		r.AddComponent("database")
-		r.MarkReady("database")
+		markReady := r.AddComponent("database")
+		markReady()
 
 		r.MarkTrafficReady()
 
@@ -338,8 +320,8 @@ func TestMarkTrafficReady(t *testing.T) {
 		logger := zap.NewNop()
 		r := newReadiness(logger, false)
 
-		r.AddComponent("database")
-		r.MarkReady("database")
+		markReady := r.AddComponent("database")
+		markReady()
 
 		r.MarkTrafficReady()
 		firstNotifiedAt := r.GetStatus().KubernetesNotifiedAt
@@ -355,9 +337,9 @@ func TestMarkTrafficReady(t *testing.T) {
 		logger := zap.NewNop()
 		r := newReadiness(logger, false)
 
-		r.AddComponent("database")
-		r.AddComponent("cache")
-		r.MarkReady("database") // Only one component ready
+		markDBReady := r.AddComponent("database")
+		markCacheReady := r.AddComponent("cache")
+		markDBReady() // Only one component ready
 
 		// Try to mark traffic ready prematurely
 		r.MarkTrafficReady()
@@ -366,7 +348,7 @@ func TestMarkTrafficReady(t *testing.T) {
 		assert.True(t, status.KubernetesNotifiedAt.IsZero(), "Should not mark traffic ready when not all components are ready")
 
 		// Now mark the second component ready
-		r.MarkReady("cache")
+		markCacheReady()
 		r.MarkTrafficReady()
 
 		status = r.GetStatus()
@@ -390,7 +372,7 @@ func TestWaitForTrafficReady(t *testing.T) {
 		logger := zap.NewNop()
 		r := newReadiness(logger, false)
 
-		r.AddComponent("database")
+		markReady := r.AddComponent("database")
 
 		ready := make(chan struct{})
 		go func() {
@@ -408,7 +390,7 @@ func TestWaitForTrafficReady(t *testing.T) {
 			// Expected
 		}
 
-		r.MarkReady("database")
+		markReady()
 
 		// Should become ready immediately in local mode
 		select {
@@ -423,7 +405,7 @@ func TestWaitForTrafficReady(t *testing.T) {
 		logger := zap.NewNop()
 		r := newReadiness(logger, true)
 
-		r.AddComponent("database")
+		markReady := r.AddComponent("database")
 
 		ready := make(chan struct{})
 		go func() {
@@ -441,7 +423,7 @@ func TestWaitForTrafficReady(t *testing.T) {
 			// Expected
 		}
 
-		r.MarkReady("database")
+		markReady()
 
 		// Still should not be ready - waiting for traffic ready signal
 		select {
@@ -466,8 +448,8 @@ func TestWaitForTrafficReady(t *testing.T) {
 		logger := zap.NewNop()
 		r := newReadiness(logger, false)
 
-		r.AddComponent("database")
-		r.MarkReady("database")
+		markReady := r.AddComponent("database")
+		markReady()
 
 		ctx, cancel := context.WithTimeout(context.Background(), 100*time.Millisecond)
 		defer cancel()
@@ -479,8 +461,8 @@ func TestWaitForTrafficReady(t *testing.T) {
 		logger := zap.NewNop()
 		r := newReadiness(logger, true)
 
-		r.AddComponent("database")
-		r.MarkReady("database")
+		markReady := r.AddComponent("database")
+		markReady()
 		r.MarkTrafficReady()
 
 		ctx, cancel := context.WithTimeout(context.Background(), 100*time.Millisecond)
@@ -507,8 +489,8 @@ func TestWaitForTrafficReady(t *testing.T) {
 		logger := zap.NewNop()
 		r := newReadiness(logger, true)
 
-		r.AddComponent("database")
-		r.MarkReady("database")
+		markReady := r.AddComponent("database")
+		markReady()
 
 		ctx, cancel := context.WithTimeout(context.Background(), 50*time.Millisecond)
 		defer cancel()
@@ -522,7 +504,7 @@ func TestWaitForTrafficReady(t *testing.T) {
 		logger := zap.NewNop()
 		r := newReadiness(logger, true)
 
-		r.AddComponent("database")
+		markReady := r.AddComponent("database")
 
 		// Try to mark traffic ready before components are ready
 		r.MarkTrafficReady()
@@ -544,7 +526,7 @@ func TestWaitForTrafficReady(t *testing.T) {
 		}
 
 		// Mark component ready
-		r.MarkReady("database")
+		markReady()
 
 		// Still should not be ready - waiting for proper traffic ready signal
 		select {
@@ -572,8 +554,8 @@ func TestWaitKubernetesReady(t *testing.T) {
 		logger := zap.NewNop()
 		r := newReadiness(logger, false)
 
-		r.AddComponent("database")
-		r.MarkReady("database")
+		markReady := r.AddComponent("database")
+		markReady()
 
 		ready := make(chan struct{})
 		go func() {
@@ -596,8 +578,8 @@ func TestWaitKubernetesReady(t *testing.T) {
 		logger := zap.NewNop()
 		r := newReadiness(logger, true)
 
-		r.AddComponent("database")
-		r.MarkReady("database")
+		markReady := r.AddComponent("database")
+		markReady()
 		r.MarkTrafficReady()
 
 		ctx, cancel := context.WithTimeout(context.Background(), 100*time.Millisecond)
@@ -610,8 +592,8 @@ func TestWaitKubernetesReady(t *testing.T) {
 		logger := zap.NewNop()
 		r := newReadiness(logger, true)
 
-		r.AddComponent("database")
-		r.MarkReady("database")
+		markReady := r.AddComponent("database")
+		markReady()
 
 		ctx, cancel := context.WithCancel(context.Background())
 		cancel()
@@ -637,10 +619,10 @@ func TestEdgeCases(t *testing.T) {
 		r := newReadiness(logger, false)
 
 		startTime := time.Now()
-		r.AddComponent("database")
+		markReady := r.AddComponent("database")
 
 		time.Sleep(50 * time.Millisecond)
-		r.MarkReady("database")
+		markReady()
 
 		status := r.GetStatus()
 		require.Len(t, status.Components, 1)
@@ -656,7 +638,7 @@ func TestEdgeCases(t *testing.T) {
 		logger := zap.NewNop()
 		r := newReadiness(logger, false)
 
-		r.AddComponent("database")
+		markReady := r.AddComponent("database")
 
 		var wg sync.WaitGroup
 		var mu sync.Mutex
@@ -677,7 +659,7 @@ func TestEdgeCases(t *testing.T) {
 		}
 
 		time.Sleep(50 * time.Millisecond)
-		r.MarkReady("database")
+		markReady()
 
 		wg.Wait()
 		assert.Equal(t, 10, readyCount)
@@ -710,9 +692,9 @@ func TestEdgeCases(t *testing.T) {
 			go func(idx int) {
 				defer wg.Done()
 				name := time.Now().Format("comp-150405.000000000-") + string(rune('A'+idx))
-				r.AddComponent(name)
+				markReady := r.AddComponent(name)
 				time.Sleep(1 * time.Millisecond) // Small delay to ensure different timestamps
-				r.MarkReady(name)
+				markReady()
 			}(i)
 		}
 
@@ -731,7 +713,7 @@ func TestEdgeCases(t *testing.T) {
 }
 
 func TestConcurrency(t *testing.T) {
-	t.Run("concurrent AddComponent and MarkReady", func(t *testing.T) {
+	t.Run("concurrent AddComponent and markReady", func(t *testing.T) {
 		logger := zap.NewNop()
 		r := newReadiness(logger, false)
 
@@ -744,8 +726,8 @@ func TestConcurrency(t *testing.T) {
 			go func(idx int) {
 				defer wg.Done()
 				name := time.Now().Format("component-150405.000000000-") + string(rune('A'+idx/26)) + string(rune('A'+idx%26))
-				r.AddComponent(name)
-				r.MarkReady(name)
+				markReady := r.AddComponent(name)
+				markReady()
 			}(i)
 		}
 

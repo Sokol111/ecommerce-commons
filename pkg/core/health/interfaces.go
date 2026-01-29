@@ -21,8 +21,8 @@ type ReadinessStatus struct {
 
 // ComponentManager manages component registration and readiness tracking.
 type ComponentManager interface {
-	AddComponent(name string)
-	MarkReady(name string)
+	// AddComponent registers a component and returns a function to mark it as ready.
+	AddComponent(name string) func()
 }
 
 // ReadinessChecker provides readiness status information.

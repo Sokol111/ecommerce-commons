@@ -23,10 +23,10 @@ func provideMongo(lc fx.Lifecycle, log *zap.Logger, conf Config, readiness healt
 		return nil, nil, err
 	}
 
-	readiness.AddComponent("mongo-module")
+	markReady := readiness.AddComponent("mongo-module")
 	lc.Append(fx.Hook{
 		OnStart: func(ctx context.Context) error {
-			defer readiness.MarkReady("mongo-module")
+			defer markReady()
 			return m.connect(ctx)
 		},
 		OnStop: func(ctx context.Context) error {

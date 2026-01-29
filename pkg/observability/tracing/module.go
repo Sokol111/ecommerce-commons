@@ -61,7 +61,7 @@ func provideTracerProvider(p providerParams) (trace.TracerProvider, error) {
 		return nil, err
 	}
 
-	p.Readiness.AddComponent(otelconfig.TracingComponentName)
+	markReady := p.Readiness.AddComponent(otelconfig.TracingComponentName)
 
 	p.Lc.Append(fx.Hook{
 		OnStart: func(context.Context) error {
@@ -71,7 +71,7 @@ func provideTracerProvider(p providerParams) (trace.TracerProvider, error) {
 				propagation.Baggage{},
 			))
 			p.Log.Info("tracing initialized", zap.String("endpoint", p.Cfg.OtelCollectorEndpoint))
-			p.Readiness.MarkReady(otelconfig.TracingComponentName)
+			markReady()
 			return nil
 		},
 		OnStop: func(ctx context.Context) error {

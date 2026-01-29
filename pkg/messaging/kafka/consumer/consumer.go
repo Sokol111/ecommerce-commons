@@ -26,7 +26,7 @@ func provideKafkaConsumer(lc fx.Lifecycle, conf config.Config, consumerConf conf
 	}
 
 	componentName := "kafka-consumer-" + consumerConf.Name
-	componentMgr.AddComponent(componentName)
+	markReady := componentMgr.AddComponent(componentName)
 
 	lc.Append(fx.Hook{
 		OnStart: func(ctx context.Context) error {
@@ -55,7 +55,7 @@ func provideKafkaConsumer(lc fx.Lifecycle, conf config.Config, consumerConf conf
 				log.Warn("topic verification failed, continuing anyway", zap.Error(err))
 			}
 
-			componentMgr.MarkReady(componentName)
+			markReady()
 			return nil
 		},
 		OnStop: func(ctx context.Context) error {

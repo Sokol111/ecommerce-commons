@@ -50,7 +50,7 @@ func newMetadataPopulator(appCfg config.AppConfig) events.MetadataPopulator {
 }
 
 func runMigrations(lc fx.Lifecycle, log *zap.Logger, migrator migrations.Migrator, readiness health.ComponentManager) {
-	readiness.AddComponent("outbox-migrations")
+	markReady := readiness.AddComponent("outbox-migrations")
 	lc.Append(fx.Hook{
 		OnStart: func(ctx context.Context) error {
 			log.Info("running outbox migrations")
@@ -58,7 +58,7 @@ func runMigrations(lc fx.Lifecycle, log *zap.Logger, migrator migrations.Migrato
 				return err
 			}
 			log.Info("outbox migrations completed")
-			readiness.MarkReady("outbox-migrations")
+			markReady()
 			return nil
 		},
 	})

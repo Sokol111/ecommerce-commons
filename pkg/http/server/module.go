@@ -24,7 +24,7 @@ func newServeMux() (*http.ServeMux, http.Handler) {
 
 func startHTTPServer(lc fx.Lifecycle, log *zap.Logger, conf Config, handler http.Handler, readiness health.ComponentManager, shutdowner fx.Shutdowner) {
 	var srv Server
-	readiness.AddComponent("http-server")
+	markReady := readiness.AddComponent("http-server")
 	lc.Append(fx.Hook{
 		OnStart: func(ctx context.Context) error {
 			// Create server in OnStart - all routes are registered by now
@@ -32,7 +32,7 @@ func startHTTPServer(lc fx.Lifecycle, log *zap.Logger, conf Config, handler http
 
 			go func() {
 				if err := srv.ServeWithReadyCallback(func() {
-					readiness.MarkReady("http-server")
+					markReady()
 				}); err != nil {
 					log.Error("HTTP server failed, shutting down application", zap.Error(err))
 					_ = shutdowner.Shutdown() //nolint:errcheck // shutdown is best-effort

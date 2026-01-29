@@ -38,13 +38,13 @@ func provideKafkaProducer(lc fx.Lifecycle, conf config.Config) (*kafka.Producer,
 }
 
 func invokeInitializer(lc fx.Lifecycle, readiness health.ComponentManager, p *kafka.Producer, log *zap.Logger, conf config.Config) {
-	readiness.AddComponent("kafka-producer")
+	markReady := readiness.AddComponent("kafka-producer")
 	lc.Append(fx.Hook{
 		OnStart: func(ctx context.Context) error {
 			if err := waitForBrokers(ctx, p, log.With(zap.String("component", "producer")), conf.ProducerConfig.ReadinessTimeoutSeconds, conf.ProducerConfig.FailOnBrokerError); err != nil {
 				return err
 			}
-			readiness.MarkReady("kafka-producer")
+			markReady()
 			return nil
 		},
 	})

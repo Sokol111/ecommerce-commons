@@ -8,6 +8,7 @@ import (
 	"net"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"syscall"
 	"testing"
 	"time"
@@ -705,7 +706,9 @@ func TestHTTPClient_Integration(t *testing.T) {
 		_, err := client.Do(req)
 
 		require.Error(t, err)
-		assert.Contains(t, err.Error(), "context deadline exceeded")
+		assert.True(t, strings.Contains(err.Error(), "context deadline exceeded") ||
+			strings.Contains(err.Error(), "Client.Timeout exceeded"),
+			"expected timeout error, got: %v", err)
 	})
 }
 

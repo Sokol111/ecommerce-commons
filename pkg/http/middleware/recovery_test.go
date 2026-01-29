@@ -74,7 +74,7 @@ func TestRecoveryMiddleware(t *testing.T) {
 		mw := recoveryMiddleware()
 
 		next := func(_ middleware.Request) (middleware.Response, error) {
-			panic(nil)
+			panic(any(nil)) //nolint:govet // Testing panic(nil) behavior intentionally
 		}
 
 		req := middleware.Request{

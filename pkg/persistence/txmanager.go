@@ -16,5 +16,5 @@ func WithTransaction[T any](ctx context.Context, tm TxManager, fn func(txCtx con
 	if err != nil {
 		return zero, err
 	}
-	return result.(T), nil
+	return result.(T), nil //nolint:errcheck // Type assertion is safe here since fn returns T
 }

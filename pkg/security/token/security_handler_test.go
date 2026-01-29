@@ -11,7 +11,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// mockValidator is a test double for TokenValidator.
+// mockValidator is a test double for Validator.
 type mockValidator struct {
 	claims *Claims
 	err    error
@@ -32,7 +32,7 @@ func TestHandleBearerAuth(t *testing.T) {
 		validator := &mockValidator{claims: claims}
 		ctx := context.Background()
 
-		resultCtx, resultClaims, err := HandleBearerAuth(validator, ctx, "valid-token", nil)
+		resultCtx, resultClaims, err := HandleBearerAuth(ctx, validator, "valid-token", nil)
 
 		assert.NoError(t, err)
 		assert.Equal(t, claims, resultClaims)
@@ -42,7 +42,7 @@ func TestHandleBearerAuth(t *testing.T) {
 		assert.Equal(t, claims, storedClaims)
 
 		// Verify token is stored in context
-		storedToken := TokenFromContext(resultCtx)
+		storedToken := FromContext(resultCtx)
 		assert.Equal(t, "valid-token", storedToken)
 	})
 
@@ -55,7 +55,7 @@ func TestHandleBearerAuth(t *testing.T) {
 		validator := &mockValidator{claims: claims}
 		ctx := context.Background()
 
-		resultCtx, resultClaims, err := HandleBearerAuth(validator, ctx, "valid-token", []string{"catalog:read"})
+		resultCtx, resultClaims, err := HandleBearerAuth(ctx, validator, "valid-token", []string{"catalog:read"})
 
 		assert.NoError(t, err)
 		assert.Equal(t, claims, resultClaims)
@@ -71,7 +71,7 @@ func TestHandleBearerAuth(t *testing.T) {
 		validator := &mockValidator{claims: claims}
 		ctx := context.Background()
 
-		resultCtx, resultClaims, err := HandleBearerAuth(validator, ctx, "valid-token", []string{"catalog:read", "catalog:write"})
+		resultCtx, resultClaims, err := HandleBearerAuth(ctx, validator, "valid-token", []string{"catalog:read", "catalog:write"})
 
 		assert.NoError(t, err)
 		assert.Equal(t, claims, resultClaims)
@@ -82,7 +82,7 @@ func TestHandleBearerAuth(t *testing.T) {
 		validator := &mockValidator{err: ErrInvalidToken}
 		ctx := context.Background()
 
-		resultCtx, resultClaims, err := HandleBearerAuth(validator, ctx, "invalid-token", nil)
+		resultCtx, resultClaims, err := HandleBearerAuth(ctx, validator, "invalid-token", nil)
 
 		assert.ErrorIs(t, err, ErrInvalidToken)
 		assert.Nil(t, resultClaims)
@@ -98,7 +98,7 @@ func TestHandleBearerAuth(t *testing.T) {
 		validator := &mockValidator{claims: claims}
 		ctx := context.Background()
 
-		resultCtx, resultClaims, err := HandleBearerAuth(validator, ctx, "refresh-token", nil)
+		resultCtx, resultClaims, err := HandleBearerAuth(ctx, validator, "refresh-token", nil)
 
 		assert.ErrorIs(t, err, ErrInvalidToken)
 		assert.Nil(t, resultClaims)
@@ -114,7 +114,7 @@ func TestHandleBearerAuth(t *testing.T) {
 		validator := &mockValidator{claims: claims}
 		ctx := context.Background()
 
-		resultCtx, resultClaims, err := HandleBearerAuth(validator, ctx, "valid-token", []string{"catalog:delete", "admin:manage"})
+		resultCtx, resultClaims, err := HandleBearerAuth(ctx, validator, "valid-token", []string{"catalog:delete", "admin:manage"})
 
 		assert.ErrorIs(t, err, ErrInsufficientPermissions)
 		assert.Nil(t, resultClaims)
@@ -130,7 +130,7 @@ func TestHandleBearerAuth(t *testing.T) {
 		validator := &mockValidator{claims: claims}
 		ctx := context.Background()
 
-		resultCtx, resultClaims, err := HandleBearerAuth(validator, ctx, "valid-token", []string{"any:permission"})
+		resultCtx, resultClaims, err := HandleBearerAuth(ctx, validator, "valid-token", []string{"any:permission"})
 
 		assert.ErrorIs(t, err, ErrInsufficientPermissions)
 		assert.Nil(t, resultClaims)
@@ -145,7 +145,7 @@ func TestHandleBearerAuth(t *testing.T) {
 		validator := &mockValidator{claims: claims}
 		ctx := context.Background()
 
-		_, resultClaims, err := HandleBearerAuth(validator, ctx, "token", nil)
+		_, resultClaims, err := HandleBearerAuth(ctx, validator, "token", nil)
 
 		// Empty type means IsAccess() returns false
 		assert.ErrorIs(t, err, ErrInvalidToken)
@@ -175,7 +175,7 @@ func TestHandleBearerAuth_Integration(t *testing.T) {
 		tokenString := token.V4Sign(secretKey, nil)
 
 		ctx := context.Background()
-		resultCtx, claims, err := HandleBearerAuth(validator, ctx, tokenString, []string{"catalog:write"})
+		resultCtx, claims, err := HandleBearerAuth(ctx, validator, tokenString, []string{"catalog:write"})
 
 		assert.NoError(t, err)
 		require.NotNil(t, claims)
@@ -186,7 +186,7 @@ func TestHandleBearerAuth_Integration(t *testing.T) {
 		storedClaims := ClaimsFromContext(resultCtx)
 		assert.Equal(t, "user-integration", storedClaims.UserID)
 
-		storedToken := TokenFromContext(resultCtx)
+		storedToken := FromContext(resultCtx)
 		assert.Equal(t, tokenString, storedToken)
 	})
 }

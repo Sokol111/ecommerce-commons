@@ -50,8 +50,8 @@ func (s *AvroSchema) PayloadTypeName() string {
 	return s.Name
 }
 
-// EventSchemaFullName returns the full qualified schema name for event (namespace.EventTypeName).
-// e.g., "com.ecommerce.events.ProductCreatedEvent"
+// EventSchemaFullName returns the full qualified schema name for event (namespace.EventTypeName),
+// e.g., "com.ecommerce.events.ProductCreatedEvent".
 func (s *AvroSchema) EventSchemaFullName() string {
 	if s.Namespace == "" {
 		return s.EventTypeName()
@@ -84,20 +84,8 @@ func (s *AvroSchema) ToJSON() ([]byte, error) {
 	return json.MarshalIndent(s, "", "  ")
 }
 
-// toPascalCase converts snake_case to PascalCase.
-// e.g., "product_created" -> "ProductCreated"
-func toPascalCase(s string) string {
-	parts := strings.Split(s, "_")
-	for i, part := range parts {
-		if len(part) > 0 {
-			parts[i] = strings.ToUpper(part[:1]) + strings.ToLower(part[1:])
-		}
-	}
-	return strings.Join(parts, "")
-}
-
-// toSnakeCase converts PascalCase to snake_case.
-// e.g., "ProductCreated" -> "product_created"
+// toSnakeCase converts PascalCase to snake_case,
+// e.g., "ProductCreated" -> "product_created".
 func toSnakeCase(s string) string {
 	var result strings.Builder
 	for i, r := range s {

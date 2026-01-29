@@ -33,14 +33,14 @@ tidy: ## Clean up go.mod and go.sum
 .PHONY: update-dependencies
 update-dependencies: ## Update dependencies (patch versions only - safe)
 	@echo "$(COLOR_YELLOW)Updating dependencies (patch only)...$(COLOR_RESET)"
-	GOPROXY=direct go get -u=patch ./...
-	GOPROXY=direct go mod tidy
+	go get -u=patch ./...
+	go mod tidy
 
 .PHONY: update-dependencies-all
 update-dependencies-all: ## Update ALL dependencies to latest (risky!)
 	@echo "$(COLOR_YELLOW)⚠️  Updating ALL dependencies to latest versions...$(COLOR_RESET)"
-	GOPROXY=direct go get -u ./...
-	GOPROXY=direct go mod tidy
+	go get -u ./...
+	go mod tidy
 
 # =============================================================================
 # Code Quality

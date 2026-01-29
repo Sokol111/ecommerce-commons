@@ -25,7 +25,7 @@ func WriteSchemaFiles(cfg *Config, payloads []*AvroSchema) error {
 		}
 
 		schemaPath := filepath.Join(cfg.OutputDir, "schemas", p.BaseName()+".avsc")
-		if err := os.WriteFile(schemaPath, data, 0644); err != nil {
+		if err := os.WriteFile(schemaPath, data, 0600); err != nil { //nolint:gosec // Schema files need to be readable
 			return fmt.Errorf("failed to write schema: %w", err)
 		}
 

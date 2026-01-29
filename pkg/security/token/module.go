@@ -4,8 +4,8 @@ import (
 	"go.uber.org/fx"
 )
 
-// NewTokenValidatorModule provides a TokenValidator for dependency injection.
-func NewTokenValidatorModule() fx.Option {
+// NewValidatorModule provides a Validator for dependency injection.
+func NewValidatorModule() fx.Option {
 	return fx.Provide(
 		newConfig,
 		newTokenValidator,

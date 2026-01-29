@@ -16,7 +16,7 @@ func ContextWithClaims(ctx context.Context, claims *Claims) context.Context {
 // ClaimsFromContext retrieves claims from the context.
 // Returns nil if no claims are present.
 func ClaimsFromContext(ctx context.Context) *Claims {
-	claims, _ := ctx.Value(claimsKey{}).(*Claims)
+	claims, _ := ctx.Value(claimsKey{}).(*Claims) //nolint:errcheck // Type assertion failure returns nil, which is valid
 	return claims
 }
 
@@ -26,9 +26,9 @@ func ContextWithToken(ctx context.Context, token string) context.Context {
 	return context.WithValue(ctx, tokenKey{}, token)
 }
 
-// TokenFromContext retrieves the raw token string from the context.
+// FromContext retrieves the raw token string from the context.
 // Returns empty string if no token is present.
-func TokenFromContext(ctx context.Context) string {
-	token, _ := ctx.Value(tokenKey{}).(string)
+func FromContext(ctx context.Context) string {
+	token, _ := ctx.Value(tokenKey{}).(string) //nolint:errcheck // Type assertion failure returns empty string, which is valid
 	return token
 }

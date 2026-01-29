@@ -64,8 +64,8 @@ Example:
 	// Optional flags
 	cmd.Flags().StringVarP(&cfg.Package, "package", "n", "events", "Go package name for generated code")
 
-	_ = cmd.MarkFlagRequired("payloads")
-	_ = cmd.MarkFlagRequired("output")
+	_ = cmd.MarkFlagRequired("payloads") //nolint:errcheck // Flag name is hardcoded and valid
+	_ = cmd.MarkFlagRequired("output")   //nolint:errcheck // Flag name is hardcoded and valid
 
 	return cmd
 }

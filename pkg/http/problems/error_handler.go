@@ -56,7 +56,7 @@ func NewErrorHandler() ogenerrors.ErrorHandler {
 
 		w.Header().Set("Content-Type", "application/problem+json")
 		w.WriteHeader(code)
-		_ = json.NewEncoder(w).Encode(problem)
+		_ = json.NewEncoder(w).Encode(problem) //nolint:errcheck // HTTP handler, error logged by net/http
 	}
 }
 

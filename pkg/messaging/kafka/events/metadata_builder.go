@@ -28,11 +28,8 @@ func NewMetadataPopulator(source string) MetadataPopulator {
 }
 
 // PopulateMetadata fills in the metadata fields automatically:
-// - EventID: generates new UUID
-// - EventType: extracts from struct name (e.g., "AttributeUpdatedEvent")
-// - Source: uses configured service name
-// - Timestamp: current UTC time
-// - TraceID: extracts from context
+// EventID generates new UUID, EventType extracts from struct name (e.g., "AttributeUpdatedEvent"),
+// Source uses configured service name, Timestamp is current UTC time, TraceID extracts from context.
 func (p *metadataPopulator) PopulateMetadata(ctx context.Context, event Event) string {
 	metadata := event.GetMetadata()
 

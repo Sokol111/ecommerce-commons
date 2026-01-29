@@ -29,7 +29,7 @@ func (h *healthHandler) IsReady(w http.ResponseWriter, r *http.Request) {
 		} else {
 			w.WriteHeader(http.StatusServiceUnavailable)
 		}
-		_ = json.NewEncoder(w).Encode(status)
+		_ = json.NewEncoder(w).Encode(status) //nolint:errcheck // HTTP handler, error logged by net/http
 		return
 	}
 
@@ -38,14 +38,14 @@ func (h *healthHandler) IsReady(w http.ResponseWriter, r *http.Request) {
 		// Notify that we're ready for traffic (idempotent - safe to call multiple times)
 		h.trafficControl.MarkTrafficReady()
 		w.WriteHeader(http.StatusOK)
-		_, _ = w.Write([]byte("ready"))
+		_, _ = w.Write([]byte("ready")) //nolint:errcheck // HTTP handler, error logged by net/http
 	} else {
 		w.WriteHeader(http.StatusServiceUnavailable)
-		_, _ = w.Write([]byte("not ready"))
+		_, _ = w.Write([]byte("not ready")) //nolint:errcheck // HTTP handler, error logged by net/http
 	}
 }
 
 func (h *healthHandler) IsLive(w http.ResponseWriter, _ *http.Request) {
 	w.WriteHeader(http.StatusOK)
-	_, _ = w.Write([]byte("alive"))
+	_, _ = w.Write([]byte("alive")) //nolint:errcheck // HTTP handler, error logged by net/http
 }

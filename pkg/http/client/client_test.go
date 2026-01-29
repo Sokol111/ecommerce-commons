@@ -20,19 +20,19 @@ import (
 )
 
 // ============================================================================
-// ClientConfig Tests
+// Config Tests
 // ============================================================================
 
-func TestClientConfig_applyDefaults(t *testing.T) {
+func TestConfig_applyDefaults(t *testing.T) {
 	tests := []struct {
 		name     string
-		initial  ClientConfig
-		expected ClientConfig
+		initial  Config
+		expected Config
 	}{
 		{
 			name:    "all nil values get defaults",
-			initial: ClientConfig{BaseURL: "http://example.com"},
-			expected: ClientConfig{
+			initial: Config{BaseURL: "http://example.com"},
+			expected: Config{
 				BaseURL:             "http://example.com",
 				Timeout:             lo.ToPtr(DefaultTimeout),
 				MaxIdleConnsPerHost: lo.ToPtr(DefaultMaxIdleConnsPerHost),
@@ -42,11 +42,11 @@ func TestClientConfig_applyDefaults(t *testing.T) {
 		},
 		{
 			name: "custom timeout preserved",
-			initial: ClientConfig{
+			initial: Config{
 				BaseURL: "http://example.com",
 				Timeout: lo.ToPtr(30 * time.Second),
 			},
-			expected: ClientConfig{
+			expected: Config{
 				BaseURL:             "http://example.com",
 				Timeout:             lo.ToPtr(30 * time.Second),
 				MaxIdleConnsPerHost: lo.ToPtr(DefaultMaxIdleConnsPerHost),
@@ -56,14 +56,14 @@ func TestClientConfig_applyDefaults(t *testing.T) {
 		},
 		{
 			name: "all custom values preserved",
-			initial: ClientConfig{
+			initial: Config{
 				BaseURL:             "http://example.com",
 				Timeout:             lo.ToPtr(5 * time.Second),
 				MaxIdleConnsPerHost: lo.ToPtr(50),
 				IdleConnTimeout:     lo.ToPtr(30 * time.Second),
 				MaxConnLifetime:     lo.ToPtr(120 * time.Second),
 			},
-			expected: ClientConfig{
+			expected: Config{
 				BaseURL:             "http://example.com",
 				Timeout:             lo.ToPtr(5 * time.Second),
 				MaxIdleConnsPerHost: lo.ToPtr(50),
@@ -73,12 +73,12 @@ func TestClientConfig_applyDefaults(t *testing.T) {
 		},
 		{
 			name: "zero duration values preserved",
-			initial: ClientConfig{
+			initial: Config{
 				BaseURL:         "http://example.com",
 				Timeout:         lo.ToPtr(time.Duration(0)),
 				MaxConnLifetime: lo.ToPtr(time.Duration(0)),
 			},
-			expected: ClientConfig{
+			expected: Config{
 				BaseURL:             "http://example.com",
 				Timeout:             lo.ToPtr(time.Duration(0)),
 				MaxIdleConnsPerHost: lo.ToPtr(DefaultMaxIdleConnsPerHost),
@@ -97,27 +97,27 @@ func TestClientConfig_applyDefaults(t *testing.T) {
 	}
 }
 
-func TestClientConfig_validate(t *testing.T) {
+func TestConfig_validate(t *testing.T) {
 	tests := []struct {
 		name    string
-		cfg     ClientConfig
+		cfg     Config
 		wantErr bool
 		errMsg  string
 	}{
 		{
 			name:    "valid config with base url",
-			cfg:     ClientConfig{BaseURL: "http://example.com"},
+			cfg:     Config{BaseURL: "http://example.com"},
 			wantErr: false,
 		},
 		{
 			name:    "empty base url returns error",
-			cfg:     ClientConfig{BaseURL: ""},
+			cfg:     Config{BaseURL: ""},
 			wantErr: true,
 			errMsg:  "base-url is required",
 		},
 		{
 			name:    "full config is valid",
-			cfg:     ClientConfig{BaseURL: "http://service:8080", Timeout: lo.ToPtr(5 * time.Second)},
+			cfg:     Config{BaseURL: "http://service:8080", Timeout: lo.ToPtr(5 * time.Second)},
 			wantErr: false,
 		},
 	}
@@ -141,7 +141,7 @@ func TestClientConfig_validate(t *testing.T) {
 
 func TestNewHTTPClient(t *testing.T) {
 	t.Run("creates client with default config", func(t *testing.T) {
-		cfg := ClientConfig{
+		cfg := Config{
 			BaseURL:             "http://example.com",
 			Timeout:             lo.ToPtr(DefaultTimeout),
 			MaxIdleConnsPerHost: lo.ToPtr(DefaultMaxIdleConnsPerHost),
@@ -157,7 +157,7 @@ func TestNewHTTPClient(t *testing.T) {
 	})
 
 	t.Run("creates client with zero MaxConnLifetime", func(t *testing.T) {
-		cfg := ClientConfig{
+		cfg := Config{
 			BaseURL:             "http://example.com",
 			Timeout:             lo.ToPtr(5 * time.Second),
 			MaxIdleConnsPerHost: lo.ToPtr(10),
@@ -172,7 +172,7 @@ func TestNewHTTPClient(t *testing.T) {
 	})
 
 	t.Run("retry transport uses min of pool size and cap", func(t *testing.T) {
-		cfg := ClientConfig{
+		cfg := Config{
 			BaseURL:             "http://example.com",
 			Timeout:             lo.ToPtr(DefaultTimeout),
 			MaxIdleConnsPerHost: lo.ToPtr(3), // Less than MaxRetriesCap
@@ -187,7 +187,7 @@ func TestNewHTTPClient(t *testing.T) {
 	})
 
 	t.Run("retry transport caps at MaxRetriesCap", func(t *testing.T) {
-		cfg := ClientConfig{
+		cfg := Config{
 			BaseURL:             "http://example.com",
 			Timeout:             lo.ToPtr(DefaultTimeout),
 			MaxIdleConnsPerHost: lo.ToPtr(100), // Greater than MaxRetriesCap
@@ -638,7 +638,7 @@ func TestHTTPClient_Integration(t *testing.T) {
 		}))
 		defer server.Close()
 
-		cfg := ClientConfig{
+		cfg := Config{
 			BaseURL:             server.URL,
 			Timeout:             lo.ToPtr(5 * time.Second),
 			MaxIdleConnsPerHost: lo.ToPtr(10),
@@ -666,7 +666,7 @@ func TestHTTPClient_Integration(t *testing.T) {
 		}))
 		defer server.Close()
 
-		cfg := ClientConfig{
+		cfg := Config{
 			BaseURL:             server.URL,
 			Timeout:             lo.ToPtr(5 * time.Second),
 			MaxIdleConnsPerHost: lo.ToPtr(10),
@@ -692,7 +692,7 @@ func TestHTTPClient_Integration(t *testing.T) {
 		}))
 		defer server.Close()
 
-		cfg := ClientConfig{
+		cfg := Config{
 			BaseURL:             server.URL,
 			Timeout:             lo.ToPtr(50 * time.Millisecond),
 			MaxIdleConnsPerHost: lo.ToPtr(10),

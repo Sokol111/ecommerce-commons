@@ -12,19 +12,20 @@ type SwaggerConfig struct {
 }
 
 func registerSwaggerUI(mux *http.ServeMux, cfg SwaggerConfig) {
-	mux.HandleFunc("/openapi.yaml", func(w http.ResponseWriter, r *http.Request) {
+	mux.HandleFunc("/openapi.yaml", func(w http.ResponseWriter, _ *http.Request) {
 		w.Header().Set("Content-Type", "application/yaml")
 		w.WriteHeader(http.StatusOK)
-		_, _ = w.Write(cfg.OpenAPIContent)
+		_, _ = w.Write(cfg.OpenAPIContent) //nolint:errcheck // HTTP handler, error logged by net/http
 	})
 
 	route := cfg.Route
 	if route == "" {
 		route = "/swagger"
 	}
-	mux.HandleFunc(route, func(w http.ResponseWriter, r *http.Request) {
+	mux.HandleFunc(route, func(w http.ResponseWriter, _ *http.Request) {
 		w.Header().Set("Content-Type", "text/html")
 		w.WriteHeader(http.StatusOK)
+		//nolint:errcheck // HTTP handler, error logged by net/http
 		_, _ = w.Write([]byte(`<!DOCTYPE html>
 <html>
 <head>

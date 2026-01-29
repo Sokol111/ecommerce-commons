@@ -52,9 +52,9 @@ func generatePayloadTypes(cfg *Config) error {
 
 	// Parse all schema files
 	for _, file := range files {
-		schema, err := avro.ParseFiles(file)
-		if err != nil {
-			return fmt.Errorf("failed to parse schema %s: %w", file, err)
+		schema, parseErr := avro.ParseFiles(file)
+		if parseErr != nil {
+			return fmt.Errorf("failed to parse schema %s: %w", file, parseErr)
 		}
 		g.Parse(schema)
 	}

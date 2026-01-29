@@ -6,8 +6,8 @@ import (
 	"aidanwoods.dev/go-paseto"
 )
 
-// TokenValidator validates tokens and returns claims.
-type TokenValidator interface {
+// Validator validates tokens and returns claims.
+type Validator interface {
 	// ValidateToken validates a token and returns the claims.
 	ValidateToken(token string) (*Claims, error)
 }
@@ -21,7 +21,7 @@ type tokenValidator struct {
 
 // newTokenValidator creates a new token validator with the given public key.
 // The publicKey should be a hex-encoded 32-byte Ed25519 public key.
-func newTokenValidator(config Config) (TokenValidator, error) {
+func newTokenValidator(config Config) (Validator, error) {
 	keyBytes, err := hex.DecodeString(config.PublicKey)
 	if err != nil {
 		return nil, ErrInvalidPublicKey
@@ -55,17 +55,17 @@ func (v *tokenValidator) ValidateToken(tokenString string) (*Claims, error) {
 		return nil, ErrInvalidToken
 	}
 
-	role, _ := token.GetString("role")
-	tokenType, _ := token.GetString("type")
+	role, _ := token.GetString("role")      //nolint:errcheck // Optional claim, empty string is valid default
+	tokenType, _ := token.GetString("type") //nolint:errcheck // Optional claim, empty string is valid default
 
 	// Parse permissions from token
 	var permissions []string
-	_ = token.Get("permissions", &permissions)
+	_ = token.Get("permissions", &permissions) //nolint:errcheck // Optional claim, nil slice is valid default
 
 	// Parse time claims
-	iat, _ := token.GetIssuedAt()
-	exp, _ := token.GetExpiration()
-	nbf, _ := token.GetNotBefore()
+	iat, _ := token.GetIssuedAt()   //nolint:errcheck // Optional claim, zero time is valid default
+	exp, _ := token.GetExpiration() //nolint:errcheck // Optional claim, zero time is valid default
+	nbf, _ := token.GetNotBefore()  //nolint:errcheck // Optional claim, zero time is valid default
 
 	return &Claims{
 		UserID:      subject,

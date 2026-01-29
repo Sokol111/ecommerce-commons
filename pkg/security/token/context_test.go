@@ -52,20 +52,20 @@ func TestContextWithClaims_And_ClaimsFromContext(t *testing.T) {
 	})
 }
 
-func TestContextWithToken_And_TokenFromContext(t *testing.T) {
+func TestContextWithToken_And_FromContext(t *testing.T) {
 	t.Run("store and retrieve token", func(t *testing.T) {
 		tokenString := "v4.public.eyJzdWIiOiJ1c2VyLTEyMyJ9..."
 
 		ctx := context.Background()
 		ctx = ContextWithToken(ctx, tokenString)
 
-		retrieved := TokenFromContext(ctx)
+		retrieved := FromContext(ctx)
 		assert.Equal(t, tokenString, retrieved)
 	})
 
 	t.Run("returns empty string when no token in context", func(t *testing.T) {
 		ctx := context.Background()
-		retrieved := TokenFromContext(ctx)
+		retrieved := FromContext(ctx)
 		assert.Equal(t, "", retrieved)
 	})
 
@@ -73,7 +73,7 @@ func TestContextWithToken_And_TokenFromContext(t *testing.T) {
 		ctx := context.Background()
 		ctx = ContextWithToken(ctx, "")
 
-		retrieved := TokenFromContext(ctx)
+		retrieved := FromContext(ctx)
 		assert.Equal(t, "", retrieved)
 	})
 
@@ -82,7 +82,7 @@ func TestContextWithToken_And_TokenFromContext(t *testing.T) {
 		ctx = ContextWithToken(ctx, "token-1")
 		ctx = ContextWithToken(ctx, "token-2")
 
-		retrieved := TokenFromContext(ctx)
+		retrieved := FromContext(ctx)
 		assert.Equal(t, "token-2", retrieved)
 	})
 }
@@ -96,7 +96,7 @@ func TestContextWithBothClaimsAndToken(t *testing.T) {
 	ctx = ContextWithToken(ctx, tokenString)
 
 	retrievedClaims := ClaimsFromContext(ctx)
-	retrievedToken := TokenFromContext(ctx)
+	retrievedToken := FromContext(ctx)
 
 	assert.NotNil(t, retrievedClaims)
 	assert.Equal(t, "user-123", retrievedClaims.UserID)

@@ -88,8 +88,8 @@ func collectUniqueTopics(payloads []*AvroSchema) []string {
 	return topics
 }
 
-// topicToConstName converts a topic name to a Go constant name.
-// e.g., "catalog.product.events" -> "TopicCatalogProductEvents"
+// topicToConstName converts a topic name to a Go constant name,
+// e.g., "catalog.product.events" -> "TopicCatalogProductEvents".
 func topicToConstName(topic string) string {
 	return "Topic" + strcase.ToPascal(strings.ReplaceAll(topic, ".", "_"))
 }

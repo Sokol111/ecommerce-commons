@@ -18,8 +18,8 @@ var ErrInsufficientPermissions = errors.New("insufficient permissions")
 //	    return ctx, err
 //	}
 func HandleBearerAuth(
-	validator TokenValidator,
 	ctx context.Context,
+	validator Validator,
 	tokenString string,
 	requiredPermissions []string,
 ) (context.Context, *Claims, error) {

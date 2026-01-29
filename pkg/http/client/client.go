@@ -11,8 +11,8 @@ import (
 	"github.com/spf13/viper"
 )
 
-// Default values for HTTP client configuration
-// Optimized for K8s: MaxConnLifetime ensures rebalancing, so pool can be larger for better performance
+// Default values for HTTP client configuration.
+// Optimized for K8s: MaxConnLifetime ensures rebalancing, so pool can be larger for better performance.
 const (
 	DefaultTimeout             = 10 * time.Second
 	DefaultMaxIdleConnsPerHost = 100              // Larger pool for connection reuse; rebalancing handled by MaxConnLifetime
@@ -21,7 +21,7 @@ const (
 	MaxRetriesCap              = 5                // Retries before pool reset; 97% success rate with 50% bad connections
 )
 
-// ClientConfig holds configuration for an HTTP client loaded from config file
+// Config holds configuration for an HTTP client loaded from config file.
 // yaml example:
 //
 //	clients:
@@ -33,7 +33,7 @@ const (
 //	    max-conn-lifetime: 60s
 //
 // Omit timeout fields to use defaults. Set to 0 to disable.
-type ClientConfig struct {
+type Config struct {
 	BaseURL             string         `mapstructure:"base-url"`
 	Timeout             *time.Duration `mapstructure:"timeout"`
 	MaxIdleConnsPerHost *int           `mapstructure:"max-idle-conns-per-host"`
@@ -41,7 +41,7 @@ type ClientConfig struct {
 	MaxConnLifetime     *time.Duration `mapstructure:"max-conn-lifetime"`
 }
 
-func newHTTPClient(cfg ClientConfig) *http.Client {
+func newHTTPClient(cfg Config) *http.Client {
 	dialer := &net.Dialer{
 		Timeout: 5 * time.Second,
 	}
@@ -92,21 +92,21 @@ func newHTTPClient(cfg ClientConfig) *http.Client {
 // Usage with fx:
 //
 //	fx.Provide(fx.Private, httpclient.ProvideHTTPClient("catalog-service"))
-func ProvideHTTPClient(name string) func(*viper.Viper) (*http.Client, ClientConfig, error) {
-	return func(cfg *viper.Viper) (*http.Client, ClientConfig, error) {
-		var clientCfg ClientConfig
+func ProvideHTTPClient(name string) func(*viper.Viper) (*http.Client, Config, error) {
+	return func(cfg *viper.Viper) (*http.Client, Config, error) {
+		var clientCfg Config
 		if err := cfg.UnmarshalKey("clients."+name, &clientCfg); err != nil {
-			return nil, ClientConfig{}, fmt.Errorf("failed to unmarshal client config %q: %w", name, err)
+			return nil, Config{}, fmt.Errorf("failed to unmarshal client config %q: %w", name, err)
 		}
 		if err := clientCfg.validate(); err != nil {
-			return nil, ClientConfig{}, fmt.Errorf("invalid client config %q: %w", name, err)
+			return nil, Config{}, fmt.Errorf("invalid client config %q: %w", name, err)
 		}
 		clientCfg.applyDefaults()
 		return newHTTPClient(clientCfg), clientCfg, nil
 	}
 }
 
-func (c *ClientConfig) applyDefaults() {
+func (c *Config) applyDefaults() {
 	if c.Timeout == nil {
 		c.Timeout = lo.ToPtr(DefaultTimeout)
 	}
@@ -121,7 +121,7 @@ func (c *ClientConfig) applyDefaults() {
 	}
 }
 
-func (c ClientConfig) validate() error {
+func (c Config) validate() error {
 	if c.BaseURL == "" {
 		return fmt.Errorf("base-url is required")
 	}

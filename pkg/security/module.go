@@ -8,6 +8,6 @@ import (
 // NewSecurityModule provides security functionality: token validation.
 func NewSecurityModule() fx.Option {
 	return fx.Options(
-		token.NewTokenValidatorModule(),
+		token.NewValidatorModule(),
 	)
 }

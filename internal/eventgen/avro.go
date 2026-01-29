@@ -28,44 +28,35 @@ type AvroField struct {
 	Aliases []string `json:"aliases,omitempty"`
 }
 
-// PayloadSchema represents a parsed payload schema with metadata.
-type PayloadSchema struct {
-	// Original is the original parsed Avro schema
-	Original *AvroSchema
-
-	// FilePath is the path to the source file
-	FilePath string
-
-	// BaseName is the base name without _payload.avsc suffix
-	// e.g., "product_created" from "product_created_payload.avsc"
-	BaseName string
-
-	// Topic is the Kafka topic for this event (from schema "topic" field)
-	Topic string
+// EventName returns the event name in PascalCase (e.g., "ProductCreated").
+// Derived from Name by removing "Payload" suffix.
+func (s *AvroSchema) EventName() string {
+	return strings.TrimSuffix(s.Name, "Payload")
 }
 
-// EventName returns the event name in PascalCase (e.g., "ProductCreated").
-func (p *PayloadSchema) EventName() string {
-	return toPascalCase(p.BaseName)
+// BaseName returns the event name in snake_case (e.g., "product_created").
+// Used for schema file names.
+func (s *AvroSchema) BaseName() string {
+	return toSnakeCase(s.EventName())
 }
 
 // EventTypeName returns the full event type name (e.g., "ProductCreatedEvent").
-func (p *PayloadSchema) EventTypeName() string {
-	return p.EventName() + "Event"
+func (s *AvroSchema) EventTypeName() string {
+	return s.EventName() + "Event"
 }
 
-// PayloadTypeName returns the payload type name (e.g., "ProductCreatedPayload").
-func (p *PayloadSchema) PayloadTypeName() string {
-	return p.EventName() + "Payload"
+// PayloadTypeName returns the payload type name (same as schema Name, e.g., "ProductCreatedPayload").
+func (s *AvroSchema) PayloadTypeName() string {
+	return s.Name
 }
 
-// SchemaFullName returns the full qualified schema name (namespace.EventTypeName).
+// EventSchemaFullName returns the full qualified schema name for event (namespace.EventTypeName).
 // e.g., "com.ecommerce.events.ProductCreatedEvent"
-func (p *PayloadSchema) SchemaFullName() string {
-	if p.Original.Namespace == "" {
-		return p.EventTypeName()
+func (s *AvroSchema) EventSchemaFullName() string {
+	if s.Namespace == "" {
+		return s.EventTypeName()
 	}
-	return p.Original.Namespace + "." + p.EventTypeName()
+	return s.Namespace + "." + s.EventTypeName()
 }
 
 // FullName returns the fully qualified schema name (namespace.name).
@@ -81,6 +72,9 @@ func ParseAvroSchema(data []byte) (*AvroSchema, error) {
 	var schema AvroSchema
 	if err := json.Unmarshal(data, &schema); err != nil {
 		return nil, fmt.Errorf("failed to parse Avro schema: %w", err)
+	}
+	if schema.Topic == "" {
+		return nil, fmt.Errorf("schema %q is missing required 'topic' field", schema.Name)
 	}
 	return &schema, nil
 }
@@ -100,4 +94,17 @@ func toPascalCase(s string) string {
 		}
 	}
 	return strings.Join(parts, "")
+}
+
+// toSnakeCase converts PascalCase to snake_case.
+// e.g., "ProductCreated" -> "product_created"
+func toSnakeCase(s string) string {
+	var result strings.Builder
+	for i, r := range s {
+		if i > 0 && r >= 'A' && r <= 'Z' {
+			result.WriteRune('_')
+		}
+		result.WriteRune(r)
+	}
+	return strings.ToLower(result.String())
 }

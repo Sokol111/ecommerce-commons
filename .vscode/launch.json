@@ -12,20 +12,6 @@
         "--payloads", "${workspaceFolder}/internal/eventgen/testdata",
         "--output", "${workspaceFolder}/internal/eventgen/testdata/gen",
         "--package", "testevents",
-        "--verbose"
-      ],
-      "cwd": "${workspaceFolder}"
-    },
-    {
-      "name": "eventgen validate",
-      "type": "go",
-      "request": "launch",
-      "mode": "debug",
-      "program": "${workspaceFolder}/cmd/eventgen",
-      "args": [
-        "validate",
-        "--payloads", "${workspaceFolder}/internal/eventgen/testdata",
-        "--verbose"
       ],
       "cwd": "${workspaceFolder}"
     }

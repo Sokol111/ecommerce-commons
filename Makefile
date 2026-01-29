@@ -170,32 +170,11 @@ install-tools: ## Install all development tools
 	@echo "$(COLOR_BLUE)All tools installed!$(COLOR_RESET)"
 
 # =============================================================================
-# Git & Hooks
+# Quality Checks
 # =============================================================================
 
-.PHONY: pre-commit
-pre-commit: fmt lint test-unit ## Run pre-commit checks
-
-.PHONY: pre-push
-pre-push: fmt lint test vuln-check ## Run pre-push checks (more thorough)
-
-.PHONY: install-hooks
-install-hooks: ## Install git pre-commit hooks
-	@echo "$(COLOR_GREEN)Installing git hooks...$(COLOR_RESET)"
-	@mkdir -p .git/hooks
-	@echo '#!/bin/sh\nmake pre-commit' > .git/hooks/pre-commit
-	@chmod +x .git/hooks/pre-commit
-	@echo "$(COLOR_BLUE)Git hooks installed!$(COLOR_RESET)"
-
-# =============================================================================
-# CI/CD
-# =============================================================================
-
-.PHONY: ci
-ci: deps fmt lint test vuln-check ## Run full CI pipeline
-
-.PHONY: ci-local
-ci-local: clean ci ## Run CI pipeline locally with clean state
+.PHONY: check-all
+check-all: deps fmt lint test vuln-check ## Run all checks (CI/CD pipeline)
 
 # =============================================================================
 # Utilities
@@ -206,7 +185,6 @@ clean: ## Clean build artifacts and caches
 	@echo "$(COLOR_GREEN)Cleaning...$(COLOR_RESET)"
 	rm -f $(COVERAGE_FILE) $(COVERAGE_HTML)
 	rm -f *.prof *.out
-	rm -f gosec-report.json
 	go clean -cache -testcache
 
 .PHONY: clean-all

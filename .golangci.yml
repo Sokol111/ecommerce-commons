@@ -1,19 +1,25 @@
 # Commons library specific golangci-lint configuration
 # Libraries have stricter requirements than services
+# golangci-lint v2 format
+
+version: "2"
+
+formatters:
+  enable:
+    - gofmt
+    - goimports
 
 linters:
+  default: none
   enable:
     # Correctness
     - govet
     - errcheck
-    - staticcheck
+    - staticcheck  # includes gosimple, stylecheck in v2
     
     # Code quality
     - unused
-    - gosimple
     - ineffassign
-    - gofmt
-    - goimports
     
     # Best practices
     - errname
@@ -29,7 +35,6 @@ linters:
     
     # Style
     - revive
-    - stylecheck
     - misspell    # Check for misspelled words
     
     # Complexity
@@ -38,72 +43,71 @@ linters:
     # Documentation (stricter for libraries)
     - godot  # Comments should end with period
 
-linters-settings:
-  errcheck:
-    check-blank: true
-    check-type-assertions: true
+  settings:
+    errcheck:
+      check-blank: true
+      check-type-assertions: true
+      
+    govet:
+      enable-all: true
+      disable:
+        - fieldalignment
+      
+    revive:
+      rules:
+        - name: var-naming
+          severity: warning
+        - name: context-as-argument
+          severity: warning
+        - name: error-return
+          severity: warning
+        - name: error-strings
+          severity: warning
+        - name: error-naming
+          severity: warning
+        - name: exported
+          severity: warning
     
-  govet:
-    enable-all: true
-    disable:
-      - fieldalignment
+    gosec:
+      excludes:
+        - G104
     
-  revive:
+    gocyclo:
+      min-complexity: 20  # Validation functions are often complex
+    
+    staticcheck:
+      checks: ["all", "-ST1000"]  # More strict for libraries
+
+  exclusions:
+    generated: lax
     rules:
-      - name: var-naming
-        severity: warning
-      - name: context-as-argument
-        severity: warning
-      - name: error-return
-        severity: warning
-      - name: error-strings
-        severity: warning
-      - name: error-naming
-        severity: warning
-      - name: exported
-        severity: warning
-  
-  gosec:
-    excludes:
-      - G104
-  
-  gocyclo:
-    min-complexity: 20  # Validation functions are often complex
-  
-  stylecheck:
-    checks: ["all", "-ST1000"]  # More strict for libraries
+      - path: '_test\.go'
+        linters:
+          - errcheck
+          - gosec
+          - godot
+          - nilnil
+          - gocyclo  # Test functions often have high complexity due to table-driven tests
+      
+      - path: '.*\.gen\.go$'
+        linters:
+          - all
+        
+      - path: 'vendor/'
+        linters:
+          - all
+
+    paths:
+      - vendor
+      - testdata
+      - bin
+      - '.*\.gen\.go$'
 
 issues:
-  exclude-rules:
-    - path: _test\.go
-      linters:
-        - errcheck
-        - gosec
-        - godot
-        - nilnil
-        - gocyclo  # Test functions often have high complexity due to table-driven tests
-    
-    - path: ".*\\.gen\\.go$"
-      linters:
-        - all
-      
-    - path: vendor/
-      linters:
-        - all
-  
-  exclude-dirs:
-    - vendor
-    - testdata
-    - bin
-  
-  exclude-files:
-    - ".*\\.gen\\.go$"
-  
   new: false
   max-issues-per-linter: 0
   max-same-issues: 0
 
 run:
-  timeout: 3m  # Commons is smaller
   tests: true
   concurrency: 4

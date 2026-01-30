@@ -47,13 +47,12 @@ update-dependencies-all: ## Update ALL dependencies to latest (risky!)
 # =============================================================================
 
 .PHONY: fmt
-fmt: ## Format code with gofmt and goimports
+fmt: ## Format code with golangci-lint (gofmt + goimports)
 	@echo "$(COLOR_GREEN)Formatting code...$(COLOR_RESET)"
-	go fmt ./...
-	@if command -v goimports >/dev/null 2>&1; then \
-		goimports -w .; \
+	@if command -v golangci-lint >/dev/null 2>&1; then \
+		golangci-lint fmt ./...; \
 	else \
-		echo "$(COLOR_YELLOW)goimports not installed. Install: go install golang.org/x/tools/cmd/goimports@latest$(COLOR_RESET)"; \
+		echo "$(COLOR_YELLOW)golangci-lint not installed. Run: make install-tools$(COLOR_RESET)"; \
 		exit 1; \
 	fi
 
@@ -61,9 +60,9 @@ fmt: ## Format code with gofmt and goimports
 lint: ## Run golangci-lint (includes vet, errcheck, staticcheck, etc.)
 	@echo "$(COLOR_GREEN)Running golangci-lint...$(COLOR_RESET)"
 	@if command -v golangci-lint >/dev/null 2>&1; then \
-		golangci-lint run --timeout=5m; \
+		golangci-lint run; \
 	else \
-		echo "$(COLOR_YELLOW)golangci-lint not installed. Install: go install github.com/golangci/golangci-lint/cmd/golangci-lint@latest$(COLOR_RESET)"; \
+		echo "$(COLOR_YELLOW)golangci-lint not installed. Run: make install-tools$(COLOR_RESET)"; \
 		exit 1; \
 	fi
 
@@ -121,7 +120,7 @@ generate-mocks: ## Generate mocks using mockery
 	@if command -v mockery >/dev/null 2>&1; then \
 		mockery; \
 	else \
-		echo "$(COLOR_YELLOW)mockery not installed. Install: go install github.com/vektra/mockery/v2@latest$(COLOR_RESET)"; \
+		echo "$(COLOR_YELLOW)mockery not installed. Install: go install github.com/vektra/mockery/v3@latest$(COLOR_RESET)"; \
 		exit 1; \
 	fi
 
@@ -161,11 +160,10 @@ license-check: ## Check licenses of dependencies
 .PHONY: install-tools
 install-tools: ## Install all development tools
 	@echo "$(COLOR_GREEN)Installing development tools...$(COLOR_RESET)"
-	go install github.com/golangci/golangci-lint/cmd/golangci-lint@latest
+	go install github.com/golangci/golangci-lint/v2/cmd/golangci-lint@latest
 	go install golang.org/x/vuln/cmd/govulncheck@latest
 	go install github.com/psampaz/go-mod-outdated@latest
-	go install golang.org/x/tools/cmd/goimports@latest
-	go install github.com/vektra/mockery/v2@latest
+	go install github.com/vektra/mockery/v3@latest
 	go install github.com/google/go-licenses@latest
 	@echo "$(COLOR_BLUE)All tools installed!$(COLOR_RESET)"
 

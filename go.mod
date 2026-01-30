@@ -1,6 +1,6 @@
 module github.com/Sokol111/ecommerce-commons
 
-go 1.25.5
+go 1.25.6
 
 require (
 	aidanwoods.dev/go-paseto v1.6.0
@@ -16,7 +16,7 @@ require (
 	github.com/spf13/cobra v1.10.2
 	github.com/spf13/viper v1.21.0
 	github.com/stretchr/testify v1.11.1
-	go.mongodb.org/mongo-driver v1.17.7
+	go.mongodb.org/mongo-driver v1.17.8
 	go.opentelemetry.io/contrib/instrumentation/go.mongodb.org/mongo-driver/mongo/otelmongo v0.64.0
 	go.opentelemetry.io/contrib/instrumentation/runtime v0.64.0
 	go.opentelemetry.io/otel v1.39.0
@@ -47,7 +47,7 @@ require (
 	github.com/go-openapi/jsonpointer v0.22.4 // indirect
 	github.com/go-openapi/swag v0.25.4 // indirect
 	github.com/go-viper/mapstructure/v2 v2.5.0 // indirect
-	github.com/grpc-ecosystem/grpc-gateway/v2 v2.27.6 // indirect
+	github.com/grpc-ecosystem/grpc-gateway/v2 v2.27.7 // indirect
 	github.com/inconshreveable/mousetrap v1.1.0 // indirect
 	github.com/mattn/go-colorable v0.1.14 // indirect
 	github.com/moby/go-archive v0.1.0 // indirect

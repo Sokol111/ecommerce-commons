@@ -6,15 +6,33 @@ on:
     paths-ignore:
       - 'README.md'
       - 'LICENSE'
-      - 'VERSION'
       - 'docs/**'
   pull_request:
     paths-ignore:
       - 'README.md'
       - 'LICENSE'
-      - 'VERSION'
       - 'docs/**'
 
 jobs:
+  check-version:
+    runs-on: ubuntu-latest
+    outputs:
+      skip: ${{ steps.check.outputs.skip }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 2
+      - name: Check if only VERSION changed
+        id: check
+        run: |
+          CHANGED_FILES=$(git diff --name-only HEAD~1 HEAD)
+          if [ "$CHANGED_FILES" = "VERSION" ]; then
+            echo "skip=true" >> $GITHUB_OUTPUT
+          else
+            echo "skip=false" >> $GITHUB_OUTPUT
+          fi
+
   ci:
+    needs: check-version
+    if: needs.check-version.outputs.skip != 'true'
     uses: Sokol111/ecommerce-infrastructure/.github/workflows/go-ci.yml@master

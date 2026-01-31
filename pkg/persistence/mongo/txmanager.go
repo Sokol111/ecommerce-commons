@@ -5,7 +5,6 @@ import (
 	"fmt"
 
 	"github.com/Sokol111/ecommerce-commons/pkg/persistence"
-	mongodriver "go.mongodb.org/mongo-driver/mongo"
 	"go.uber.org/zap"
 )
 
@@ -32,7 +31,7 @@ func (t *mongoTxManager) WithTransaction(ctx context.Context, fn func(sessCtx co
 	}
 	defer sess.EndSession(ctx)
 
-	result, err := sess.WithTransaction(ctx, func(sessCtx mongodriver.SessionContext) (any, error) {
+	result, err := sess.WithTransaction(ctx, func(sessCtx context.Context) (any, error) {
 		return fn(sessCtx)
 	})
 	if err != nil {

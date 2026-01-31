@@ -3,6 +3,7 @@ package mongo
 import (
 	"context"
 
+	"github.com/Sokol111/ecommerce-commons/pkg/core/config"
 	"github.com/Sokol111/ecommerce-commons/pkg/core/health"
 	"go.uber.org/fx"
 	"go.uber.org/zap"
@@ -16,8 +17,8 @@ func NewMongoModule() fx.Option {
 	)
 }
 
-func provideMongo(lc fx.Lifecycle, log *zap.Logger, conf Config, readiness health.ComponentManager) (Mongo, Admin, error) {
-	m, err := newMongo(log, conf)
+func provideMongo(lc fx.Lifecycle, log *zap.Logger, appConf config.AppConfig, conf Config, readiness health.ComponentManager) (Mongo, Admin, error) {
+	m, err := newMongo(log, conf, appConf.ServiceName)
 
 	if err != nil {
 		return nil, nil, err

@@ -5,35 +5,34 @@ import (
 	"fmt"
 	"net/url"
 
-	mongodriver "go.mongodb.org/mongo-driver/mongo"
-	"go.mongodb.org/mongo-driver/mongo/options"
-	"go.opentelemetry.io/contrib/instrumentation/go.mongodb.org/mongo-driver/mongo/otelmongo"
+	mongodriver "go.mongodb.org/mongo-driver/v2/mongo"
+	"go.mongodb.org/mongo-driver/v2/mongo/options"
 	"go.uber.org/zap"
 )
 
 // Mongo is the public interface for repository access.
 type Mongo interface {
-	GetCollection(collection string) Collection
-	GetCollectionWithOptions(collection string, opts ...WrapperOption) Collection
+	GetCollection(collection string) *mongodriver.Collection
 }
 
 // Admin is the internal interface for infrastructure components (migrations, transactions).
 type Admin interface {
 	Mongo
 	GetDatabase() *mongodriver.Database
-	StartSession(ctx context.Context) (Session, error)
+	StartSession(ctx context.Context) (*mongodriver.Session, error)
 }
 
 type mongo struct {
 	client        *mongodriver.Client
 	database      *mongodriver.Database
 	clientOptions *options.ClientOptions
+	connectionURI string
 	databaseName  string
 	conf          Config
 	log           *zap.Logger
 }
 
-func newMongo(log *zap.Logger, conf Config) (*mongo, error) {
+func newMongo(log *zap.Logger, conf Config, appName string) (*mongo, error) {
 	if err := validateConfig(conf); err != nil {
 		return nil, err
 	}
@@ -42,16 +41,19 @@ func newMongo(log *zap.Logger, conf Config) (*mongo, error) {
 	uri := buildURI(conf)
 	clientOptions := options.Client().
 		ApplyURI(uri).
+		SetAppName(appName).
 		SetMaxPoolSize(conf.MaxPoolSize).
 		SetMinPoolSize(conf.MinPoolSize).
 		SetMaxConnIdleTime(conf.MaxConnIdleTime).
 		SetServerSelectionTimeout(conf.ServerSelectTimeout).
-		SetMonitor(otelmongo.NewMonitor()) // OpenTelemetry tracing
+		SetTimeout(conf.QueryTimeout)
+	// TODO: Add OpenTelemetry tracing when otelmongo supports mongo-driver v2
+	// SetMonitor(otelmongo.NewMonitor())
 
 	// Create client and database reference
 	// Client is initialized here to avoid nil pointer errors in GetCollection* methods
 	// Actual connection validation happens in connect() via Ping
-	client, err := mongodriver.Connect(context.Background(), clientOptions)
+	client, err := mongodriver.Connect(clientOptions)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create mongo client: %w", err)
 	}
@@ -60,6 +62,7 @@ func newMongo(log *zap.Logger, conf Config) (*mongo, error) {
 		client:        client,
 		database:      client.Database(conf.Database),
 		clientOptions: clientOptions,
+		connectionURI: uri,
 		databaseName:  conf.Database,
 		conf:          conf,
 		log:           log,
@@ -103,7 +106,7 @@ func (m *mongo) connect(ctx context.Context) error {
 	return nil
 }
 
-func (m *mongo) StartSession(ctx context.Context) (Session, error) {
+func (m *mongo) StartSession(ctx context.Context) (*mongodriver.Session, error) {
 	return m.client.StartSession()
 }
 
@@ -134,16 +137,10 @@ func buildURI(conf Config) string {
 	return u.String()
 }
 
-// GetCollection returns a Collection with automatic query timeout from config.
-func (m *mongo) GetCollection(collection string) Collection {
-	return m.GetCollectionWithOptions(collection, WithTimeout(m.conf.QueryTimeout))
-}
-
-// GetCollectionWithOptions returns a Collection with custom options (timeout, middleware, etc.)
-// Use this when you need different timeout or additional middleware for specific operations.
-func (m *mongo) GetCollectionWithOptions(collection string, opts ...WrapperOption) Collection {
-	coll := m.database.Collection(collection)
-	return newCollectionWrapper(coll, opts...)
+// GetCollection returns a MongoDB collection.
+// Operations on this collection automatically use the QueryTimeout configured for the client.
+func (m *mongo) GetCollection(collection string) *mongodriver.Collection {
+	return m.database.Collection(collection)
 }
 
 func (m *mongo) GetDatabase() *mongodriver.Database {

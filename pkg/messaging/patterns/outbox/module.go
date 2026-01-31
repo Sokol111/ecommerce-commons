@@ -2,20 +2,16 @@ package outbox
 
 import (
 	"context"
-	"embed"
 
 	"github.com/Sokol111/ecommerce-commons/pkg/core/config"
 	"github.com/Sokol111/ecommerce-commons/pkg/core/health"
 	"github.com/Sokol111/ecommerce-commons/pkg/core/worker"
 	"github.com/Sokol111/ecommerce-commons/pkg/messaging/kafka/events"
-	"github.com/Sokol111/ecommerce-commons/pkg/persistence/mongo/migrations"
+	"github.com/Sokol111/ecommerce-commons/pkg/persistence/mongo"
 	"github.com/confluentinc/confluent-kafka-go/v2/kafka"
 	"go.uber.org/fx"
 	"go.uber.org/zap"
 )
-
-//go:embed migrations/*.json
-var migrationsFS embed.FS
 
 func NewOutboxModule() fx.Option {
 	return fx.Module("outbox",
@@ -40,7 +36,7 @@ func NewOutboxModule() fx.Option {
 			worker.RunWorker[*fetcher]("outbox-fetcher", worker.WithTrafficReady()),
 			worker.RunWorker[*sender]("outbox-sender", worker.WithTrafficReady()),
 			worker.RunWorker[*confirmer]("outbox-confirmer", worker.WithTrafficReady()),
-			runMigrations,
+			ensureSchema,
 		),
 	)
 }
@@ -49,15 +45,15 @@ func newMetadataPopulator(appCfg config.AppConfig) events.MetadataPopulator {
 	return events.NewMetadataPopulator(appCfg.ServiceName)
 }
 
-func runMigrations(lc fx.Lifecycle, log *zap.Logger, migrator migrations.Migrator, readiness health.ComponentManager) {
-	markReady := readiness.AddComponent("outbox-migrations")
+func ensureSchema(lc fx.Lifecycle, log *zap.Logger, m mongo.Mongo, readiness health.ComponentManager) {
+	markReady := readiness.AddComponent("outbox-schema")
 	lc.Append(fx.Hook{
 		OnStart: func(ctx context.Context) error {
-			log.Info("running outbox migrations")
-			if err := migrator.UpFromFS("outbox_migrations", migrationsFS, "migrations"); err != nil {
+			log.Info("ensuring outbox indexes")
+			if err := EnsureIndexes(ctx, m); err != nil {
 				return err
 			}
-			log.Info("outbox migrations completed")
+			log.Info("outbox indexes ready")
 			markReady()
 			return nil
 		},

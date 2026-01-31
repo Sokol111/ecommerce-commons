@@ -7,9 +7,9 @@ import (
 	"time"
 
 	"github.com/Sokol111/ecommerce-commons/pkg/persistence/mongo"
-	"go.mongodb.org/mongo-driver/bson"
-	mongodriver "go.mongodb.org/mongo-driver/mongo"
-	"go.mongodb.org/mongo-driver/mongo/options"
+	"go.mongodb.org/mongo-driver/v2/bson"
+	mongodriver "go.mongodb.org/mongo-driver/v2/mongo"
+	"go.mongodb.org/mongo-driver/v2/mongo/options"
 )
 
 var errEntityNotFound = errors.New("entity not found in database")
@@ -25,7 +25,7 @@ type repository interface {
 }
 
 type outboxRepository struct {
-	coll             mongo.Collection
+	coll             *mongodriver.Collection
 	maxBackoffMillis int64
 }
 

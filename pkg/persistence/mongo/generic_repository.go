@@ -6,9 +6,9 @@ import (
 	"fmt"
 
 	"github.com/Sokol111/ecommerce-commons/pkg/persistence"
-	"go.mongodb.org/mongo-driver/bson"
-	mongodriver "go.mongodb.org/mongo-driver/mongo"
-	"go.mongodb.org/mongo-driver/mongo/options"
+	"go.mongodb.org/mongo-driver/v2/bson"
+	mongodriver "go.mongodb.org/mongo-driver/v2/mongo"
+	"go.mongodb.org/mongo-driver/v2/mongo/options"
 )
 
 // QueryOptions defines options for querying entities with filtering, pagination and sorting.
@@ -59,14 +59,14 @@ type EntityMapper[Domain any, Entity any] interface {
 
 // GenericRepository provides common CRUD operations for MongoDB.
 type GenericRepository[Domain any, Entity any] struct {
-	coll   Collection
+	coll   *mongodriver.Collection
 	mapper EntityMapper[Domain, Entity]
 }
 
 // NewGenericRepository creates a new generic repository.
 // Returns error if collection or mapper is nil.
 func NewGenericRepository[Domain any, Entity any](
-	coll Collection,
+	coll *mongodriver.Collection,
 	mapper EntityMapper[Domain, Entity],
 ) (*GenericRepository[Domain, Entity], error) {
 	if coll == nil {

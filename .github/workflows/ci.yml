@@ -22,17 +22,21 @@ jobs:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 2
-      - name: Check if only VERSION changed
+      - name: Check if VERSION changed
         id: check
         run: |
           CHANGED_FILES=$(git diff --name-only HEAD~1 HEAD)
-          if [ "$CHANGED_FILES" = "VERSION" ]; then
+          if echo "$CHANGED_FILES" | grep -q "^VERSION$"; then
             echo "skip=true" >> $GITHUB_OUTPUT
+            echo "⏭️ VERSION changed - skipping CI (release workflow will handle it)"
           else
             echo "skip=false" >> $GITHUB_OUTPUT
+            echo "✅ VERSION not changed - running CI"
           fi
 
   ci:
     needs: check-version
     if: needs.check-version.outputs.skip != 'true'
     uses: Sokol111/ecommerce-infrastructure/.github/workflows/go-ci.yml@master
+    with:
+      coverage-threshold: 50

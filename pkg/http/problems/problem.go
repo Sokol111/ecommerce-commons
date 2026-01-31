@@ -11,6 +11,7 @@ type Problem struct {
 	Errors   []FieldError `json:"errors,omitempty"`
 }
 
+// FieldError represents a validation error for a specific field.
 type FieldError struct {
 	Field   string `json:"field,omitempty"`
 	Message string `json:"message"`

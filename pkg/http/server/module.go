@@ -9,6 +9,7 @@ import (
 	"go.uber.org/zap"
 )
 
+// NewHTTPServerModule provides HTTP server components for dependency injection.
 func NewHTTPServerModule() fx.Option {
 	return fx.Options(
 		fx.Provide(newConfig),

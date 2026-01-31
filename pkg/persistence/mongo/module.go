@@ -9,6 +9,7 @@ import (
 	"go.uber.org/zap"
 )
 
+// NewMongoModule provides MongoDB components for dependency injection.
 func NewMongoModule() fx.Option {
 	return fx.Provide(
 		provideMongo,

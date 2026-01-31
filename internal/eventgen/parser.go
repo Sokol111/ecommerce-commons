@@ -20,7 +20,7 @@ func ParsePayloads(payloadsDir string) ([]*AvroSchema, error) {
 
 	payloads := make([]*AvroSchema, 0, len(files))
 	for _, file := range files {
-		data, err := os.ReadFile(file)
+		data, err := os.ReadFile(file) //nolint:gosec // File paths come from controlled glob pattern
 		if err != nil {
 			return nil, fmt.Errorf("failed to read %s: %w", file, err)
 		}

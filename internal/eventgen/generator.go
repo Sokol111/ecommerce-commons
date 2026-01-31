@@ -7,6 +7,7 @@ import (
 	"sort"
 )
 
+// Generate generates all event-related code from Avro payload schemas.
 func Generate(cfg *Config) error {
 	fmt.Println("Starting code generation...")
 
@@ -51,7 +52,7 @@ func Generate(cfg *Config) error {
 
 func createOutputDir(cfg *Config) error {
 	schemasDir := filepath.Join(cfg.OutputDir, "schemas")
-	if err := os.MkdirAll(schemasDir, 0755); err != nil {
+	if err := os.MkdirAll(schemasDir, 0755); err != nil { //nolint:gosec // 0755 is appropriate for schema output directories
 		return fmt.Errorf("failed to create directory %s: %w", schemasDir, err)
 	}
 	return nil

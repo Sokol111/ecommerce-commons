@@ -11,6 +11,7 @@ import (
 	"go.uber.org/zap"
 )
 
+// NewProducerModule provides Kafka producer components for dependency injection.
 func NewProducerModule() fx.Option {
 	return fx.Options(
 		fx.Provide(

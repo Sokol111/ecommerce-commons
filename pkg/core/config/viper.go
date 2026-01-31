@@ -9,6 +9,7 @@ import (
 	"go.uber.org/zap"
 )
 
+// NewViperModule provides a Viper configuration module for dependency injection.
 func NewViperModule() fx.Option {
 	return fx.Module("viper",
 		fx.Provide(newViper),

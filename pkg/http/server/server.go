@@ -9,6 +9,7 @@ import (
 	"go.uber.org/zap"
 )
 
+// Server defines the HTTP server interface.
 type Server interface {
 	Serve() error
 	ServeWithReadyCallback(onReady func()) error

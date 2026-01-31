@@ -61,11 +61,11 @@ func generatePayloadTypes(cfg *Config) error {
 
 	// Write generated code to file
 	outputFile := filepath.Join(cfg.OutputDir, "types.gen.go")
-	f, err := os.Create(outputFile)
+	f, err := os.Create(outputFile) //nolint:gosec // Output path is controlled by config, not user input
 	if err != nil {
 		return fmt.Errorf("failed to create output file: %w", err)
 	}
-	defer f.Close()
+	defer func() { _ = f.Close() }() //nolint:errcheck // Best effort cleanup
 
 	if err := g.Write(f); err != nil {
 		return fmt.Errorf("failed to write generated code: %w", err)

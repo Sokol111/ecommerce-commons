@@ -6,6 +6,7 @@ import (
 	"go.uber.org/fx"
 )
 
+// SwaggerConfig holds the configuration for Swagger UI.
 type SwaggerConfig struct {
 	OpenAPIContent []byte
 	Route          string
@@ -46,6 +47,7 @@ func registerSwaggerUI(mux *http.ServeMux, cfg SwaggerConfig) {
 	})
 }
 
+// NewSwaggerModule provides Swagger UI endpoints for API documentation.
 func NewSwaggerModule(cfg SwaggerConfig) fx.Option {
 	return fx.Invoke(func(mux *http.ServeMux) {
 		registerSwaggerUI(mux, cfg)

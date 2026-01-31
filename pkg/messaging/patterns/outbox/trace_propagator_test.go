@@ -110,6 +110,6 @@ func TestNewTracePropagator(t *testing.T) {
 		require.NotNil(t, propagator)
 
 		// Verify it implements the interface
-		var _ tracePropagator = propagator
+		var _ tracePropagator = propagator //nolint:staticcheck // Intentional interface compliance check
 	})
 }

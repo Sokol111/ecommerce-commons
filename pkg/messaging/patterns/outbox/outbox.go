@@ -11,12 +11,14 @@ import (
 	"go.uber.org/zap"
 )
 
+// Message represents a message to be sent via the outbox pattern.
 type Message struct {
 	Event   events.Event      // Event payload - must implement events.Event interface
 	Key     string            // Kafka partition key for ordering guarantees
 	Headers map[string]string // Kafka headers for trace propagation, etc.
 }
 
+// Outbox defines the interface for creating outbox messages.
 type Outbox interface {
 	Create(ctx context.Context, msg Message) (SendFunc, error)
 }
@@ -41,6 +43,7 @@ func newOutbox(logger *zap.Logger, outboxRepository repository, entitiesChan cha
 	}
 }
 
+// SendFunc is a function that triggers the actual message delivery after transaction commit.
 type SendFunc func(ctx context.Context) error
 
 func (o *outbox) Create(ctx context.Context, msg Message) (SendFunc, error) {

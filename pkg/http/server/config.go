@@ -15,6 +15,7 @@ const (
 	writeTimeoutBuffer = 5 * time.Second
 )
 
+// Config holds the HTTP server configuration.
 type Config struct {
 	Port int `mapstructure:"port"`
 
@@ -52,12 +53,14 @@ type TimeoutConfig struct {
 	RequestTimeout time.Duration `mapstructure:"request-timeout"` // Max time to handle a request (0 = disabled)
 }
 
+// RateLimitConfig holds rate limiting configuration.
 type RateLimitConfig struct {
 	Enabled           bool `mapstructure:"enabled"`
 	RequestsPerSecond int  `mapstructure:"requests-per-second"`
 	Burst             int  `mapstructure:"burst"`
 }
 
+// BulkheadConfig holds HTTP bulkhead (concurrency limiting) configuration.
 type BulkheadConfig struct {
 	Enabled       bool          `mapstructure:"enabled"`
 	MaxConcurrent int           `mapstructure:"max-concurrent"`

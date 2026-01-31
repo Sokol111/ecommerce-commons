@@ -25,6 +25,7 @@ func GetSpanID(ctx context.Context) string {
 	return sc.SpanID().String()
 }
 
+// GetTraceIDAndSpanID extracts both trace ID and span ID from context.
 func GetTraceIDAndSpanID(ctx context.Context) (string, string) {
 	sc := trace.SpanContextFromContext(ctx)
 	if !sc.IsValid() {

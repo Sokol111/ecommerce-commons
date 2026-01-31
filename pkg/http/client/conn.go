@@ -25,7 +25,7 @@ func (c *timedConn) isExpired() bool {
 
 func (c *timedConn) Read(b []byte) (n int, err error) {
 	if c.isExpired() {
-		c.Conn.Close()
+		_ = c.Close() //nolint:errcheck // Best effort cleanup on expiry
 		return 0, ErrConnExpired
 	}
 	return c.Conn.Read(b)
@@ -33,7 +33,7 @@ func (c *timedConn) Read(b []byte) (n int, err error) {
 
 func (c *timedConn) Write(b []byte) (n int, err error) {
 	if c.isExpired() {
-		c.Conn.Close()
+		_ = c.Close() //nolint:errcheck // Best effort cleanup on expiry
 		return 0, ErrConnExpired
 	}
 	return c.Conn.Write(b)

@@ -4,6 +4,7 @@ import (
 	"time"
 )
 
+// Outbox message status constants.
 const (
 	StatusProcessing = "PROCESSING"
 	StatusSent       = "SENT"

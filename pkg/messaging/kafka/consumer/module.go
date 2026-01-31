@@ -20,6 +20,7 @@ func getConsumerConfig(conf config.Config, consumerName string) (config.Consumer
 	return config.ConsumerConfig{}, fmt.Errorf("no consumer config found for consumer name: %s", consumerName)
 }
 
+// RegisterHandlerAndConsumer creates a Kafka consumer module with the specified handler.
 func RegisterHandlerAndConsumer(
 	consumerName string,
 	handlerConstructor any,

@@ -13,11 +13,11 @@ import (
 const (
 	collectionName = "outbox"
 
-	// Index names
+	// Index names.
 	idxCreatedAtTTL          = "outbox_createdAt_ttl"
 	idxStatusNextAttemptLock = "outbox_status_nextAttemptAfter_lockExpiresAt"
 
-	// TTL for outbox documents (5 days)
+	// TTL for outbox documents (5 days).
 	ttlSeconds = 5 * 24 * 60 * 60 // 432000 seconds
 )
 

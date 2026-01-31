@@ -7,6 +7,7 @@ import (
 	"github.com/spf13/viper"
 )
 
+// Config holds the outbox pattern configuration.
 type Config struct {
 	// MaxBackoff is the maximum delay between retry attempts.
 	// Default: 10 hours

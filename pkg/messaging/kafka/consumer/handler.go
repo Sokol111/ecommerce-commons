@@ -25,6 +25,7 @@ var ErrSkipMessage = errors.New("skip message processing")
 // it will be treated as a retryable error with exponential backoff.
 var ErrPermanent = errors.New("permanent error")
 
+// Handler defines the interface for processing Kafka messages.
 type Handler interface {
 	Process(ctx context.Context, event any) error
 }

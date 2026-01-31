@@ -5,6 +5,7 @@ import (
 	"time"
 )
 
+// ComponentStatus represents the readiness status of a single component.
 type ComponentStatus struct {
 	Name      string    `json:"name"`
 	Ready     bool      `json:"ready"`
@@ -12,6 +13,7 @@ type ComponentStatus struct {
 	ReadyAt   time.Time `json:"ready_at,omitempty"`
 }
 
+// ReadinessStatus represents the overall readiness status of the service.
 type ReadinessStatus struct {
 	Ready                bool              `json:"ready"`
 	Components           []ComponentStatus `json:"components"`

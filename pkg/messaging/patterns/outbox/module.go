@@ -13,6 +13,7 @@ import (
 	"go.uber.org/zap"
 )
 
+// NewOutboxModule provides outbox pattern components for reliable message delivery.
 func NewOutboxModule() fx.Option {
 	return fx.Module("outbox",
 		fx.Decorate(

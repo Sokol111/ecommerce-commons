@@ -120,7 +120,7 @@ func (r *GenericRepository[Domain, Entity]) FindAll(ctx context.Context) ([]*Dom
 	if err != nil {
 		return nil, fmt.Errorf("failed to query entities: %w", err)
 	}
-	defer func() { _ = cursor.Close(ctx) }()
+	defer func() { _ = cursor.Close(ctx) }() //nolint:errcheck // Best effort cleanup
 
 	var entities []Entity
 	if err = cursor.All(ctx, &entities); err != nil {
@@ -154,7 +154,7 @@ func (r *GenericRepository[Domain, Entity]) FindAllWithFilter(
 	if err != nil {
 		return nil, fmt.Errorf("failed to query entities: %w", err)
 	}
-	defer func() { _ = cursor.Close(ctx) }()
+	defer func() { _ = cursor.Close(ctx) }() //nolint:errcheck // Best effort cleanup
 
 	var entities []Entity
 	if err = cursor.All(ctx, &entities); err != nil {
@@ -209,7 +209,7 @@ func (r *GenericRepository[Domain, Entity]) FindWithOptions(
 	if err != nil {
 		return nil, fmt.Errorf("failed to query entities: %w", err)
 	}
-	defer func() { _ = cursor.Close(ctx) }()
+	defer func() { _ = cursor.Close(ctx) }() //nolint:errcheck // Best effort cleanup
 
 	// Decode results
 	var entities []Entity

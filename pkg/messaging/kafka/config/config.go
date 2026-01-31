@@ -8,6 +8,7 @@ import (
 	"go.uber.org/zap"
 )
 
+// NewKafkaConfigModule provides Kafka configuration for dependency injection.
 func NewKafkaConfigModule() fx.Option {
 	return fx.Provide(
 		newConfig,

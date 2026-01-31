@@ -10,6 +10,7 @@ import (
 //go:embed schemas/event_metadata.avsc
 var embeddedMetadataSchema []byte
 
+// WriteSchemaFiles writes combined event schema files (metadata + payload) to the output directory.
 func WriteSchemaFiles(cfg *Config, payloads []*AvroSchema) error {
 	fmt.Println("Writing schema files...")
 

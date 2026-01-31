@@ -7,6 +7,7 @@ import (
 	"github.com/spf13/viper"
 )
 
+// Config holds the MongoDB connection configuration.
 type Config struct {
 	ConnectionString string `mapstructure:"connection-string"`
 	Host             string `mapstructure:"host"`

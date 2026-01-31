@@ -2,6 +2,7 @@ package persistence
 
 import "context"
 
+// TxManager defines the interface for transaction management.
 type TxManager interface {
 	WithTransaction(ctx context.Context, fn func(txCtx context.Context) (any, error)) (any, error)
 }

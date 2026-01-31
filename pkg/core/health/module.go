@@ -6,6 +6,7 @@ import (
 	"go.uber.org/zap"
 )
 
+// NewReadinessModule provides readiness management components for dependency injection.
 func NewReadinessModule() fx.Option {
 	return fx.Provide(
 		func(logger *zap.Logger, appConfig config.AppConfig) *readiness {

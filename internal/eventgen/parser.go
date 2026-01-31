@@ -29,6 +29,9 @@ func ParsePayloads(payloadsDir string) ([]*AvroSchema, error) {
 		if err != nil {
 			return nil, fmt.Errorf("failed to parse %s: %w", file, err)
 		}
+		if schema.Topic == "" {
+			return nil, fmt.Errorf("schema %q is missing required 'topic' field", schema.Name)
+		}
 
 		payloads = append(payloads, schema)
 	}

@@ -73,9 +73,6 @@ func ParseAvroSchema(data []byte) (*AvroSchema, error) {
 	if err := json.Unmarshal(data, &schema); err != nil {
 		return nil, fmt.Errorf("failed to parse Avro schema: %w", err)
 	}
-	if schema.Topic == "" {
-		return nil, fmt.Errorf("schema %q is missing required 'topic' field", schema.Name)
-	}
 	return &schema, nil
 }
 

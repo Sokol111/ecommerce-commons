@@ -20,7 +20,7 @@ func TestApplyDefaults_SchemaRegistry(t *testing.T) {
 		},
 	}
 
-	applyDefaults(cfg)
+	cfg.ApplyDefaults()
 
 	assert.Equal(t, defaultSchemaRegistryCacheCapacity, cfg.SchemaRegistry.CacheCapacity)
 }
@@ -35,7 +35,7 @@ func TestApplyDefaults_SchemaRegistryCustomValue(t *testing.T) {
 		},
 	}
 
-	applyDefaults(cfg)
+	cfg.ApplyDefaults()
 
 	assert.Equal(t, customCapacity, cfg.SchemaRegistry.CacheCapacity, "should not override custom value")
 }
@@ -49,7 +49,7 @@ func TestApplyDefaults_GlobalConsumerConfig(t *testing.T) {
 		ConsumersConfig: ConsumersConfig{},
 	}
 
-	applyDefaults(cfg)
+	cfg.ApplyDefaults()
 
 	assert.Equal(t, defaultMaxRetries, *cfg.ConsumersConfig.DefaultMaxRetries)
 	assert.Equal(t, defaultInitialBackoff, cfg.ConsumersConfig.DefaultInitialBackoff)
@@ -76,7 +76,7 @@ func TestApplyDefaults_GlobalConsumerConfigCustomValues(t *testing.T) {
 		},
 	}
 
-	applyDefaults(cfg)
+	cfg.ApplyDefaults()
 
 	assert.Equal(t, customRetries, cfg.ConsumersConfig.DefaultMaxRetries)
 	assert.Equal(t, customInitialBackoff, cfg.ConsumersConfig.DefaultInitialBackoff)
@@ -93,7 +93,7 @@ func TestApplyDefaults_ProducerConfig(t *testing.T) {
 		ProducerConfig: ProducerConfig{},
 	}
 
-	applyDefaults(cfg)
+	cfg.ApplyDefaults()
 
 	assert.Equal(t, defaultProducerReadinessTimeout, cfg.ProducerConfig.ReadinessTimeoutSeconds)
 }
@@ -110,7 +110,7 @@ func TestApplyDefaults_ProducerConfigCustomValue(t *testing.T) {
 		},
 	}
 
-	applyDefaults(cfg)
+	cfg.ApplyDefaults()
 
 	assert.Equal(t, customTimeout, cfg.ProducerConfig.ReadinessTimeoutSeconds)
 }
@@ -256,7 +256,7 @@ func TestApplyDefaults_MultipleConsumers(t *testing.T) {
 		},
 	}
 
-	applyDefaults(cfg)
+	cfg.ApplyDefaults()
 
 	// Consumer 1 - all defaults
 	assert.Equal(t, "default-group", cfg.ConsumersConfig.ConsumerConfig[0].GroupID)
@@ -287,7 +287,7 @@ func TestApplyDefaults_CompleteConfig(t *testing.T) {
 		ProducerConfig: ProducerConfig{},
 	}
 
-	applyDefaults(cfg)
+	cfg.ApplyDefaults()
 
 	// Verify all defaults are applied
 	assert.Equal(t, defaultSchemaRegistryCacheCapacity, cfg.SchemaRegistry.CacheCapacity)

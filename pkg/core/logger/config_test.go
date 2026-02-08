@@ -19,7 +19,6 @@ func TestNewConfig_DefaultValues(t *testing.T) {
 	// Then: default values should be used
 	require.NoError(t, err)
 	assert.Equal(t, zapcore.InfoLevel, cfg.Level)
-	assert.Equal(t, zapcore.ErrorLevel, cfg.StacktraceLevel)
 	assert.False(t, cfg.Development)
 }
 
@@ -27,55 +26,43 @@ func TestNewConfig_ValidConfiguration(t *testing.T) {
 	tests := []struct {
 		name                string
 		level               string
-		stacktraceLevel     string
 		development         bool
 		expectedLevel       zapcore.Level
-		expectedStacktrace  zapcore.Level
 		expectedDevelopment bool
 	}{
 		{
 			name:                "debug level with development mode",
 			level:               "debug",
-			stacktraceLevel:     "warn",
 			development:         true,
 			expectedLevel:       zapcore.DebugLevel,
-			expectedStacktrace:  zapcore.WarnLevel,
 			expectedDevelopment: true,
 		},
 		{
 			name:                "info level production",
 			level:               "info",
-			stacktraceLevel:     "error",
 			development:         false,
 			expectedLevel:       zapcore.InfoLevel,
-			expectedStacktrace:  zapcore.ErrorLevel,
 			expectedDevelopment: false,
 		},
 		{
 			name:                "warn level",
 			level:               "warn",
-			stacktraceLevel:     "panic",
 			development:         false,
 			expectedLevel:       zapcore.WarnLevel,
-			expectedStacktrace:  zapcore.PanicLevel,
 			expectedDevelopment: false,
 		},
 		{
 			name:                "error level",
 			level:               "error",
-			stacktraceLevel:     "fatal",
 			development:         true,
 			expectedLevel:       zapcore.ErrorLevel,
-			expectedStacktrace:  zapcore.FatalLevel,
 			expectedDevelopment: true,
 		},
 		{
 			name:                "fatal level",
 			level:               "fatal",
-			stacktraceLevel:     "fatal",
 			development:         false,
 			expectedLevel:       zapcore.FatalLevel,
-			expectedStacktrace:  zapcore.FatalLevel,
 			expectedDevelopment: false,
 		},
 	}
@@ -85,7 +72,6 @@ func TestNewConfig_ValidConfiguration(t *testing.T) {
 			// Given: viper with specific logger configuration
 			v := viper.New()
 			v.Set("logger.level", tt.level)
-			v.Set("logger.stacktrace-level", tt.stacktraceLevel)
 			v.Set("logger.development", tt.development)
 
 			// When: creating config
@@ -94,7 +80,6 @@ func TestNewConfig_ValidConfiguration(t *testing.T) {
 			// Then: configuration should match expected values
 			require.NoError(t, err)
 			assert.Equal(t, tt.expectedLevel, cfg.Level)
-			assert.Equal(t, tt.expectedStacktrace, cfg.StacktraceLevel)
 			assert.Equal(t, tt.expectedDevelopment, cfg.Development)
 		})
 	}
@@ -104,25 +89,16 @@ func TestNewConfig_InvalidLevel(t *testing.T) {
 	tests := []struct {
 		name        string
 		level       string
-		stacktrace  string
 		expectedErr string
 	}{
 		{
 			name:        "invalid log level",
 			level:       "invalid",
-			stacktrace:  "error",
 			expectedErr: "invalid log level 'invalid'",
 		},
 		{
-			name:        "invalid stacktrace level",
-			level:       "info",
-			stacktrace:  "invalid",
-			expectedErr: "invalid stacktrace level 'invalid'",
-		},
-		{
-			name:        "empty string is invalid",
+			name:        "unknown level",
 			level:       "unknown",
-			stacktrace:  "error",
 			expectedErr: "invalid log level 'unknown'",
 		},
 	}
@@ -132,7 +108,6 @@ func TestNewConfig_InvalidLevel(t *testing.T) {
 			// Given: viper with invalid configuration
 			v := viper.New()
 			v.Set("logger.level", tt.level)
-			v.Set("logger.stacktrace-level", tt.stacktrace)
 
 			// When: creating config
 			_, err := newConfig(v)
@@ -149,7 +124,6 @@ func TestNewConfig_PartialConfiguration(t *testing.T) {
 		name                string
 		setupViper          func(*viper.Viper)
 		expectedLevel       zapcore.Level
-		expectedStacktrace  zapcore.Level
 		expectedDevelopment bool
 	}{
 		{
@@ -158,26 +132,15 @@ func TestNewConfig_PartialConfiguration(t *testing.T) {
 				v.Set("logger.level", "debug")
 			},
 			expectedLevel:       zapcore.DebugLevel,
-			expectedStacktrace:  zapcore.DPanicLevel, // default
-			expectedDevelopment: false,               // default
+			expectedDevelopment: false, // default
 		},
 		{
 			name: "only development specified",
 			setupViper: func(v *viper.Viper) {
 				v.Set("logger.development", true)
 			},
-			expectedLevel:       zapcore.InfoLevel,   // default
-			expectedStacktrace:  zapcore.DPanicLevel, // default
-			expectedDevelopment: true,
-		},
-		{
-			name: "only stacktrace level specified",
-			setupViper: func(v *viper.Viper) {
-				v.Set("logger.stacktrace-level", "warn")
-			},
 			expectedLevel:       zapcore.InfoLevel, // default
-			expectedStacktrace:  zapcore.WarnLevel,
-			expectedDevelopment: false, // default
+			expectedDevelopment: true,
 		},
 	}
 
@@ -193,7 +156,6 @@ func TestNewConfig_PartialConfiguration(t *testing.T) {
 			// Then: should use defaults for unspecified values
 			require.NoError(t, err)
 			assert.Equal(t, tt.expectedLevel, cfg.Level)
-			assert.Equal(t, tt.expectedStacktrace, cfg.StacktraceLevel)
 			assert.Equal(t, tt.expectedDevelopment, cfg.Development)
 		})
 	}

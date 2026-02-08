@@ -16,27 +16,20 @@ type Config struct {
 	// Development enables development mode with console encoding and human-readable timestamps.
 	// In production mode (false), JSON encoding is used.
 	Development bool
-
-	// StacktraceLevel sets the minimum level at which stacktraces are captured.
-	// Use zapcore constants: DebugLevel, InfoLevel, WarnLevel, ErrorLevel, DPanicLevel, PanicLevel, FatalLevel
-	// Defaults to ErrorLevel.
-	StacktraceLevel zapcore.Level
 }
 
 func newConfig(v *viper.Viper) (Config, error) {
 	sub := v.Sub("logger")
 	if sub == nil {
 		return Config{
-			Level:           zapcore.InfoLevel,
-			StacktraceLevel: zapcore.ErrorLevel,
+			Level: zapcore.InfoLevel,
 		}, nil
 	}
 
 	// Parse level from string first
 	var rawCfg struct {
-		Level           string `mapstructure:"level"`
-		Development     bool   `mapstructure:"development"`
-		StacktraceLevel string `mapstructure:"stacktrace-level"`
+		Level       string `mapstructure:"level"`
+		Development bool   `mapstructure:"development"`
 	}
 
 	if err := sub.UnmarshalExact(&rawCfg); err != nil {
@@ -53,20 +46,9 @@ func newConfig(v *viper.Viper) (Config, error) {
 		level = parsedLevel
 	}
 
-	// Parse stacktrace level string to zapcore.Level
-	stacktraceLevel := zapcore.DPanicLevel // default
-	if rawCfg.StacktraceLevel != "" {
-		parsedLevel, err := zapcore.ParseLevel(rawCfg.StacktraceLevel)
-		if err != nil {
-			return Config{}, fmt.Errorf("invalid stacktrace level '%s': %w", rawCfg.StacktraceLevel, err)
-		}
-		stacktraceLevel = parsedLevel
-	}
-
 	cfg := Config{
-		Level:           level,
-		Development:     rawCfg.Development,
-		StacktraceLevel: stacktraceLevel,
+		Level:       level,
+		Development: rawCfg.Development,
 	}
 
 	return cfg, nil

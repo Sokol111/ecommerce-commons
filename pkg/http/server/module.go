@@ -2,20 +2,66 @@ package server
 
 import (
 	"context"
+	"fmt"
 	"net/http"
 
 	"github.com/Sokol111/ecommerce-commons/pkg/core/health"
+	"github.com/spf13/viper"
 	"go.uber.org/fx"
 	"go.uber.org/zap"
 )
 
+// serverOptions holds internal configuration for the HTTP server module.
+type serverOptions struct {
+	config *Config
+}
+
+// ServerOption is a functional option for configuring the HTTP server module.
+type ServerOption func(*serverOptions)
+
+// WithServerConfig provides a static Config (useful for tests).
+func WithServerConfig(cfg Config) ServerOption {
+	return func(opts *serverOptions) {
+		opts.config = &cfg
+	}
+}
+
 // NewHTTPServerModule provides HTTP server components for dependency injection.
-func NewHTTPServerModule() fx.Option {
-	return fx.Options(
-		fx.Provide(newConfig),
+// By default, configuration is loaded from viper.
+// Use WithServerConfig for static config (useful for tests).
+func NewHTTPServerModule(opts ...ServerOption) fx.Option {
+	cfg := &serverOptions{}
+	for _, opt := range opts {
+		opt(cfg)
+	}
+
+	return fx.Module("http-server",
+		fx.Supply(cfg),
+		fx.Provide(provideConfig),
 		fx.Provide(newServeMux),
 		fx.Invoke(startHTTPServer),
 	)
+}
+
+func provideConfig(opts *serverOptions, v *viper.Viper, logger *zap.Logger) (Config, error) {
+	var result Config
+	if opts.config != nil {
+		result = *opts.config
+	} else {
+		var err error
+		result, err = loadConfigFromViper(v)
+		if err != nil {
+			return Config{}, err
+		}
+	}
+
+	if err := result.Validate(); err != nil {
+		return Config{}, fmt.Errorf("invalid server config: %w", err)
+	}
+	result.setDefaults()
+
+	logger.Info("server config loaded", zap.Any("config", result))
+	return result, nil
 }
 
 func newServeMux() (*http.ServeMux, http.Handler) {

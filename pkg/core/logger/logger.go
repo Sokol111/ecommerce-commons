@@ -27,7 +27,6 @@ func newLogger(conf Config) (*zap.Logger, zap.AtomicLevel, error) {
 	// Build logger with optional features
 	options := []zap.Option{
 		zap.AddCaller(),
-		zap.AddStacktrace(conf.StacktraceLevel),
 	}
 
 	logger, err := cfg.Build(options...)
@@ -40,7 +39,6 @@ func newLogger(conf Config) (*zap.Logger, zap.AtomicLevel, error) {
 
 	logger.Info("logger initialized",
 		zap.String("level", conf.Level.String()),
-		zap.String("stacktrace_level", conf.StacktraceLevel.String()),
 		zap.Bool("development", conf.Development),
 		zap.Bool("caller_enabled", true),
 		zap.String("encoding", map[bool]string{true: "console", false: "json"}[conf.Development]),

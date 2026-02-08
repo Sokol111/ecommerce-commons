@@ -5,8 +5,8 @@ import (
 	"strings"
 )
 
-// validateConfig validates the entire Kafka configuration.
-func validateConfig(cfg *Config) error {
+// Validate validates the entire Kafka configuration.
+func (cfg *Config) Validate() error {
 	if err := validateBrokers(cfg); err != nil {
 		return err
 	}

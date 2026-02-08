@@ -8,8 +8,22 @@ import (
 	"github.com/spf13/viper"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"go.uber.org/zap"
 )
+
+// loadAndValidateConfig is a test helper that loads, validates, and applies defaults to Config.
+func loadAndValidateConfig(v *viper.Viper) (Config, error) {
+	cfg, err := loadFromViper(v)
+	if err != nil {
+		return cfg, err
+	}
+
+	if err := cfg.Validate(); err != nil {
+		return cfg, err
+	}
+
+	cfg.ApplyDefaults()
+	return cfg, nil
+}
 
 func TestNewConfig_ValidYAML(t *testing.T) {
 	yamlConfig := `
@@ -48,8 +62,7 @@ kafka:
 	err := v.ReadConfig(bytes.NewBufferString(yamlConfig))
 	require.NoError(t, err)
 
-	logger := zap.NewNop()
-	cfg, err := newConfig(v, logger)
+	cfg, err := loadAndValidateConfig(v)
 
 	require.NoError(t, err)
 	assert.Equal(t, "localhost:9092,localhost:9093", cfg.Brokers)
@@ -98,8 +111,7 @@ kafka:
 	err := v.ReadConfig(bytes.NewBufferString(yamlConfig))
 	require.NoError(t, err)
 
-	logger := zap.NewNop()
-	cfg, err := newConfig(v, logger)
+	cfg, err := loadAndValidateConfig(v)
 
 	require.NoError(t, err)
 
@@ -128,8 +140,7 @@ kafka:
 	err := v.ReadConfig(bytes.NewBufferString(yamlConfig))
 	require.NoError(t, err)
 
-	logger := zap.NewNop()
-	_, err = newConfig(v, logger)
+	_, err = loadAndValidateConfig(v)
 
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "brokers cannot be empty")
@@ -148,8 +159,7 @@ kafka:
 	err := v.ReadConfig(bytes.NewBufferString(yamlConfig))
 	require.NoError(t, err)
 
-	logger := zap.NewNop()
-	_, err = newConfig(v, logger)
+	_, err = loadAndValidateConfig(v)
 
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "schema registry URL cannot be empty")
@@ -175,8 +185,7 @@ kafka:
 	err := v.ReadConfig(bytes.NewBufferString(yamlConfig))
 	require.NoError(t, err)
 
-	logger := zap.NewNop()
-	cfg, err := newConfig(v, logger)
+	cfg, err := loadAndValidateConfig(v)
 
 	require.NoError(t, err)
 	require.Len(t, cfg.ConsumersConfig.ConsumerConfig, 1)
@@ -212,8 +221,7 @@ kafka:
 	err := v.ReadConfig(bytes.NewBufferString(yamlConfig))
 	require.NoError(t, err)
 
-	logger := zap.NewNop()
-	_, err = newConfig(v, logger)
+	_, err = loadAndValidateConfig(v)
 
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "name cannot be empty")
@@ -233,8 +241,7 @@ kafka:
 	err := v.ReadConfig(bytes.NewBufferString(yamlConfig))
 	require.NoError(t, err)
 
-	logger := zap.NewNop()
-	_, err = newConfig(v, logger)
+	_, err = loadAndValidateConfig(v)
 
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "cache capacity must be between")
@@ -256,8 +263,7 @@ kafka:
 	err := v.ReadConfig(bytes.NewBufferString(yamlConfig))
 	require.NoError(t, err)
 
-	logger := zap.NewNop()
-	_, err = newConfig(v, logger)
+	_, err = loadAndValidateConfig(v)
 
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "initial backoff")
@@ -288,8 +294,7 @@ kafka:
 	err := v.ReadConfig(bytes.NewBufferString(yamlConfig))
 	require.NoError(t, err)
 
-	logger := zap.NewNop()
-	cfg, err := newConfig(v, logger)
+	cfg, err := loadAndValidateConfig(v)
 
 	require.NoError(t, err)
 	require.Len(t, cfg.ConsumersConfig.ConsumerConfig, 3)
@@ -323,8 +328,7 @@ kafka:
 	err := v.ReadConfig(bytes.NewBufferString(yamlConfig))
 	require.NoError(t, err)
 
-	logger := zap.NewNop()
-	_, err = newConfig(v, logger)
+	_, err = loadAndValidateConfig(v)
 
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "auto offset reset must be 'earliest' or 'latest'")

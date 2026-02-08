@@ -28,7 +28,7 @@ func TestValidateConfig_Success(t *testing.T) {
 		},
 	}
 
-	err := validateConfig(cfg)
+	err := cfg.Validate()
 	assert.NoError(t, err)
 }
 
@@ -422,7 +422,7 @@ func TestValidateConfig_CompleteInvalidConfig(t *testing.T) {
 		},
 	}
 
-	err := validateConfig(cfg)
+	err := cfg.Validate()
 	assert.Error(t, err)
 	// Should fail on first validation (brokers)
 	assert.Contains(t, err.Error(), "brokers cannot be empty")
@@ -464,6 +464,6 @@ func TestValidateConfig_CompleteValidConfig(t *testing.T) {
 		},
 	}
 
-	err := validateConfig(cfg)
+	err := cfg.Validate()
 	assert.NoError(t, err)
 }

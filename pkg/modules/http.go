@@ -9,7 +9,6 @@ import (
 )
 
 // NewHTTPModule provides HTTP middleware functionality.
-// Note: Server and health routes should be set up separately when using ogen.
 func NewHTTPModule() fx.Option {
 	return fx.Options(
 		server.NewHTTPServerModule(),

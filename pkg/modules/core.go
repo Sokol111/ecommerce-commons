@@ -19,6 +19,7 @@ func NewCoreModule() fx.Option {
 		fx.StartTimeout(5*time.Minute),
 		fx.StopTimeout(5*time.Minute),
 
+		config.NewDotEnvModule(),
 		config.NewAppConfigModule(),
 		config.NewViperModule(),
 		logger.NewZapLoggingModule(),

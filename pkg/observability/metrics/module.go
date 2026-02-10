@@ -9,6 +9,7 @@ import (
 	otelruntime "go.opentelemetry.io/contrib/instrumentation/runtime"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/metric"
+	"go.opentelemetry.io/otel/metric/noop"
 	"go.uber.org/fx"
 	"go.uber.org/zap"
 )
@@ -33,7 +34,7 @@ func NewMetricsModule() fx.Option {
 			func(p providerParams) (metric.MeterProvider, error) {
 				if !p.Cfg.Metrics.Enabled {
 					p.Log.Info("metrics: disabled")
-					return nil, nil
+					return noop.NewMeterProvider(), nil
 				}
 				return provideMeterProvider(p)
 			},

@@ -12,6 +12,7 @@ import (
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/propagation"
 	"go.opentelemetry.io/otel/trace"
+	"go.opentelemetry.io/otel/trace/noop"
 	"go.uber.org/fx"
 	"go.uber.org/zap"
 )
@@ -37,13 +38,13 @@ func NewTracingModule() fx.Option {
 			func(p providerParams) (trace.TracerProvider, error) {
 				if !p.Cfg.Tracing.Enabled {
 					p.Log.Info("tracing: disabled")
-					return nil, nil
+					return noop.NewTracerProvider(), nil
 				}
 				return provideTracerProvider(p)
 			},
 			fx.Annotate(
-				func(log *zap.Logger, tp trace.TracerProvider) appmiddleware.Middleware {
-					if tp == nil {
+				func(log *zap.Logger, cfg otelconfig.Config) appmiddleware.Middleware {
+					if !cfg.Tracing.Enabled {
 						return appmiddleware.Middleware{}
 					}
 					return provideLoggerMiddleware(log)

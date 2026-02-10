@@ -1,10 +1,7 @@
 package mongo
 
 import (
-	"fmt"
 	"time"
-
-	"github.com/spf13/viper"
 )
 
 // Config holds the MongoDB connection configuration.
@@ -29,13 +26,7 @@ type Config struct {
 	QueryTimeout time.Duration `mapstructure:"query-timeout"` // Максимальний час виконання запиту до БД
 }
 
-func newConfig(v *viper.Viper) (Config, error) {
-	var cfg Config
-	if err := v.Sub("mongo").Unmarshal(&cfg); err != nil {
-		return cfg, fmt.Errorf("failed to load mongo config: %w", err)
-	}
-
-	// Set default values for connection pool if not specified
+func applyDefaults(cfg *Config) {
 	if cfg.MaxPoolSize == 0 {
 		cfg.MaxPoolSize = 100 // Default: 100 connections
 	}
@@ -54,6 +45,4 @@ func newConfig(v *viper.Viper) (Config, error) {
 	if cfg.QueryTimeout == 0 {
 		cfg.QueryTimeout = 10 * time.Second // Default: 10 seconds for queries
 	}
-
-	return cfg, nil
 }

@@ -1,39 +1,44 @@
 package config
 
-import (
-	"fmt"
+import "time"
 
-	"github.com/spf13/viper"
-	"go.uber.org/fx"
-	"go.uber.org/zap"
+const (
+	// DefaultMetricsInterval is the default metrics collection interval.
+	DefaultMetricsInterval = 10 * time.Second
+
+	// DefaultShutdownTimeout is the default timeout for graceful shutdown.
+	DefaultShutdownTimeout = 5 * time.Second
+
+	// DefaultRuntimeStatsInterval is the default interval for runtime stats.
+	DefaultRuntimeStatsInterval = 10 * time.Second
+
+	// TracingComponentName is the name used for health check registration.
+	TracingComponentName = "tracing"
+
+	// MetricsComponentName is the name used for health check registration.
+	MetricsComponentName = "metrics"
 )
 
-// NewObservabilityConfigModule provides observability configuration.
-func NewObservabilityConfigModule() fx.Option {
-	return fx.Provide(newConfig)
+// Config holds all observability configuration.
+type Config struct {
+	OtelCollectorEndpoint string        `mapstructure:"otel-collector-endpoint"`
+	Tracing               TracingConfig `mapstructure:"tracing"`
+	Metrics               MetricsConfig `mapstructure:"metrics"`
 }
 
-func newConfig(v *viper.Viper, logger *zap.Logger) (Config, error) {
-	var cfg Config
-	sub := v.Sub("observability")
-	if sub == nil {
-		return cfg, nil
-	}
-	if err := sub.Unmarshal(&cfg); err != nil {
-		return cfg, fmt.Errorf("failed to load observability config: %w", err)
-	}
-
-	applyDefaults(&cfg)
-
-	logger.Info("loaded observability config")
-	return cfg, nil
+// TracingConfig holds tracing-specific configuration.
+type TracingConfig struct {
+	Enabled     bool    `mapstructure:"enabled"`
+	SampleRatio float64 `mapstructure:"sample-ratio"`
 }
 
-func applyDefaults(cfg *Config) {
-	if cfg.Metrics.Interval == 0 {
-		cfg.Metrics.Interval = DefaultMetricsInterval
-	}
-	if cfg.Tracing.SampleRatio == 0 {
-		cfg.Tracing.SampleRatio = DefaultSampleRatio
-	}
+const (
+	// DefaultSampleRatio is the default sampling ratio (100% for local development).
+	DefaultSampleRatio = 1.0
+)
+
+// MetricsConfig holds metrics-specific configuration.
+type MetricsConfig struct {
+	Enabled  bool          `mapstructure:"enabled"`
+	Interval time.Duration `mapstructure:"interval"`
 }

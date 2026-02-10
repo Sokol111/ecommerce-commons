@@ -38,6 +38,18 @@ func TestClaims_HasPermission(t *testing.T) {
 			check:       "read",
 			want:        false,
 		},
+		{
+			name:        "wildcard permission grants any permission",
+			permissions: []string{"*"},
+			check:       "read",
+			want:        true,
+		},
+		{
+			name:        "wildcard with other permissions",
+			permissions: []string{"write", "*"},
+			check:       "delete",
+			want:        true,
+		},
 	}
 
 	for _, tt := range tests {
@@ -91,6 +103,18 @@ func TestClaims_HasAnyPermission(t *testing.T) {
 			permissions: []string{},
 			check:       []string{},
 			want:        false,
+		},
+		{
+			name:        "wildcard grants all permissions",
+			permissions: []string{"*"},
+			check:       []string{"read", "write", "delete"},
+			want:        true,
+		},
+		{
+			name:        "wildcard with other permissions",
+			permissions: []string{"read", "*"},
+			check:       []string{"admin:delete"},
+			want:        true,
 		},
 	}
 

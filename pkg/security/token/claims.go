@@ -29,13 +29,23 @@ type Claims struct {
 	token *paseto.Token
 }
 
+// WildcardPermission grants access to all permissions.
+const WildcardPermission = "*"
+
 // HasPermission checks if the user has a specific permission.
+// Returns true if the user has the exact permission or the wildcard permission.
 func (c *Claims) HasPermission(permission string) bool {
-	return slices.Contains(c.Permissions, permission)
+	return slices.Contains(c.Permissions, WildcardPermission) ||
+		slices.Contains(c.Permissions, permission)
 }
 
 // HasAnyPermission checks if the user has at least one of the required permissions.
+// Returns true if the user has any of the specified permissions or the wildcard permission.
 func (c *Claims) HasAnyPermission(permissions []string) bool {
+	// Wildcard grants all permissions
+	if slices.Contains(c.Permissions, WildcardPermission) {
+		return true
+	}
 	for _, perm := range permissions {
 		if slices.Contains(c.Permissions, perm) {
 			return true

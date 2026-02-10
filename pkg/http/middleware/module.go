@@ -8,7 +8,7 @@ import (
 	"go.uber.org/fx"
 )
 
-// NewOgenMiddlewareModule provides all ogen middleware modules.
+// NewMiddlewareModule provides all ogen middleware modules.
 // Middleware execution order (by priority, lower = earlier):
 //
 //	10 - Recovery         - catches panics (must be first)
@@ -19,7 +19,7 @@ import (
 //
 // Note: ErrorLogger and Problem middlewares are not needed with ogen -
 // use OgenErrorHandler which handles both logging and RFC 7807 responses.
-func NewOgenMiddlewareModule() fx.Option {
+func NewMiddlewareModule() fx.Option {
 	return fx.Options(
 		RecoveryModule(10),
 		LoggerModule(20),

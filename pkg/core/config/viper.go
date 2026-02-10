@@ -3,7 +3,6 @@ package config
 import (
 	"fmt"
 	"os"
-	"path/filepath"
 	"strings"
 
 	"github.com/spf13/viper"
@@ -13,7 +12,8 @@ import (
 
 // viperConfig holds internal configuration options for the Viper module.
 type viperConfig struct {
-	configPath *string
+	configPath   *string
+	noConfigFile bool
 }
 
 // ViperOption is a functional option for configuring the Viper module.
@@ -27,10 +27,23 @@ func WithConfigPath(path string) ViperOption {
 	}
 }
 
+// WithoutConfigFile disables loading of any config file.
+// Viper will still be available for DI but with no file-based configuration.
+func WithoutConfigFile() ViperOption {
+	return func(cfg *viperConfig) {
+		cfg.noConfigFile = true
+	}
+}
+
+// ConfigFilePath represents the path to a configuration file.
+// Empty string means no config file will be loaded.
+type ConfigFilePath string
+
 // NewViperModule creates an fx module for Viper configuration.
-// By default, resolves config path from CONFIG_FILE or APP_ENV environment variables.
-// If env vars are not set, creates an empty Viper instance.
+// By default, resolves config path from CONFIG_FILE environment variable.
+// If env var is not set, creates an empty Viper instance.
 // Use WithConfigPath to override with a direct path.
+// Use WithoutConfigFile to disable config file loading.
 func NewViperModule(opts ...ViperOption) fx.Option {
 	cfg := &viperConfig{}
 	for _, opt := range opts {
@@ -38,37 +51,38 @@ func NewViperModule(opts ...ViperOption) fx.Option {
 	}
 
 	return fx.Module("viper",
-		fx.Provide(func(logger *zap.Logger) (*viper.Viper, error) {
-			configFile := resolveConfigPath(cfg)
-			return newViper(configFile, logger)
-		}),
-		fx.Invoke(func(logger *zap.Logger, v *viper.Viper) {
-			logger.Info("Configuration loaded successfully",
-				zap.String("configFile", v.ConfigFileUsed()),
-				zap.Int("settingsCount", len(v.AllSettings())),
-				zap.Strings("configKeys", v.AllKeys()),
-			)
-		}),
+		fx.Supply(resolveConfigPath(cfg)),
+		fx.Provide(newViper),
+		fx.Invoke(logViperConfig),
+	)
+}
+
+func logViperConfig(logger *zap.Logger, v *viper.Viper) {
+	logger.Info("Configuration loaded successfully",
+		zap.String("configFile", v.ConfigFileUsed()),
+		zap.Int("settingsCount", len(v.AllSettings())),
+		zap.Strings("configKeys", v.AllKeys()),
 	)
 }
 
 // resolveConfigPath determines the config file path.
+// If noConfigFile is set, returns empty string.
 // If WithConfigPath was used, returns that path.
-// Otherwise resolves from CONFIG_FILE or APP_ENV environment variables.
-func resolveConfigPath(cfg *viperConfig) string {
+// Otherwise resolves from CONFIG_FILE environment variable.
+func resolveConfigPath(cfg *viperConfig) ConfigFilePath {
+	if cfg.noConfigFile {
+		return ""
+	}
 	if cfg.configPath != nil {
-		return *cfg.configPath
+		return ConfigFilePath(*cfg.configPath)
 	}
 	if configFile := os.Getenv("CONFIG_FILE"); configFile != "" {
-		return configFile
-	}
-	if env := os.Getenv("APP_ENV"); env != "" {
-		return filepath.Join("./configs", "config."+env+".yaml")
+		return ConfigFilePath(configFile)
 	}
 	return ""
 }
 
-func newViper(configFile string, logger *zap.Logger) (*viper.Viper, error) {
+func newViper(configFile ConfigFilePath, logger *zap.Logger) (*viper.Viper, error) {
 	v := viper.New()
 	v.AutomaticEnv()
 	v.SetEnvKeyReplacer(strings.NewReplacer(".", "_", "-", "_"))
@@ -78,7 +92,7 @@ func newViper(configFile string, logger *zap.Logger) (*viper.Viper, error) {
 		return v, nil
 	}
 
-	v.SetConfigFile(configFile)
+	v.SetConfigFile(string(configFile))
 	if err := v.ReadInConfig(); err != nil {
 		return nil, fmt.Errorf("failed to read config file [%s]: %w", configFile, err)
 	}

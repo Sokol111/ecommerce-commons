@@ -5,7 +5,6 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/Sokol111/ecommerce-commons/pkg/persistence"
 	"go.mongodb.org/mongo-driver/v2/bson"
 	mongodriver "go.mongodb.org/mongo-driver/v2/mongo"
 	"go.mongodb.org/mongo-driver/v2/mongo/options"
@@ -106,7 +105,7 @@ func (r *GenericRepository[Domain, Entity]) FindOneByFilter(ctx context.Context,
 	err := result.Decode(&entity)
 	if err != nil {
 		if errors.Is(err, mongodriver.ErrNoDocuments) {
-			return nil, persistence.ErrEntityNotFound
+			return nil, ErrEntityNotFound
 		}
 		return nil, fmt.Errorf("failed to decode entity: %w", err)
 	}
@@ -264,7 +263,7 @@ func (r *GenericRepository[Domain, Entity]) Update(ctx context.Context, domain *
 		if errors.Is(result.Err(), mongodriver.ErrNoDocuments) {
 			// This could be either not found or version mismatch
 			// Return optimistic locking error
-			return nil, persistence.ErrOptimisticLocking
+			return nil, ErrOptimisticLocking
 		}
 		return nil, fmt.Errorf("failed to update entity: %w", result.Err())
 	}

@@ -1,6 +1,7 @@
 package serialization
 
 import (
+	"encoding/binary"
 	"fmt"
 	"sync"
 
@@ -31,16 +32,16 @@ func (s *avroSerializer) Serialize(event events.Event) ([]byte, error) {
 	schemaName := event.GetSchemaName()
 	schemaJSON := event.GetSchema()
 
-	// Get or parse schema (cached)
-	parsedSchema, err := s.getParsedSchema(schemaName, schemaJSON)
-	if err != nil {
-		return nil, fmt.Errorf("failed to parse schema: %w", err)
-	}
-
 	// Register or get schema ID from Confluent Schema Registry
 	schemaID, err := s.schemaRegistry.GetOrRegisterSchema(schemaName, schemaJSON)
 	if err != nil {
 		return nil, fmt.Errorf("failed to register schema in Confluent: %w", err)
+	}
+
+	// Get or parse schema (cached)
+	parsedSchema, err := s.getParsedSchema(schemaName, schemaJSON)
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse schema: %w", err)
 	}
 
 	// Encode message to Avro bytes
@@ -58,10 +59,7 @@ func (s *avroSerializer) Serialize(event events.Event) ([]byte, error) {
 func buildConfluentWireFormat(schemaID int, payload []byte) []byte {
 	result := make([]byte, 5+len(payload))
 	result[0] = 0x00 // Magic byte
-	result[1] = byte(schemaID >> 24)
-	result[2] = byte(schemaID >> 16)
-	result[3] = byte(schemaID >> 8)
-	result[4] = byte(schemaID)
+	binary.BigEndian.PutUint32(result[1:5], uint32(schemaID))
 	copy(result[5:], payload)
 	return result
 }

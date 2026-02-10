@@ -5,7 +5,6 @@ import (
 
 	"github.com/Sokol111/ecommerce-commons/pkg/core/health"
 	"github.com/Sokol111/ecommerce-commons/pkg/messaging/kafka/avro/deserialization"
-	"github.com/Sokol111/ecommerce-commons/pkg/messaging/kafka/avro/encoding"
 	avroserialization "github.com/Sokol111/ecommerce-commons/pkg/messaging/kafka/avro/serialization"
 	"github.com/Sokol111/ecommerce-commons/pkg/messaging/kafka/config"
 	"github.com/Sokol111/ecommerce-commons/pkg/messaging/kafka/events"
@@ -23,8 +22,6 @@ func NewAvroModule() fx.Option {
 			provideSchemaRegistryClient,
 			provideSchemaRegistry,
 			events.NewEventRegistry,
-			encoding.NewConfluentWireFormat,
-			provideHambaDecoder,
 			deserialization.NewWriterSchemaResolver,
 			deserialization.NewDeserializer,
 			provideSerializer,
@@ -70,8 +67,4 @@ func provideSchemaRegistry(lc fx.Lifecycle, client schemaregistry.Client, log *z
 
 func provideSerializer(schemaRegistry avroserialization.SchemaRegistry) serde.Serializer {
 	return avroserialization.NewSerializer(schemaRegistry)
-}
-
-func provideHambaDecoder(eventRegistry events.EventRegistry) encoding.Decoder {
-	return encoding.NewHambaDecoder(eventRegistry)
 }

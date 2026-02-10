@@ -7,17 +7,39 @@ import (
 	"testing"
 	"time"
 
+	"github.com/Sokol111/ecommerce-commons/pkg/messaging/kafka/events"
 	"github.com/confluentinc/confluent-kafka-go/v2/kafka"
 	"github.com/stretchr/testify/assert"
 	"go.uber.org/zap"
 )
 
-// mockDeserializer is a test implementation of deserialization.Deserializer
-type mockDeserializer struct {
-	deserializeFunc func(data []byte) (interface{}, error)
+// mockEvent implements events.Event for testing
+type mockEvent struct {
+	metadata events.EventMetadata
 }
 
-func (m *mockDeserializer) Deserialize(data []byte) (interface{}, error) {
+func (m *mockEvent) GetMetadata() *events.EventMetadata {
+	return &m.metadata
+}
+
+func (m *mockEvent) GetTopic() string {
+	return "mock.topic"
+}
+
+func (m *mockEvent) GetSchemaName() string {
+	return "com.test.MockEvent"
+}
+
+func (m *mockEvent) GetSchema() []byte {
+	return []byte(`{"type": "record", "name": "MockEvent", "fields": []}`)
+}
+
+// mockDeserializer is a test implementation of serde.Deserializer
+type mockDeserializer struct {
+	deserializeFunc func(data []byte) (events.Event, error)
+}
+
+func (m *mockDeserializer) Deserialize(data []byte) (events.Event, error) {
 	if m.deserializeFunc != nil {
 		return m.deserializeFunc(data)
 	}
@@ -56,9 +78,9 @@ func TestMessageDeserializer_Run(t *testing.T) {
 	t.Run("deserializes messages and sends to output", func(t *testing.T) {
 		inputChan := make(chan *kafka.Message, 1)
 		outputChan := make(chan *MessageEnvelope, 1)
-		expectedEvent := map[string]string{"key": "value"}
+		expectedEvent := &mockEvent{}
 		deserializer := &mockDeserializer{
-			deserializeFunc: func(data []byte) (interface{}, error) {
+			deserializeFunc: func(data []byte) (events.Event, error) {
 				return expectedEvent, nil
 			},
 		}
@@ -93,7 +115,7 @@ func TestMessageDeserializer_Run(t *testing.T) {
 		inputChan := make(chan *kafka.Message, 1)
 		outputChan := make(chan *MessageEnvelope, 1)
 		deserializer := &mockDeserializer{
-			deserializeFunc: func(data []byte) (interface{}, error) {
+			deserializeFunc: func(data []byte) (events.Event, error) {
 				return nil, errors.New("deserialization failed")
 			},
 		}
@@ -167,10 +189,9 @@ func TestMessageDeserializer_Run(t *testing.T) {
 	t.Run("handles multiple messages", func(t *testing.T) {
 		inputChan := make(chan *kafka.Message, 3)
 		outputChan := make(chan *MessageEnvelope, 3)
-		counter := atomic.Int32{}
 		deserializer := &mockDeserializer{
-			deserializeFunc: func(data []byte) (interface{}, error) {
-				return counter.Add(1), nil
+			deserializeFunc: func(data []byte) (events.Event, error) {
+				return &mockEvent{}, nil
 			},
 		}
 		log := zap.NewNop()
@@ -210,7 +231,7 @@ func TestMessageDeserializer_DeserializeAndSend(t *testing.T) {
 		inputChan := make(chan *kafka.Message)
 		outputChan := make(chan *MessageEnvelope, 1)
 		deserializer := &mockDeserializer{
-			deserializeFunc: func(data []byte) (interface{}, error) {
+			deserializeFunc: func(data []byte) (events.Event, error) {
 				return nil, errors.New("error")
 			},
 		}
@@ -236,8 +257,8 @@ func TestMessageDeserializer_DeserializeAndSend(t *testing.T) {
 		inputChan := make(chan *kafka.Message)
 		outputChan := make(chan *MessageEnvelope) // unbuffered - will block
 		deserializer := &mockDeserializer{
-			deserializeFunc: func(data []byte) (interface{}, error) {
-				return "event", nil
+			deserializeFunc: func(data []byte) (events.Event, error) {
+				return &mockEvent{}, nil
 			},
 		}
 		log := zap.NewNop()

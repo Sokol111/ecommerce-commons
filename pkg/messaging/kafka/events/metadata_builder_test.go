@@ -19,6 +19,18 @@ func (e *testEvent) GetMetadata() *EventMetadata {
 	return &e.Metadata
 }
 
+func (e *testEvent) GetTopic() string {
+	return "test.topic"
+}
+
+func (e *testEvent) GetSchemaName() string {
+	return "com.test.testEvent"
+}
+
+func (e *testEvent) GetSchema() []byte {
+	return []byte(`{"type": "record", "name": "testEvent", "fields": []}`)
+}
+
 func TestMetadataPopulator_PopulateMetadata(t *testing.T) {
 	t.Run("populates all metadata fields", func(t *testing.T) {
 		populator := NewMetadataPopulator("test-service")

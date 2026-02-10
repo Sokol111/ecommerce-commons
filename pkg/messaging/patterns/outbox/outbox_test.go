@@ -23,6 +23,18 @@ func (m *mockEvent) GetMetadata() *events.EventMetadata {
 	return &m.metadata
 }
 
+func (m *mockEvent) GetTopic() string {
+	return "mock.topic"
+}
+
+func (m *mockEvent) GetSchemaName() string {
+	return "com.test.MockEvent"
+}
+
+func (m *mockEvent) GetSchema() []byte {
+	return []byte(`{"type": "record", "name": "MockEvent", "fields": []}`)
+}
+
 // mockMetadataPopulator is a mock implementation of events.MetadataPopulator
 type mockMetadataPopulator struct {
 	populateFunc func(ctx context.Context, event events.Event) string
@@ -38,21 +50,16 @@ func (m *mockMetadataPopulator) PopulateMetadata(ctx context.Context, event even
 	return "generated-event-id"
 }
 
-// mockSerializer is a mock implementation of serialization.Serializer
+// mockSerializer is a mock implementation of serde.Serializer
 type mockSerializer struct {
-	serializeWithTopicFunc func(msg interface{}) ([]byte, string, error)
+	serializeFunc func(event events.Event) ([]byte, error)
 }
 
-func (m *mockSerializer) Serialize(msg interface{}) ([]byte, error) {
-	data, _, err := m.SerializeWithTopic(msg)
-	return data, err
-}
-
-func (m *mockSerializer) SerializeWithTopic(msg interface{}) ([]byte, string, error) {
-	if m.serializeWithTopicFunc != nil {
-		return m.serializeWithTopicFunc(msg)
+func (m *mockSerializer) Serialize(event events.Event) ([]byte, error) {
+	if m.serializeFunc != nil {
+		return m.serializeFunc(event)
 	}
-	return []byte("serialized"), "test-topic", nil
+	return []byte("serialized"), nil
 }
 
 // mockTracePropagator is a mock implementation of tracePropagator
@@ -107,15 +114,15 @@ func TestOutbox_Create(t *testing.T) {
 		assert.Len(t, repo.created, 1)
 		assert.Equal(t, "generated-event-id", repo.created[0].ID)
 		assert.Equal(t, "partition-key", repo.created[0].Key)
-		assert.Equal(t, "test-topic", repo.created[0].Topic)
+		assert.Equal(t, "mock.topic", repo.created[0].Topic)
 	})
 
 	t.Run("serialization error returns error", func(t *testing.T) {
 		repo := newMockRepository()
 		entitiesChan := make(chan *outboxEntity, 10)
 		serializer := &mockSerializer{
-			serializeWithTopicFunc: func(msg interface{}) ([]byte, string, error) {
-				return nil, "", errors.New("serialization failed")
+			serializeFunc: func(event events.Event) ([]byte, error) {
+				return nil, errors.New("serialization failed")
 			},
 		}
 		propagator := &mockTracePropagator{}

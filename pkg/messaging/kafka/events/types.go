@@ -22,6 +22,14 @@ type EventMetadata struct {
 
 // Event is an interface that all event types must implement.
 // Generated event types implement this interface automatically.
+// Events are self-describing: they know their topic, schema name, and schema bytes.
 type Event interface {
+	// GetMetadata returns the event metadata (EventID, Timestamp, etc.)
 	GetMetadata() *EventMetadata
+	// GetTopic returns the Kafka topic for this event type.
+	GetTopic() string
+	// GetSchemaName returns the full Avro schema name (namespace.name).
+	GetSchemaName() string
+	// GetSchema returns the Avro schema as JSON bytes.
+	GetSchema() []byte
 }

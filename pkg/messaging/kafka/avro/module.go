@@ -6,27 +6,28 @@ import (
 	"github.com/Sokol111/ecommerce-commons/pkg/core/health"
 	"github.com/Sokol111/ecommerce-commons/pkg/messaging/kafka/avro/deserialization"
 	"github.com/Sokol111/ecommerce-commons/pkg/messaging/kafka/avro/encoding"
-	"github.com/Sokol111/ecommerce-commons/pkg/messaging/kafka/avro/mapping"
-	"github.com/Sokol111/ecommerce-commons/pkg/messaging/kafka/avro/serialization"
+	avroserialization "github.com/Sokol111/ecommerce-commons/pkg/messaging/kafka/avro/serialization"
 	"github.com/Sokol111/ecommerce-commons/pkg/messaging/kafka/config"
+	"github.com/Sokol111/ecommerce-commons/pkg/messaging/kafka/events"
+	"github.com/Sokol111/ecommerce-commons/pkg/messaging/kafka/serde"
 	"github.com/confluentinc/confluent-kafka-go/v2/schemaregistry"
 	"go.uber.org/fx"
 	"go.uber.org/zap"
 )
 
 // NewAvroModule provides Avro serialization and deserialization components for dependency injection.
+// Events should be registered via event API modules (e.g., catalog_events.Module()).
 func NewAvroModule() fx.Option {
 	return fx.Module("avro",
 		fx.Provide(
 			provideSchemaRegistryClient,
-			provideConfluentRegistry,
-			mapping.NewTypeMapping,
+			provideSchemaRegistry,
+			events.NewEventRegistry,
 			encoding.NewConfluentWireFormat,
-			encoding.NewHambaDecoder,
-			encoding.NewHambaEncoder,
+			provideHambaDecoder,
 			deserialization.NewWriterSchemaResolver,
 			deserialization.NewDeserializer,
-			serialization.NewSerializer,
+			provideSerializer,
 		),
 	)
 }
@@ -50,25 +51,27 @@ func provideSchemaRegistryClient(lc fx.Lifecycle, kafkaConf config.Config, log *
 	return client, nil
 }
 
-func provideConfluentRegistry(lc fx.Lifecycle, client schemaregistry.Client, typeMapping *mapping.TypeMapping, kafkaConf config.Config, log *zap.Logger, cm health.ComponentManager) (serialization.ConfluentRegistry, error) {
-	var registry = serialization.NewConfluentRegistry(client, typeMapping)
+func provideSchemaRegistry(lc fx.Lifecycle, client schemaregistry.Client, log *zap.Logger, cm health.ComponentManager) avroserialization.SchemaRegistry {
+	registry := avroserialization.NewConfluentRegistry(client)
 
 	markReady := cm.AddComponent("confluent_schema_registry")
 	lc.Append(fx.Hook{
 		OnStart: func(ctx context.Context) error {
-			if kafkaConf.SchemaRegistry.AutoRegisterSchemas {
-				err := registry.RegisterAllSchemasAtStartup()
-				if err != nil {
-					return err
-				}
-				log.Info("all schemas registered at startup")
-			} else {
-				log.Info("auto-registration of schemas is disabled")
-			}
+			// Schemas are now registered on-demand during serialization
+			// or via event API modules at startup
+			log.Info("schema registry client ready")
 			markReady()
 			return nil
 		},
 	})
 
-	return registry, nil
+	return registry
+}
+
+func provideSerializer(schemaRegistry avroserialization.SchemaRegistry) serde.Serializer {
+	return avroserialization.NewSerializer(schemaRegistry)
+}
+
+func provideHambaDecoder(eventRegistry events.EventRegistry) encoding.Decoder {
+	return encoding.NewHambaDecoder(eventRegistry)
 }

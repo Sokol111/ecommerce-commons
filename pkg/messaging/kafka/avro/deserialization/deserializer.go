@@ -4,17 +4,12 @@ import (
 	"fmt"
 
 	"github.com/Sokol111/ecommerce-commons/pkg/messaging/kafka/avro/encoding"
+	"github.com/Sokol111/ecommerce-commons/pkg/messaging/kafka/events"
+	"github.com/Sokol111/ecommerce-commons/pkg/messaging/kafka/serde"
 )
 
-// Deserializer deserializes Avro bytes to Go structs using Schema Registry.
-type Deserializer interface {
-	// Deserialize deserializes Avro bytes to a Go struct
-	//
-	// The data must be in format: [0x00][schema_id (4 bytes)][avro_data]
-	//
-	// Returns a concrete Go type based on the type registry configuration.
-	Deserialize(data []byte) (interface{}, error)
-}
+// Verify at compile time that avroDeserializer implements serde.Deserializer.
+var _ serde.Deserializer = (*avroDeserializer)(nil)
 
 type avroDeserializer struct {
 	parser   encoding.WireFormatParser
@@ -24,7 +19,7 @@ type avroDeserializer struct {
 
 // NewDeserializer creates a new Avro deserializer with Schema Registry integration.
 // Uses composition of specialized components for separation of concerns.
-func NewDeserializer(parser encoding.WireFormatParser, resolver WriterSchemaResolver, decoder encoding.Decoder) Deserializer {
+func NewDeserializer(parser encoding.WireFormatParser, resolver WriterSchemaResolver, decoder encoding.Decoder) serde.Deserializer {
 	return &avroDeserializer{
 		parser:   parser,
 		resolver: resolver,
@@ -32,7 +27,7 @@ func NewDeserializer(parser encoding.WireFormatParser, resolver WriterSchemaReso
 	}
 }
 
-func (d *avroDeserializer) Deserialize(data []byte) (interface{}, error) {
+func (d *avroDeserializer) Deserialize(data []byte) (events.Event, error) {
 	// Parse wire format to extract schema ID and payload
 	schemaID, payload, err := d.parser.Parse(data)
 	if err != nil {
@@ -48,10 +43,10 @@ func (d *avroDeserializer) Deserialize(data []byte) (interface{}, error) {
 
 	// Decode Avro payload using writer schema from Registry
 	// This ensures we deserialize with the schema that was used to write the data
-	result, err := d.decoder.Decode(payload, writerSchema, schemaName)
+	event, err := d.decoder.Decode(payload, writerSchema, schemaName)
 	if err != nil {
 		return nil, fmt.Errorf("failed to decode avro data: %w", err)
 	}
 
-	return result, nil
+	return event, nil
 }

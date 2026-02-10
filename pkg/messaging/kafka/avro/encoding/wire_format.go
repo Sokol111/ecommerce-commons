@@ -9,19 +9,11 @@ type WireFormatParser interface {
 	Parse(data []byte) (schemaID int, payload []byte, err error)
 }
 
-// WireFormatBuilder builds Confluent wire format messages.
-type WireFormatBuilder interface {
-	// Build creates Confluent wire format from schema ID and payload
-	// Returns format: [0x00][schema_id (4 bytes)][payload]
-	Build(schemaID int, payload []byte) []byte
-}
-
 type confluentWireFormat struct{}
 
-// NewConfluentWireFormat creates a parser and builder for Confluent wire format.
-func NewConfluentWireFormat() (WireFormatParser, WireFormatBuilder) {
-	f := &confluentWireFormat{}
-	return f, f
+// NewConfluentWireFormat creates a parser for Confluent wire format.
+func NewConfluentWireFormat() WireFormatParser {
+	return &confluentWireFormat{}
 }
 
 func (w *confluentWireFormat) Parse(data []byte) (int, []byte, error) {
@@ -40,16 +32,4 @@ func (w *confluentWireFormat) Parse(data []byte) (int, []byte, error) {
 
 	// Return schema ID and payload
 	return schemaID, data[5:], nil
-}
-
-func (w *confluentWireFormat) Build(schemaID int, payload []byte) []byte {
-	// Build Confluent wire format: [0x00][schema_id (4 bytes)][payload]
-	result := make([]byte, 5+len(payload))
-	result[0] = 0x00 // Magic byte
-	result[1] = byte(schemaID >> 24)
-	result[2] = byte(schemaID >> 16)
-	result[3] = byte(schemaID >> 8)
-	result[4] = byte(schemaID)
-	copy(result[5:], payload)
-	return result
 }

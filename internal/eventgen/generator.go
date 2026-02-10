@@ -46,6 +46,11 @@ func Generate(cfg *Config) error {
 		return err
 	}
 
+	// Generate module.gen.go (fx module for event registration)
+	if err := GenerateModule(cfg, payloads); err != nil {
+		return err
+	}
+
 	fmt.Println("✓ Code generation complete!")
 	return nil
 }

@@ -102,6 +102,33 @@ func generateEventWrappers(cfg *Config, payloads []*AvroSchema) error {
 			Op("*").Qual(commonsEventsImport, "EventMetadata").
 			Block(jen.Return(jen.Op("&").Id("e").Dot("Metadata")))
 		f.Line()
+
+		// GetTopic method for Event interface
+		f.Func().
+			Params(jen.Id("e").Op("*").Id(p.EventTypeName())).
+			Id("GetTopic").
+			Params().
+			String().
+			Block(jen.Return(jen.Id(topicToConstName(p.Topic))))
+		f.Line()
+
+		// GetSchemaName method for Event interface
+		f.Func().
+			Params(jen.Id("e").Op("*").Id(p.EventTypeName())).
+			Id("GetSchemaName").
+			Params().
+			String().
+			Block(jen.Return(jen.Id("SchemaName" + p.EventName())))
+		f.Line()
+
+		// GetSchema method for Event interface
+		f.Func().
+			Params(jen.Id("e").Op("*").Id(p.EventTypeName())).
+			Id("GetSchema").
+			Params().
+			Index().Byte().
+			Block(jen.Return(jen.Id(p.EventName() + "Schema")))
+		f.Line()
 	}
 
 	outputFile := filepath.Join(cfg.OutputDir, "events.gen.go")

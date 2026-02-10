@@ -6,8 +6,8 @@ import (
 	"time"
 
 	"github.com/Sokol111/ecommerce-commons/pkg/core/logger"
-	"github.com/Sokol111/ecommerce-commons/pkg/messaging/kafka/avro/serialization"
 	"github.com/Sokol111/ecommerce-commons/pkg/messaging/kafka/events"
+	"github.com/Sokol111/ecommerce-commons/pkg/messaging/kafka/serde"
 	"go.uber.org/zap"
 )
 
@@ -27,12 +27,12 @@ type outbox struct {
 	outboxRepository  repository
 	logger            *zap.Logger
 	entitiesChan      chan<- *outboxEntity
-	serializer        serialization.Serializer
+	serializer        serde.Serializer
 	tracePropagator   tracePropagator
 	metadataPopulator events.MetadataPopulator
 }
 
-func newOutbox(logger *zap.Logger, outboxRepository repository, entitiesChan chan *outboxEntity, serializer serialization.Serializer, tracePropagator tracePropagator, metadataPopulator events.MetadataPopulator) Outbox {
+func newOutbox(logger *zap.Logger, outboxRepository repository, entitiesChan chan *outboxEntity, serializer serde.Serializer, tracePropagator tracePropagator, metadataPopulator events.MetadataPopulator) Outbox {
 	return &outbox{
 		outboxRepository:  outboxRepository,
 		logger:            logger,
@@ -53,10 +53,14 @@ func (o *outbox) Create(ctx context.Context, msg Message) (SendFunc, error) {
 	// Save trace context into headers for storage in outbox
 	msg.Headers = o.tracePropagator.SaveTraceContext(ctx, msg.Headers)
 
-	serializedMsg, topic, err := o.serializer.SerializeWithTopic(msg.Event)
+	// Serialize the event - topic is obtained from event.GetTopic()
+	serializedMsg, err := o.serializer.Serialize(msg.Event)
 	if err != nil {
 		return nil, fmt.Errorf("failed to serialize outbox message: %w", err)
 	}
+
+	// Get topic from the event itself (self-describing)
+	topic := msg.Event.GetTopic()
 
 	entity, err := o.outboxRepository.Create(ctx, serializedMsg, eventID, msg.Key, topic, msg.Headers)
 	if err != nil {

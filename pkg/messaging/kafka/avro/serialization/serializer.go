@@ -2,74 +2,90 @@ package serialization
 
 import (
 	"fmt"
+	"sync"
 
-	"github.com/Sokol111/ecommerce-commons/pkg/messaging/kafka/avro/encoding"
-	"github.com/Sokol111/ecommerce-commons/pkg/messaging/kafka/avro/mapping"
+	"github.com/Sokol111/ecommerce-commons/pkg/messaging/kafka/events"
+	"github.com/Sokol111/ecommerce-commons/pkg/messaging/kafka/serde"
+	hambavro "github.com/hamba/avro/v2"
 )
 
-// Serializer serializes Go structs to Avro bytes with Confluent Schema Registry integration.
-type Serializer interface {
-	// Serialize serializes a Go struct to Avro bytes using topic from schema binding
-	// The msg parameter must be a type registered in TypeMapping with topic configured
-	//
-	// Returns bytes in format: [0x00][schema_id (4 bytes)][avro_data]
-	Serialize(msg interface{}) ([]byte, error)
+// Verify at compile time that avroSerializer implements serde.Serializer.
+var _ serde.Serializer = (*avroSerializer)(nil)
 
-	// SerializeWithTopic serializes a Go struct to Avro bytes and returns the associated topic
-	// This is useful when the caller needs both the serialized data and topic in a single call
-	// to avoid duplicate TypeMapping lookups
-	//
-	// Returns bytes in format: [0x00][schema_id (4 bytes)][avro_data] and the Kafka topic
-	SerializeWithTopic(msg interface{}) (data []byte, topic string, err error)
-}
-
-type serializer struct {
-	typeMapping       *mapping.TypeMapping
-	confluentRegistry ConfluentRegistry
-	encoder           encoding.Encoder
-	builder           encoding.WireFormatBuilder
+type avroSerializer struct {
+	schemaRegistry SchemaRegistry
+	schemaCache    map[string]hambavro.Schema // schemaName -> parsed schema
+	mu             sync.RWMutex
 }
 
 // NewSerializer creates a new Avro serializer with Confluent Schema Registry integration.
-// Uses composition of specialized components for separation of concerns.
-func NewSerializer(
-	typeMapping *mapping.TypeMapping,
-	confluentRegistry ConfluentRegistry,
-	encoder encoding.Encoder,
-	builder encoding.WireFormatBuilder,
-) Serializer {
-	return &serializer{
-		typeMapping:       typeMapping,
-		confluentRegistry: confluentRegistry,
-		encoder:           encoder,
-		builder:           builder,
+// Events are self-describing: they know their schema name and schema bytes.
+func NewSerializer(schemaRegistry SchemaRegistry) serde.Serializer {
+	return &avroSerializer{
+		schemaRegistry: schemaRegistry,
+		schemaCache:    make(map[string]hambavro.Schema),
 	}
 }
 
-func (s *serializer) Serialize(msg interface{}) ([]byte, error) {
-	data, _, err := s.SerializeWithTopic(msg)
-	return data, err
-}
+func (s *avroSerializer) Serialize(event events.Event) ([]byte, error) {
+	schemaName := event.GetSchemaName()
+	schemaJSON := event.GetSchema()
 
-func (s *serializer) SerializeWithTopic(msg interface{}) ([]byte, string, error) {
-	// Get schema binding directly from type mapping
-	binding, err := s.typeMapping.GetByValue(msg)
+	// Get or parse schema (cached)
+	parsedSchema, err := s.getParsedSchema(schemaName, schemaJSON)
 	if err != nil {
-		return nil, "", fmt.Errorf("failed to get schema binding: %w", err)
+		return nil, fmt.Errorf("failed to parse schema: %w", err)
 	}
 
 	// Register or get schema ID from Confluent Schema Registry
-	schemaID, err := s.confluentRegistry.RegisterSchema(binding)
+	schemaID, err := s.schemaRegistry.GetOrRegisterSchema(schemaName, schemaJSON)
 	if err != nil {
-		return nil, "", fmt.Errorf("failed to register schema in Confluent: %w", err)
+		return nil, fmt.Errorf("failed to register schema in Confluent: %w", err)
 	}
 
-	// Encode message using encoder with cached parsed schema
-	avroData, err := s.encoder.Encode(msg, binding.ParsedSchema())
+	// Encode message to Avro bytes
+	avroData, err := hambavro.Marshal(parsedSchema, event)
 	if err != nil {
-		return nil, "", fmt.Errorf("failed to encode avro data: %w", err)
+		return nil, fmt.Errorf("failed to encode avro data: %w", err)
 	}
 
-	// Build Confluent wire format
-	return s.builder.Build(schemaID, avroData), binding.Topic, nil
+	// Build Confluent wire format: [0x00][schema_id (4 bytes)][avro_data]
+	return buildConfluentWireFormat(schemaID, avroData), nil
+}
+
+// buildConfluentWireFormat creates Confluent wire format from schema ID and payload.
+// Format: [0x00][schema_id (4 bytes big-endian)][payload]
+func buildConfluentWireFormat(schemaID int, payload []byte) []byte {
+	result := make([]byte, 5+len(payload))
+	result[0] = 0x00 // Magic byte
+	result[1] = byte(schemaID >> 24)
+	result[2] = byte(schemaID >> 16)
+	result[3] = byte(schemaID >> 8)
+	result[4] = byte(schemaID)
+	copy(result[5:], payload)
+	return result
+}
+
+func (s *avroSerializer) getParsedSchema(schemaName string, schemaJSON []byte) (hambavro.Schema, error) {
+	// Check cache first
+	s.mu.RLock()
+	cached, exists := s.schemaCache[schemaName]
+	s.mu.RUnlock()
+
+	if exists {
+		return cached, nil
+	}
+
+	// Parse schema
+	parsed, err := hambavro.Parse(string(schemaJSON))
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse avro schema %s: %w", schemaName, err)
+	}
+
+	// Cache it
+	s.mu.Lock()
+	s.schemaCache[schemaName] = parsed
+	s.mu.Unlock()
+
+	return parsed, nil
 }

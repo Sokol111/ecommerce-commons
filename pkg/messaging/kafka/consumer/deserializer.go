@@ -4,7 +4,7 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/Sokol111/ecommerce-commons/pkg/messaging/kafka/avro/deserialization"
+	"github.com/Sokol111/ecommerce-commons/pkg/messaging/kafka/serde"
 	"github.com/confluentinc/confluent-kafka-go/v2/kafka"
 	"go.uber.org/zap"
 )
@@ -19,7 +19,7 @@ type MessageEnvelope struct {
 type messageDeserializer struct {
 	inputChan    <-chan *kafka.Message
 	outputChan   chan<- *MessageEnvelope
-	deserializer deserialization.Deserializer
+	deserializer serde.Deserializer
 	log          *zap.Logger
 	tracer       MessageTracer
 	dlqHandler   DLQHandler
@@ -28,7 +28,7 @@ type messageDeserializer struct {
 func newMessageDeserializer(
 	inputChan chan *kafka.Message,
 	outputChan chan *MessageEnvelope,
-	deserializer deserialization.Deserializer,
+	deserializer serde.Deserializer,
 	log *zap.Logger,
 	tracer MessageTracer,
 	dlqHandler DLQHandler,

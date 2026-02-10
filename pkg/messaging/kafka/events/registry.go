@@ -18,6 +18,9 @@ type EventRegistry interface {
 	NewEvent(schemaName string) (Event, error)
 	// HasSchema checks if a schema is registered.
 	HasSchema(schemaName string) bool
+	// All returns one instance of each registered event.
+	// Useful for schema registration on startup.
+	All() []Event
 }
 
 type eventRegistry struct {
@@ -59,4 +62,16 @@ func (r *eventRegistry) HasSchema(schemaName string) bool {
 	defer r.mu.RUnlock()
 	_, ok := r.factories[schemaName]
 	return ok
+}
+
+// All returns one instance of each registered event.
+func (r *eventRegistry) All() []Event {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+
+	result := make([]Event, 0, len(r.factories))
+	for _, factory := range r.factories {
+		result = append(result, factory())
+	}
+	return result
 }

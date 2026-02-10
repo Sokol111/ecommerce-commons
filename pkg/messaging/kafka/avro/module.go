@@ -2,13 +2,13 @@ package avro
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/Sokol111/ecommerce-commons/pkg/core/health"
 	"github.com/Sokol111/ecommerce-commons/pkg/messaging/kafka/avro/deserialization"
-	avroserialization "github.com/Sokol111/ecommerce-commons/pkg/messaging/kafka/avro/serialization"
+	"github.com/Sokol111/ecommerce-commons/pkg/messaging/kafka/avro/serialization"
 	"github.com/Sokol111/ecommerce-commons/pkg/messaging/kafka/config"
 	"github.com/Sokol111/ecommerce-commons/pkg/messaging/kafka/events"
-	"github.com/Sokol111/ecommerce-commons/pkg/messaging/kafka/serde"
 	"github.com/confluentinc/confluent-kafka-go/v2/schemaregistry"
 	"go.uber.org/fx"
 	"go.uber.org/zap"
@@ -24,7 +24,7 @@ func NewAvroModule() fx.Option {
 			events.NewEventRegistry,
 			deserialization.NewWriterSchemaResolver,
 			deserialization.NewDeserializer,
-			provideSerializer,
+			serialization.NewSerializer,
 		),
 	)
 }
@@ -48,23 +48,27 @@ func provideSchemaRegistryClient(lc fx.Lifecycle, kafkaConf config.Config, log *
 	return client, nil
 }
 
-func provideSchemaRegistry(lc fx.Lifecycle, client schemaregistry.Client, log *zap.Logger, cm health.ComponentManager) avroserialization.SchemaRegistry {
-	registry := avroserialization.NewConfluentRegistry(client)
+func provideSchemaRegistry(lc fx.Lifecycle, client schemaregistry.Client, log *zap.Logger, cm health.ComponentManager, eventRegistry events.EventRegistry) avroserialization.SchemaRegistry {
+	registry := serialization.NewConfluentRegistry(client)
 
 	markReady := cm.AddComponent("confluent_schema_registry")
 	lc.Append(fx.Hook{
 		OnStart: func(ctx context.Context) error {
-			// Schemas are now registered on-demand during serialization
-			// or via event API modules at startup
-			log.Info("schema registry client ready")
+			// Register all event schemas on startup
+			for _, event := range eventRegistry.All() {
+				schemaName := event.GetSchemaName()
+				schemaJSON := event.GetSchema()
+
+				if _, err := registry.GetOrRegisterSchema(schemaName, schemaJSON); err != nil {
+					return fmt.Errorf("failed to register schema %s: %w", schemaName, err)
+				}
+				log.Info("registered schema", zap.String("schema", schemaName))
+			}
+
 			markReady()
 			return nil
 		},
 	})
 
 	return registry
-}
-
-func provideSerializer(schemaRegistry avroserialization.SchemaRegistry) serde.Serializer {
-	return avroserialization.NewSerializer(schemaRegistry)
 }

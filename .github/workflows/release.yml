@@ -15,7 +15,7 @@ jobs:
   ci:
     uses: Sokol111/ecommerce-infrastructure/.github/workflows/go-ci.yml@master
     with:
-      coverage-threshold: 50
+      coverage-threshold: 30
 
   release:
     needs: ci

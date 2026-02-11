@@ -56,7 +56,10 @@ linters:
     revive:
       rules:
         - name: var-naming
-          severity: warning
+          arguments:
+            - []
+            - []
+            - - skipPackageNameCollisionWithGoStd: true
         - name: context-as-argument
           severity: warning
         - name: error-return

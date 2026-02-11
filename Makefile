@@ -47,13 +47,13 @@ update-dependencies-all: ## Update ALL dependencies to latest (risky!)
 # =============================================================================
 
 .PHONY: fmt
-fmt: ## Format code with golangci-lint (gofmt + goimports)
+fmt: ## Format code with gofmt and goimports
 	@echo "$(COLOR_GREEN)Formatting code...$(COLOR_RESET)"
-	@if command -v golangci-lint >/dev/null 2>&1; then \
-		golangci-lint fmt ./...; \
+	@gofmt -s -w .
+	@if command -v goimports >/dev/null 2>&1; then \
+		goimports -w .; \
 	else \
-		echo "$(COLOR_YELLOW)golangci-lint not installed. Run: make install-tools$(COLOR_RESET)"; \
-		exit 1; \
+		echo "$(COLOR_YELLOW)goimports not installed. Run: go install golang.org/x/tools/cmd/goimports@latest$(COLOR_RESET)"; \
 	fi
 
 .PHONY: lint

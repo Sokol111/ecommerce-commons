@@ -16,11 +16,11 @@ type serverOptions struct {
 	config *Config
 }
 
-// ServerOption is a functional option for configuring the HTTP server module.
-type ServerOption func(*serverOptions)
+// Option is a functional option for configuring the HTTP server module.
+type Option func(*serverOptions)
 
 // WithServerConfig provides a static Config (useful for tests).
-func WithServerConfig(cfg Config) ServerOption {
+func WithServerConfig(cfg Config) Option {
 	return func(opts *serverOptions) {
 		opts.config = &cfg
 	}
@@ -29,7 +29,7 @@ func WithServerConfig(cfg Config) ServerOption {
 // NewHTTPServerModule provides HTTP server components for dependency injection.
 // By default, configuration is loaded from viper.
 // Use WithServerConfig for static config (useful for tests).
-func NewHTTPServerModule(opts ...ServerOption) fx.Option {
+func NewHTTPServerModule(opts ...Option) fx.Option {
 	cfg := &serverOptions{}
 	for _, opt := range opts {
 		opt(cfg)

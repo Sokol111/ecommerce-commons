@@ -57,7 +57,10 @@ func GenerateTestToken(userID, role string, permissions []string) string {
 		Permissions: permissions,
 		Type:        "access",
 	}
-	data, _ := json.Marshal(payload)
+	data, err := json.Marshal(payload)
+	if err != nil {
+		panic(fmt.Sprintf("failed to marshal test token: %v", err))
+	}
 	return base64.StdEncoding.EncodeToString(data)
 }
 

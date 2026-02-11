@@ -12,12 +12,12 @@ type securityOptions struct {
 	useTestValidator bool
 }
 
-// SecurityOption is a functional option for configuring the security module.
-type SecurityOption func(*securityOptions)
+// Option is a functional option for configuring the security module.
+type Option func(*securityOptions)
 
 // WithTokenConfig provides a static token Config (useful for tests).
 // When set, the token configuration will not be loaded from viper.
-func WithTokenConfig(cfg token.Config) SecurityOption {
+func WithTokenConfig(cfg token.Config) Option {
 	return func(opts *securityOptions) {
 		opts.tokenConfig = &cfg
 	}
@@ -25,7 +25,7 @@ func WithTokenConfig(cfg token.Config) SecurityOption {
 
 // WithoutSecurity disables token validation and returns admin claims.
 // Useful for unit tests where security is not the focus.
-func WithoutSecurity() SecurityOption {
+func WithoutSecurity() Option {
 	return func(opts *securityOptions) {
 		opts.disable = true
 	}
@@ -34,7 +34,7 @@ func WithoutSecurity() SecurityOption {
 // WithTestValidator enables the test validator that decodes base64-encoded JSON tokens.
 // Use token.GenerateTestToken or token.GenerateAdminTestToken to create tokens.
 // Useful for e2e/integration tests where you want realistic token flow without PASETO.
-func WithTestValidator() SecurityOption {
+func WithTestValidator() Option {
 	return func(opts *securityOptions) {
 		opts.useTestValidator = true
 	}
@@ -61,7 +61,7 @@ func WithTestValidator() SecurityOption {
 //	security.NewSecurityModule(
 //	    security.WithTestValidator(),
 //	)
-func NewSecurityModule(opts ...SecurityOption) fx.Option {
+func NewSecurityModule(opts ...Option) fx.Option {
 	cfg := &securityOptions{}
 	for _, opt := range opts {
 		opt(cfg)

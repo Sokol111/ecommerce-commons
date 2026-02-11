@@ -15,11 +15,11 @@ type tokenOptions struct {
 	useTestValidator bool
 }
 
-// TokenOption is a functional option for configuring the token module.
-type TokenOption func(*tokenOptions)
+// Option is a functional option for configuring the token module.
+type Option func(*tokenOptions)
 
 // WithTokenConfig provides a static Config (useful for tests).
-func WithTokenConfig(cfg Config) TokenOption {
+func WithTokenConfig(cfg Config) Option {
 	return func(opts *tokenOptions) {
 		opts.config = &cfg
 	}
@@ -27,7 +27,7 @@ func WithTokenConfig(cfg Config) TokenOption {
 
 // WithDisableValidation disables token validation and returns noop validator.
 // Useful for tests where token validation should be bypassed.
-func WithDisableValidation() TokenOption {
+func WithDisableValidation() Option {
 	return func(opts *tokenOptions) {
 		opts.disable = true
 	}
@@ -35,7 +35,7 @@ func WithDisableValidation() TokenOption {
 
 // WithTestClaims provides a validator that always returns the given claims.
 // Useful for tests that need specific user context.
-func WithTestClaims(claims Claims) TokenOption {
+func WithTestClaims(claims Claims) Option {
 	return func(opts *tokenOptions) {
 		opts.testClaims = &claims
 	}
@@ -44,7 +44,7 @@ func WithTestClaims(claims Claims) TokenOption {
 // WithTestValidator enables the test validator that decodes base64-encoded JSON tokens.
 // Use GenerateTestToken or GenerateAdminTestToken to create tokens for this validator.
 // Useful for e2e/integration tests where you want realistic token flow without PASETO.
-func WithTestValidator() TokenOption {
+func WithTestValidator() Option {
 	return func(opts *tokenOptions) {
 		opts.useTestValidator = true
 	}
@@ -69,7 +69,7 @@ func WithTestValidator() TokenOption {
 //
 //	// E2E testing - use base64 JSON tokens
 //	token.NewSecurityHandlerModule(token.WithTestValidator())
-func NewSecurityHandlerModule(opts ...TokenOption) fx.Option {
+func NewSecurityHandlerModule(opts ...Option) fx.Option {
 	cfg := &tokenOptions{}
 	for _, opt := range opts {
 		opt(cfg)

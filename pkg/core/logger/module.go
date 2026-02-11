@@ -15,11 +15,11 @@ type loggerOptions struct {
 	config *Config
 }
 
-// LoggerOption is a functional option for configuring the logger module.
-type LoggerOption func(*loggerOptions)
+// Option is a functional option for configuring the logger module.
+type Option func(*loggerOptions)
 
 // WithLoggerConfig provides a static Config (useful for tests).
-func WithLoggerConfig(cfg Config) LoggerOption {
+func WithLoggerConfig(cfg Config) Option {
 	return func(opts *loggerOptions) {
 		opts.config = &cfg
 	}
@@ -29,7 +29,7 @@ func WithLoggerConfig(cfg Config) LoggerOption {
 // It provides a configured *zap.Logger instance and integrates with fx lifecycle.
 // By default, loads from viper configuration.
 // Use WithLoggerConfig for static config (useful for tests).
-func NewZapLoggingModule(opts ...LoggerOption) fx.Option {
+func NewZapLoggingModule(opts ...Option) fx.Option {
 	cfg := &loggerOptions{}
 	for _, opt := range opts {
 		opt(cfg)

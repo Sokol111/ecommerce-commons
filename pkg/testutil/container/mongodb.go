@@ -11,14 +11,14 @@ import (
 	mongooptions "go.mongodb.org/mongo-driver/v2/mongo/options"
 )
 
-// MongoDBContainer wraps the testcontainers MongoDB container with a client
+// MongoDBContainer wraps the testcontainers MongoDB container with a client.
 type MongoDBContainer struct {
 	Container        *mongodb.MongoDBContainer
 	Client           *mongo.Client
 	ConnectionString string
 }
 
-// MongoDBContainerOption configures the MongoDB container
+// MongoDBContainerOption configures the MongoDB container.
 type MongoDBContainerOption func(*mongoDBContainerOptions)
 
 type mongoDBContainerOptions struct {
@@ -26,21 +26,21 @@ type mongoDBContainerOptions struct {
 	replicaSet string
 }
 
-// WithImage sets the MongoDB image to use
+// WithImage sets the MongoDB image to use.
 func WithImage(image string) MongoDBContainerOption {
 	return func(o *mongoDBContainerOptions) {
 		o.image = image
 	}
 }
 
-// WithReplicaSet enables replica set with the given name
+// WithReplicaSet enables replica set with the given name.
 func WithReplicaSet(name string) MongoDBContainerOption {
 	return func(o *mongoDBContainerOptions) {
 		o.replicaSet = name
 	}
 }
 
-// StartMongoDBContainer starts a MongoDB container and returns a wrapper with a connected client
+// StartMongoDBContainer starts a MongoDB container and returns a wrapper with a connected client.
 func StartMongoDBContainer(ctx context.Context, opts ...MongoDBContainerOption) (*MongoDBContainer, error) {
 	options := &mongoDBContainerOptions{
 		image: "mongo:7",
@@ -64,7 +64,7 @@ func StartMongoDBContainer(ctx context.Context, opts ...MongoDBContainerOption) 
 	// Get connection string
 	connectionString, err := mongoContainer.ConnectionString(ctx)
 	if err != nil {
-		_ = testcontainers.TerminateContainer(mongoContainer)
+		_ = testcontainers.TerminateContainer(mongoContainer) //nolint:errcheck // best effort cleanup
 		return nil, fmt.Errorf("failed to get connection string: %w", err)
 	}
 
@@ -72,7 +72,7 @@ func StartMongoDBContainer(ctx context.Context, opts ...MongoDBContainerOption) 
 	clientOpts := mongooptions.Client().ApplyURI(connectionString)
 	client, err := mongo.Connect(clientOpts)
 	if err != nil {
-		_ = testcontainers.TerminateContainer(mongoContainer)
+		_ = testcontainers.TerminateContainer(mongoContainer) //nolint:errcheck // best effort cleanup
 		return nil, fmt.Errorf("failed to connect to mongodb: %w", err)
 	}
 
@@ -80,8 +80,8 @@ func StartMongoDBContainer(ctx context.Context, opts ...MongoDBContainerOption) 
 	pingCtx, cancel := context.WithTimeout(ctx, 5*time.Second)
 	defer cancel()
 	if err := client.Ping(pingCtx, nil); err != nil {
-		_ = client.Disconnect(context.Background())
-		_ = testcontainers.TerminateContainer(mongoContainer)
+		_ = client.Disconnect(context.Background())           //nolint:errcheck // best effort cleanup
+		_ = testcontainers.TerminateContainer(mongoContainer) //nolint:errcheck // best effort cleanup
 		return nil, fmt.Errorf("failed to ping mongodb: %w", err)
 	}
 
@@ -92,12 +92,12 @@ func StartMongoDBContainer(ctx context.Context, opts ...MongoDBContainerOption) 
 	}, nil
 }
 
-// Database returns a database handle for the given name
+// Database returns a database handle for the given name.
 func (m *MongoDBContainer) Database(name string) *mongo.Database {
 	return m.Client.Database(name)
 }
 
-// Terminate disconnects the client and terminates the container
+// Terminate disconnects the client and terminates the container.
 func (m *MongoDBContainer) Terminate(ctx context.Context) error {
 	var errs []error
 

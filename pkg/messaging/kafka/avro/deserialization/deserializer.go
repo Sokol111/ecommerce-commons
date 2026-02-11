@@ -53,7 +53,7 @@ func (d *avroDeserializer) Deserialize(data []byte) (events.Event, error) {
 }
 
 // parseConfluentWireFormat extracts schema ID and payload from Confluent wire format.
-// Format: [0x00][schema_id (4 bytes big-endian)][payload]
+// Format: [0x00][schema_id (4 bytes big-endian)][payload].
 func parseConfluentWireFormat(data []byte) (schemaID int, payload []byte, err error) {
 	if len(data) < 5 {
 		return 0, nil, fmt.Errorf("data too short: expected at least 5 bytes, got %d", len(data))

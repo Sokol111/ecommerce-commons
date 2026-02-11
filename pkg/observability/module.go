@@ -37,12 +37,12 @@ type observabilityOptions struct {
 	disableMetrics bool
 }
 
-// ObservabilityOption is a functional option for configuring the observability module.
-type ObservabilityOption func(*observabilityOptions)
+// Option is a functional option for configuring the observability module.
+type Option func(*observabilityOptions)
 
 // WithConfig provides a static observability Config (useful for tests).
 // When set, the observability configuration will not be loaded from viper.
-func WithConfig(cfg config.Config) ObservabilityOption {
+func WithConfig(cfg config.Config) Option {
 	return func(opts *observabilityOptions) {
 		opts.config = &cfg
 	}
@@ -50,7 +50,7 @@ func WithConfig(cfg config.Config) ObservabilityOption {
 
 // WithoutTracing disables tracing regardless of configuration.
 // Useful for tests where tracing is not needed.
-func WithoutTracing() ObservabilityOption {
+func WithoutTracing() Option {
 	return func(opts *observabilityOptions) {
 		opts.disableTracing = true
 	}
@@ -58,7 +58,7 @@ func WithoutTracing() ObservabilityOption {
 
 // WithoutMetrics disables metrics regardless of configuration.
 // Useful for tests where metrics are not needed.
-func WithoutMetrics() ObservabilityOption {
+func WithoutMetrics() Option {
 	return func(opts *observabilityOptions) {
 		opts.disableMetrics = true
 	}
@@ -81,7 +81,7 @@ func WithoutMetrics() ObservabilityOption {
 //	    observability.WithoutTracing(),
 //	    observability.WithoutMetrics(),
 //	)
-func NewObservabilityModule(opts ...ObservabilityOption) fx.Option {
+func NewObservabilityModule(opts ...Option) fx.Option {
 	cfg := &observabilityOptions{}
 	for _, opt := range opts {
 		opt(cfg)
@@ -95,7 +95,7 @@ func NewObservabilityModule(opts ...ObservabilityOption) fx.Option {
 }
 
 func configModule(opts *observabilityOptions) fx.Option {
-	var configOpts []config.ConfigOption
+	var configOpts []config.Option
 
 	if opts.config != nil {
 		configOpts = append(configOpts, config.WithConfig(*opts.config))

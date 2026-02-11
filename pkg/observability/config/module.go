@@ -15,25 +15,25 @@ type configOptions struct {
 	disableMetrics bool
 }
 
-// ConfigOption is a functional option for configuring the observability config module.
-type ConfigOption func(*configOptions)
+// Option is a functional option for configuring the observability config module.
+type Option func(*configOptions)
 
 // WithConfig provides a static Config (useful for tests).
-func WithConfig(cfg Config) ConfigOption {
+func WithConfig(cfg Config) Option {
 	return func(opts *configOptions) {
 		opts.config = &cfg
 	}
 }
 
 // WithDisableTracing disables tracing regardless of configuration.
-func WithDisableTracing() ConfigOption {
+func WithDisableTracing() Option {
 	return func(opts *configOptions) {
 		opts.disableTracing = true
 	}
 }
 
 // WithDisableMetrics disables metrics regardless of configuration.
-func WithDisableMetrics() ConfigOption {
+func WithDisableMetrics() Option {
 	return func(opts *configOptions) {
 		opts.disableMetrics = true
 	}
@@ -42,7 +42,7 @@ func WithDisableMetrics() ConfigOption {
 // NewObservabilityConfigModule provides observability configuration.
 // By default, configuration is loaded from viper.
 // Use WithConfig for static config (useful for tests).
-func NewObservabilityConfigModule(opts ...ConfigOption) fx.Option {
+func NewObservabilityConfigModule(opts ...Option) fx.Option {
 	cfg := &configOptions{}
 	for _, opt := range opts {
 		opt(cfg)

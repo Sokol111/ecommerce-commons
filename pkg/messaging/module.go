@@ -13,12 +13,12 @@ type messagingOptions struct {
 	kafkaConfig *config.Config
 }
 
-// MessagingOption is a functional option for configuring the messaging module.
-type MessagingOption func(*messagingOptions)
+// Option is a functional option for configuring the messaging module.
+type Option func(*messagingOptions)
 
 // WithKafkaConfig provides a static Kafka Config (useful for tests).
 // When set, the Kafka configuration will not be loaded from viper.
-func WithKafkaConfig(cfg config.Config) MessagingOption {
+func WithKafkaConfig(cfg config.Config) Option {
 	return func(opts *messagingOptions) {
 		opts.kafkaConfig = &cfg
 	}
@@ -38,7 +38,7 @@ func WithKafkaConfig(cfg config.Config) MessagingOption {
 //	messaging.NewMessagingModule(
 //	    messaging.WithKafkaConfig(config.Config{...}),
 //	)
-func NewMessagingModule(opts ...MessagingOption) fx.Option {
+func NewMessagingModule(opts ...Option) fx.Option {
 	cfg := &messagingOptions{}
 	for _, opt := range opts {
 		opt(cfg)

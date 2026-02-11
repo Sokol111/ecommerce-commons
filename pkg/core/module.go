@@ -17,12 +17,12 @@ type coreOptions struct {
 	disableViperConfig bool
 }
 
-// CoreOption is a functional option for configuring the core module.
-type CoreOption func(*coreOptions)
+// Option is a functional option for configuring the core module.
+type Option func(*coreOptions)
 
 // WithAppConfig provides a static AppConfig (useful for tests).
 // When set, the AppConfig will not be loaded from environment variables.
-func WithAppConfig(cfg config.AppConfig) CoreOption {
+func WithAppConfig(cfg config.AppConfig) Option {
 	return func(opts *coreOptions) {
 		opts.appConfig = &cfg
 	}
@@ -30,7 +30,7 @@ func WithAppConfig(cfg config.AppConfig) CoreOption {
 
 // WithLoggerConfig provides a static logger Config (useful for tests).
 // When set, the logger configuration will not be loaded from viper.
-func WithLoggerConfig(cfg logger.Config) CoreOption {
+func WithLoggerConfig(cfg logger.Config) Option {
 	return func(opts *coreOptions) {
 		opts.loggerConfig = &cfg
 	}
@@ -38,7 +38,7 @@ func WithLoggerConfig(cfg logger.Config) CoreOption {
 
 // WithoutEnvFile disables loading of .env file.
 // Useful for tests or environments where .env files are not used.
-func WithoutEnvFile() CoreOption {
+func WithoutEnvFile() Option {
 	return func(opts *coreOptions) {
 		opts.disableDotEnv = true
 	}
@@ -46,7 +46,7 @@ func WithoutEnvFile() CoreOption {
 
 // WithoutConfigFile disables loading of config file (config.yaml).
 // Useful for tests where configuration is provided via options.
-func WithoutConfigFile() CoreOption {
+func WithoutConfigFile() Option {
 	return func(opts *coreOptions) {
 		opts.disableViperConfig = true
 	}
@@ -71,7 +71,7 @@ func WithoutConfigFile() CoreOption {
 //	    core.WithoutEnvFile(),
 //	    core.WithoutConfigFile(),
 //	)
-func NewCoreModule(opts ...CoreOption) fx.Option {
+func NewCoreModule(opts ...Option) fx.Option {
 	cfg := &coreOptions{}
 	for _, opt := range opts {
 		opt(cfg)

@@ -35,9 +35,9 @@ func WithoutConfigFile() ViperOption {
 	}
 }
 
-// ConfigFilePath represents the path to a configuration file.
+// FilePath represents the path to a configuration file.
 // Empty string means no config file will be loaded.
-type ConfigFilePath string
+type FilePath string
 
 // NewViperModule creates an fx module for Viper configuration.
 // By default, resolves config path from CONFIG_FILE environment variable.
@@ -69,20 +69,20 @@ func logViperConfig(logger *zap.Logger, v *viper.Viper) {
 // If noConfigFile is set, returns empty string.
 // If WithConfigPath was used, returns that path.
 // Otherwise resolves from CONFIG_FILE environment variable.
-func resolveConfigPath(cfg *viperConfig) ConfigFilePath {
+func resolveConfigPath(cfg *viperConfig) FilePath {
 	if cfg.noConfigFile {
 		return ""
 	}
 	if cfg.configPath != nil {
-		return ConfigFilePath(*cfg.configPath)
+		return FilePath(*cfg.configPath)
 	}
 	if configFile := os.Getenv("CONFIG_FILE"); configFile != "" {
-		return ConfigFilePath(configFile)
+		return FilePath(configFile)
 	}
 	return ""
 }
 
-func newViper(configFile ConfigFilePath, logger *zap.Logger) (*viper.Viper, error) {
+func newViper(configFile FilePath, logger *zap.Logger) (*viper.Viper, error) {
 	v := viper.New()
 	v.AutomaticEnv()
 	v.SetEnvKeyReplacer(strings.NewReplacer(".", "_", "-", "_"))

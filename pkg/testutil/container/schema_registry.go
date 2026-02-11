@@ -71,13 +71,13 @@ func StartSchemaRegistryContainer(ctx context.Context, opts ...SchemaRegistryOpt
 	// Get Schema Registry URL
 	host, err := container.Host(ctx)
 	if err != nil {
-		_ = container.Terminate(ctx)
+		_ = container.Terminate(ctx) //nolint:errcheck // best effort cleanup
 		return nil, fmt.Errorf("failed to get container host: %w", err)
 	}
 
 	port, err := container.MappedPort(ctx, "8081")
 	if err != nil {
-		_ = container.Terminate(ctx)
+		_ = container.Terminate(ctx) //nolint:errcheck // best effort cleanup
 		return nil, fmt.Errorf("failed to get schema registry port: %w", err)
 	}
 
@@ -85,7 +85,7 @@ func StartSchemaRegistryContainer(ctx context.Context, opts ...SchemaRegistryOpt
 
 	// Wait for Schema Registry to be ready
 	if err := waitForSchemaRegistry(ctx, schemaRegistryURL, 30*time.Second); err != nil {
-		_ = container.Terminate(ctx)
+		_ = container.Terminate(ctx) //nolint:errcheck // best effort cleanup
 		return nil, fmt.Errorf("schema registry not ready: %w", err)
 	}
 
@@ -131,7 +131,7 @@ func waitForSchemaRegistry(ctx context.Context, url string, timeout time.Duratio
 		default:
 			resp, err := client.Get(url + "/subjects")
 			if err == nil {
-				resp.Body.Close()
+				_ = resp.Body.Close() //nolint:errcheck // best effort cleanup
 				if resp.StatusCode == http.StatusOK {
 					return nil
 				}

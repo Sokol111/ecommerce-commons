@@ -18,19 +18,3 @@ func (v *noopValidator) ValidateToken(token string) (*Claims, error) {
 		Type:        "access",
 	}, nil
 }
-
-// testClaimsValidator is a validator that returns predefined claims.
-// Useful for tests that need specific claims.
-type testClaimsValidator struct {
-	claims *Claims
-}
-
-// newTestClaimsValidator creates a validator that always returns the given claims.
-func newTestClaimsValidator(claims Claims) Validator {
-	return &testClaimsValidator{claims: &claims}
-}
-
-// ValidateToken always returns the predefined claims.
-func (v *testClaimsValidator) ValidateToken(token string) (*Claims, error) {
-	return v.claims, nil
-}

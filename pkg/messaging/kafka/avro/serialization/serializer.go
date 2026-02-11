@@ -55,11 +55,11 @@ func (s *avroSerializer) Serialize(event events.Event) ([]byte, error) {
 }
 
 // buildConfluentWireFormat creates Confluent wire format from schema ID and payload.
-// Format: [0x00][schema_id (4 bytes big-endian)][payload]
+// Format: [0x00][schema_id (4 bytes big-endian)][payload].
 func buildConfluentWireFormat(schemaID int, payload []byte) []byte {
 	result := make([]byte, 5+len(payload))
-	result[0] = 0x00 // Magic byte
-	binary.BigEndian.PutUint32(result[1:5], uint32(schemaID))
+	result[0] = 0x00                                          // Magic byte
+	binary.BigEndian.PutUint32(result[1:5], uint32(schemaID)) //nolint:gosec // schemaID is always positive from schema registry
 	copy(result[5:], payload)
 	return result
 }

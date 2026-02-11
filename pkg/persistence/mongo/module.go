@@ -16,11 +16,11 @@ type mongoOptions struct {
 	config *Config
 }
 
-// MongoOption is a functional option for configuring the Mongo module.
-type MongoOption func(*mongoOptions)
+// Option is a functional option for configuring the Mongo module.
+type Option func(*mongoOptions)
 
 // WithMongoConfig provides a static Config (useful for tests).
-func WithMongoConfig(cfg Config) MongoOption {
+func WithMongoConfig(cfg Config) Option {
 	return func(opts *mongoOptions) {
 		opts.config = &cfg
 	}
@@ -29,7 +29,7 @@ func WithMongoConfig(cfg Config) MongoOption {
 // NewMongoModule provides MongoDB components for dependency injection.
 // By default, configuration is loaded from viper.
 // Use WithMongoConfig for static config (useful for tests).
-func NewMongoModule(opts ...MongoOption) fx.Option {
+func NewMongoModule(opts ...Option) fx.Option {
 	cfg := &mongoOptions{}
 	for _, opt := range opts {
 		opt(cfg)

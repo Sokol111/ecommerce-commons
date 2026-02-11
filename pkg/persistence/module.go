@@ -10,12 +10,12 @@ type persistenceOptions struct {
 	mongoConfig *mongo.Config
 }
 
-// PersistenceOption is a functional option for configuring the persistence module.
-type PersistenceOption func(*persistenceOptions)
+// Option is a functional option for configuring the persistence module.
+type Option func(*persistenceOptions)
 
 // WithMongoConfig provides a static Mongo Config (useful for tests).
 // When set, the Mongo configuration will not be loaded from viper.
-func WithMongoConfig(cfg mongo.Config) PersistenceOption {
+func WithMongoConfig(cfg mongo.Config) Option {
 	return func(opts *persistenceOptions) {
 		opts.mongoConfig = &cfg
 	}
@@ -35,7 +35,7 @@ func WithMongoConfig(cfg mongo.Config) PersistenceOption {
 //	persistence.NewPersistenceModule(
 //	    persistence.WithMongoConfig(mongo.Config{...}),
 //	)
-func NewPersistenceModule(opts ...PersistenceOption) fx.Option {
+func NewPersistenceModule(opts ...Option) fx.Option {
 	cfg := &persistenceOptions{}
 	for _, opt := range opts {
 		opt(cfg)

@@ -9,9 +9,10 @@ import (
 
 // tokenOptions holds internal configuration for the token module.
 type tokenOptions struct {
-	config     *Config
-	disable    bool
-	testClaims *Claims
+	config           *Config
+	disable          bool
+	testClaims       *Claims
+	useTestValidator bool
 }
 
 // TokenOption is a functional option for configuring the token module.
@@ -40,34 +41,63 @@ func WithTestClaims(claims Claims) TokenOption {
 	}
 }
 
-// NewValidatorModule provides a Validator for dependency injection.
-// By default, configuration is loaded from viper.
-// Use WithTokenConfig for static config (useful for tests).
-// Use WithDisableValidation to disable validation (useful for tests).
-// Use WithTestClaims to provide specific claims (useful for tests).
-func NewValidatorModule(opts ...TokenOption) fx.Option {
+// WithTestValidator enables the test validator that decodes base64-encoded JSON tokens.
+// Use GenerateTestToken or GenerateAdminTestToken to create tokens for this validator.
+// Useful for e2e/integration tests where you want realistic token flow without PASETO.
+func WithTestValidator() TokenOption {
+	return func(opts *tokenOptions) {
+		opts.useTestValidator = true
+	}
+}
+
+// NewSecurityHandlerModule provides a SecurityHandler for dependency injection.
+// This is the recommended way to handle authentication in services.
+// Also provides Validator for services that need direct token validation (e.g., refresh tokens).
+//
+// Options:
+//   - WithTokenConfig: provide static token Config (useful for tests)
+//   - WithDisableValidation: bypass all security, returns admin claims
+//   - WithTestValidator: use base64 JSON tokens (for e2e tests with realistic flow)
+//
+// Example usage:
+//
+//	// Production - validates PASETO tokens
+//	token.NewSecurityHandlerModule()
+//
+//	// Testing - bypass security completely
+//	token.NewSecurityHandlerModule(token.WithDisableValidation())
+//
+//	// E2E testing - use base64 JSON tokens
+//	token.NewSecurityHandlerModule(token.WithTestValidator())
+func NewSecurityHandlerModule(opts ...TokenOption) fx.Option {
 	cfg := &tokenOptions{}
 	for _, opt := range opts {
 		opt(cfg)
 	}
 
-	// If test claims are provided, use test claims validator
-	if cfg.testClaims != nil {
-		return fx.Provide(func() Validator {
-			return newTestClaimsValidator(*cfg.testClaims)
-		})
+	// Test validator - decodes base64 JSON tokens
+	if cfg.useTestValidator {
+		return fx.Provide(
+			newTestValidator,
+			NewSecurityHandler,
+		)
 	}
 
-	// If validation is disabled, provide noop validator directly
+	// Disabled - bypass all security
 	if cfg.disable {
-		return fx.Provide(newNoopValidator)
+		return fx.Provide(
+			newNoopValidator,
+			NewSecurityHandler,
+		)
 	}
 
+	// Production - validate with real validator
 	return fx.Options(
 		fx.Supply(cfg),
 		fx.Provide(
 			provideConfig,
 			newTokenValidator,
+			NewSecurityHandler,
 		),
 	)
 }

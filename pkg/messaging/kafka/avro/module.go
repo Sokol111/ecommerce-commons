@@ -48,7 +48,7 @@ func provideSchemaRegistryClient(lc fx.Lifecycle, kafkaConf config.Config, log *
 	return client, nil
 }
 
-func provideSchemaRegistry(lc fx.Lifecycle, client schemaregistry.Client, log *zap.Logger, cm health.ComponentManager, eventRegistry events.EventRegistry) avroserialization.SchemaRegistry {
+func provideSchemaRegistry(lc fx.Lifecycle, client schemaregistry.Client, log *zap.Logger, cm health.ComponentManager, eventRegistry events.EventRegistry) serialization.SchemaRegistry {
 	registry := serialization.NewConfluentRegistry(client)
 
 	markReady := cm.AddComponent("confluent_schema_registry")

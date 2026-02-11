@@ -7,9 +7,9 @@ import (
 
 // securityOptions holds internal configuration for the security module.
 type securityOptions struct {
-	tokenConfig *token.Config
-	disable     bool
-	testClaims  *token.Claims
+	tokenConfig      *token.Config
+	disable          bool
+	useTestValidator bool
 }
 
 // SecurityOption is a functional option for configuring the security module.
@@ -23,47 +23,43 @@ func WithTokenConfig(cfg token.Config) SecurityOption {
 	}
 }
 
-// WithoutSecurity disables token validation.
-// Useful for tests where security should be bypassed.
+// WithoutSecurity disables token validation and returns admin claims.
+// Useful for unit tests where security is not the focus.
 func WithoutSecurity() SecurityOption {
 	return func(opts *securityOptions) {
 		opts.disable = true
 	}
 }
 
-// WithTestClaims provides a validator that always returns the given claims.
-// Useful for tests that need specific user context (e.g., testing role-based access).
-func WithTestClaims(claims token.Claims) SecurityOption {
+// WithTestValidator enables the test validator that decodes base64-encoded JSON tokens.
+// Use token.GenerateTestToken or token.GenerateAdminTestToken to create tokens.
+// Useful for e2e/integration tests where you want realistic token flow without PASETO.
+func WithTestValidator() SecurityOption {
 	return func(opts *securityOptions) {
-		opts.testClaims = &claims
+		opts.useTestValidator = true
 	}
 }
 
-// NewSecurityModule provides security functionality: token validation.
+// NewSecurityModule provides security functionality: SecurityHandler for token validation.
 //
 // Options:
 //   - WithTokenConfig: provide static token Config (useful for tests)
-//   - WithoutSecurity: disable token validation (useful for tests)
-//   - WithTestClaims: provide specific claims (useful for role-based tests)
+//   - WithoutSecurity: bypass security, returns admin claims (useful for unit tests)
+//   - WithTestValidator: use base64 JSON tokens (useful for e2e tests)
 //
 // Example usage:
 //
-//	// Production - loads config from viper
+//	// Production - validates PASETO tokens
 //	security.NewSecurityModule()
 //
-//	// Testing - disable security (full access)
+//	// Unit tests - bypass security completely
 //	security.NewSecurityModule(
 //	    security.WithoutSecurity(),
 //	)
 //
-//	// Testing - with specific user claims
+//	// E2E tests - use base64 JSON tokens with realistic flow
 //	security.NewSecurityModule(
-//	    security.WithTestClaims(token.Claims{
-//	        UserID: "user-123",
-//	        Role:   "editor",
-//	        Permissions: []string{"product:read", "product:write"},
-//	        Type:   "access",
-//	    }),
+//	    security.WithTestValidator(),
 //	)
 func NewSecurityModule(opts ...SecurityOption) fx.Option {
 	cfg := &securityOptions{}
@@ -72,19 +68,19 @@ func NewSecurityModule(opts ...SecurityOption) fx.Option {
 	}
 
 	return fx.Options(
-		tokenModule(cfg),
+		securityHandlerModule(cfg),
 	)
 }
 
-func tokenModule(cfg *securityOptions) fx.Option {
-	if cfg.testClaims != nil {
-		return token.NewValidatorModule(token.WithTestClaims(*cfg.testClaims))
+func securityHandlerModule(cfg *securityOptions) fx.Option {
+	if cfg.useTestValidator {
+		return token.NewSecurityHandlerModule(token.WithTestValidator())
 	}
 	if cfg.disable {
-		return token.NewValidatorModule(token.WithDisableValidation())
+		return token.NewSecurityHandlerModule(token.WithDisableValidation())
 	}
 	if cfg.tokenConfig != nil {
-		return token.NewValidatorModule(token.WithTokenConfig(*cfg.tokenConfig))
+		return token.NewSecurityHandlerModule(token.WithTokenConfig(*cfg.tokenConfig))
 	}
-	return token.NewValidatorModule()
+	return token.NewSecurityHandlerModule()
 }

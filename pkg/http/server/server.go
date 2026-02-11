@@ -14,11 +14,13 @@ type Server interface {
 	Serve() error
 	ServeWithReadyCallback(onReady func()) error
 	Shutdown(ctx context.Context) error
+	Addr() net.Addr
 }
 
 type server struct {
-	httpSrv *http.Server
-	log     *zap.Logger
+	httpSrv    *http.Server
+	log        *zap.Logger
+	actualAddr net.Addr
 }
 
 func newServer(log *zap.Logger, conf Config, handler http.Handler) Server {
@@ -47,7 +49,8 @@ func (s *server) ServeWithReadyCallback(onReady func()) error {
 		s.log.Error("failed to listen", zap.Error(err))
 		return err
 	}
-	s.log.Info("starting HTTP server at", zap.String("addr", s.httpSrv.Addr))
+	s.actualAddr = ln.Addr()
+	s.log.Info("starting HTTP server at", zap.String("addr", s.actualAddr.String()))
 
 	// Signal that server is ready to accept connections
 	if onReady != nil {
@@ -63,4 +66,8 @@ func (s *server) ServeWithReadyCallback(onReady func()) error {
 
 func (s *server) Shutdown(ctx context.Context) error {
 	return s.httpSrv.Shutdown(ctx)
+}
+
+func (s *server) Addr() net.Addr {
+	return s.actualAddr
 }

@@ -149,6 +149,7 @@ func (m *MongoDBContainer) RunMigrations(ctx context.Context, database, migratio
 	dbURL := u.String()
 
 	// Run golang-migrate via Docker container
+	// #nosec G204 -- This is test utility code with controlled inputs (absPath is resolved via filepath.Abs, dbURL is built from container's connection string)
 	cmd := exec.CommandContext(ctx, "docker", "run", "--rm",
 		"--network", "host",
 		"-v", absPath+":/migrations",

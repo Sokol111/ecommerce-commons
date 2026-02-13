@@ -3,6 +3,10 @@ package container
 import (
 	"context"
 	"fmt"
+	"net/url"
+	"os"
+	"os/exec"
+	"path/filepath"
 	"time"
 
 	"github.com/testcontainers/testcontainers-go"
@@ -116,5 +120,49 @@ func (m *MongoDBContainer) Terminate(ctx context.Context) error {
 	if len(errs) > 0 {
 		return fmt.Errorf("errors during termination: %v", errs)
 	}
+	return nil
+}
+
+// RunMigrations runs golang-migrate against this MongoDB container.
+// It uses the migrate/migrate Docker image to apply migrations.
+//
+// Parameters:
+//   - ctx: context for the operation
+//   - database: name of the database to migrate
+//   - migrationsPath: path to the migrations directory (relative or absolute)
+//
+// Example:
+//
+//	err := container.RunMigrations(ctx, "catalog_test", "../../db/migrations")
+func (m *MongoDBContainer) RunMigrations(ctx context.Context, database, migrationsPath string) error {
+	absPath, err := filepath.Abs(migrationsPath)
+	if err != nil {
+		return fmt.Errorf("failed to resolve migrations path: %w", err)
+	}
+
+	// Build database URL for golang-migrate
+	u, err := url.Parse(m.ConnectionString)
+	if err != nil {
+		return fmt.Errorf("failed to parse connection string: %w", err)
+	}
+	u.Path = "/" + database
+	dbURL := u.String()
+
+	// Run golang-migrate via Docker container
+	cmd := exec.CommandContext(ctx, "docker", "run", "--rm",
+		"--network", "host",
+		"-v", absPath+":/migrations",
+		"migrate/migrate",
+		"-path=/migrations",
+		"-database", dbURL,
+		"up",
+	)
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+
+	if err := cmd.Run(); err != nil {
+		return fmt.Errorf("failed to run migrations: %w", err)
+	}
+
 	return nil
 }

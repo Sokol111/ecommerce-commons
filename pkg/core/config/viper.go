@@ -7,7 +7,6 @@ import (
 
 	"github.com/spf13/viper"
 	"go.uber.org/fx"
-	"go.uber.org/zap"
 )
 
 // viperConfig holds internal configuration options for the Viper module.
@@ -57,12 +56,12 @@ func NewViperModule(opts ...ViperOption) fx.Option {
 	)
 }
 
-func logViperConfig(logger *zap.Logger, v *viper.Viper) {
-	logger.Info("Configuration loaded successfully",
-		zap.String("configFile", v.ConfigFileUsed()),
-		zap.Int("settingsCount", len(v.AllSettings())),
-		zap.Strings("configKeys", v.AllKeys()),
-	)
+func logViperConfig(configFile FilePath, v *viper.Viper) {
+	if configFile == "" {
+		fmt.Println("[config] No config file specified, using environment variables only")
+		return
+	}
+	fmt.Printf("[config] Configuration loaded from %s (keys: %d)\n", v.ConfigFileUsed(), len(v.AllKeys()))
 }
 
 // resolveConfigPath determines the config file path.
@@ -82,13 +81,12 @@ func resolveConfigPath(cfg *viperConfig) FilePath {
 	return ""
 }
 
-func newViper(configFile FilePath, logger *zap.Logger) (*viper.Viper, error) {
+func newViper(configFile FilePath) (*viper.Viper, error) {
 	v := viper.New()
 	v.AutomaticEnv()
 	v.SetEnvKeyReplacer(strings.NewReplacer(".", "_", "-", "_"))
 
 	if configFile == "" {
-		logger.Info("No config file specified, using empty viper instance")
 		return v, nil
 	}
 

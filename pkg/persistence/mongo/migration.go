@@ -28,7 +28,15 @@ func runMigrations(cfg Config, log *zap.Logger) error {
 	if err != nil {
 		return fmt.Errorf("failed to create migrator: %w", err)
 	}
-	defer m.Close()
+	defer func() {
+		sourceErr, dbErr := m.Close()
+		if sourceErr != nil {
+			log.Warn("Failed to close migrator source", zap.Error(sourceErr))
+		}
+		if dbErr != nil {
+			log.Warn("Failed to close migrator database", zap.Error(dbErr))
+		}
+	}()
 
 	if err := m.Up(); err != nil {
 		if errors.Is(err, migrate.ErrNoChange) {
@@ -38,7 +46,10 @@ func runMigrations(cfg Config, log *zap.Logger) error {
 		return fmt.Errorf("migration failed: %w", err)
 	}
 
-	version, dirty, _ := m.Version()
+	version, dirty, versionErr := m.Version()
+	if versionErr != nil {
+		log.Warn("Failed to get migration version", zap.Error(versionErr))
+	}
 	log.Info("Migrations applied successfully",
 		zap.Uint("version", version),
 		zap.Bool("dirty", dirty),

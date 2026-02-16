@@ -26,14 +26,12 @@ type MessageTracer interface {
 }
 
 type messageTracer struct {
-	tracer     trace.Tracer
-	propagator propagation.TextMapPropagator
+	tracer trace.Tracer
 }
 
-func newMessageTracer() MessageTracer {
+func newMessageTracer(tp trace.TracerProvider) MessageTracer {
 	return &messageTracer{
-		tracer:     otel.Tracer("kafka-consumer"),
-		propagator: otel.GetTextMapPropagator(),
+		tracer: tp.Tracer("kafka-consumer"),
 	}
 }
 
@@ -50,7 +48,7 @@ func (t *messageTracer) ExtractContext(ctx context.Context, message *kafka.Messa
 
 	// Витягуємо trace context
 	carrier := propagation.MapCarrier(headersMap)
-	return t.propagator.Extract(ctx, carrier)
+	return otel.GetTextMapPropagator().Extract(ctx, carrier)
 }
 
 func (t *messageTracer) StartConsumerSpan(ctx context.Context, message *kafka.Message) (context.Context, trace.Span) {
@@ -89,7 +87,7 @@ func (t *messageTracer) InjectContext(ctx context.Context, message *kafka.Messag
 
 	// Додаємо trace context
 	carrier := propagation.MapCarrier(headersMap)
-	t.propagator.Inject(ctx, carrier)
+	otel.GetTextMapPropagator().Inject(ctx, carrier)
 
 	// Оновлюємо headers повідомлення
 	message.Headers = nil

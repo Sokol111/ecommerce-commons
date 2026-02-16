@@ -21,14 +21,12 @@ type tracePropagator interface {
 }
 
 type otelTracePropagator struct {
-	propagator propagation.TextMapPropagator
-	tracer     trace.Tracer
+	tracer trace.Tracer
 }
 
-func newTracePropagator() tracePropagator {
+func newTracePropagator(tp trace.TracerProvider) tracePropagator {
 	return &otelTracePropagator{
-		propagator: otel.GetTextMapPropagator(),
-		tracer:     otel.Tracer("outbox"),
+		tracer: tp.Tracer("outbox"),
 	}
 }
 
@@ -37,7 +35,7 @@ func (t *otelTracePropagator) SaveTraceContext(ctx context.Context, headers map[
 		headers = make(map[string]string)
 	}
 	carrier := propagation.MapCarrier(headers)
-	t.propagator.Inject(ctx, carrier)
+	otel.GetTextMapPropagator().Inject(ctx, carrier)
 	return headers
 }
 
@@ -49,7 +47,7 @@ func (t *otelTracePropagator) StartKafkaProducerSpan(headers map[string]string, 
 	ctx := context.Background()
 	if len(headers) > 0 {
 		carrier := propagation.MapCarrier(headers)
-		ctx = t.propagator.Extract(ctx, carrier)
+		ctx = otel.GetTextMapPropagator().Extract(ctx, carrier)
 	}
 
 	// Start producer span as child of restored context
@@ -68,7 +66,7 @@ func (t *otelTracePropagator) StartKafkaProducerSpan(headers map[string]string, 
 		updatedHeaders = make(map[string]string)
 	}
 	carrier := propagation.MapCarrier(updatedHeaders)
-	t.propagator.Inject(ctx, carrier)
+	otel.GetTextMapPropagator().Inject(ctx, carrier)
 
 	// Convert to Kafka headers
 	kafkaHeaders := make([]kafka.Header, 0, len(updatedHeaders))

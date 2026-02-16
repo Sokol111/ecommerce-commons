@@ -1,6 +1,8 @@
 package mongo
 
 import (
+	"fmt"
+	"net/url"
 	"time"
 )
 
@@ -24,25 +26,81 @@ type Config struct {
 
 	// Query Timeout Settings
 	QueryTimeout time.Duration `mapstructure:"query-timeout"` // Максимальний час виконання запиту до БД
+
+	// Migration Settings
+	Migrations MigrationConfig `mapstructure:"migrations"`
 }
 
-func applyDefaults(cfg *Config) {
-	if cfg.MaxPoolSize == 0 {
-		cfg.MaxPoolSize = 100 // Default: 100 connections
+// MigrationConfig holds migration-specific configuration.
+type MigrationConfig struct {
+	// Enabled controls whether migrations run on startup
+	Enabled bool `mapstructure:"enabled"`
+	// Path to migrations directory
+	Path string `mapstructure:"path"`
+}
+
+// BuildURI constructs a MongoDB connection string from Config.
+// Returns ConnectionString if set, otherwise builds URI from individual fields.
+func (c Config) BuildURI() string {
+	if c.ConnectionString != "" {
+		return c.ConnectionString
 	}
-	if cfg.MinPoolSize == 0 {
-		cfg.MinPoolSize = 10 // Default: 10 connections
+
+	u := &url.URL{
+		Scheme: "mongodb",
+		Host:   fmt.Sprintf("%s:%d", c.Host, c.Port),
+		Path:   "/" + c.Database,
 	}
-	if cfg.MaxConnIdleTime == 0 {
-		cfg.MaxConnIdleTime = 5 * time.Minute // Default: 5 minutes
+
+	if c.Username != "" {
+		u.User = url.UserPassword(c.Username, c.Password)
 	}
-	if cfg.ConnectTimeout == 0 {
-		cfg.ConnectTimeout = 5 * time.Second // Default: 5 seconds
+
+	q := u.Query()
+	if c.ReplicaSet != "" {
+		q.Set("replicaSet", c.ReplicaSet)
 	}
-	if cfg.ServerSelectTimeout == 0 {
-		cfg.ServerSelectTimeout = 5 * time.Second // Default: 5 seconds (fast-fail)
+	if c.DirectConnection {
+		q.Set("directConnection", "true")
 	}
-	if cfg.QueryTimeout == 0 {
-		cfg.QueryTimeout = 10 * time.Second // Default: 10 seconds for queries
+	u.RawQuery = q.Encode()
+
+	return u.String()
+}
+
+// applyDefaults sets default values for unset configuration fields.
+func (c *Config) applyDefaults() {
+	if c.MaxPoolSize == 0 {
+		c.MaxPoolSize = 100 // Default: 100 connections
 	}
+	if c.MinPoolSize == 0 {
+		c.MinPoolSize = 10 // Default: 10 connections
+	}
+	if c.MaxConnIdleTime == 0 {
+		c.MaxConnIdleTime = 5 * time.Minute // Default: 5 minutes
+	}
+	if c.ConnectTimeout == 0 {
+		c.ConnectTimeout = 5 * time.Second // Default: 5 seconds
+	}
+	if c.ServerSelectTimeout == 0 {
+		c.ServerSelectTimeout = 5 * time.Second // Default: 5 seconds (fast-fail)
+	}
+	if c.QueryTimeout == 0 {
+		c.QueryTimeout = 10 * time.Second // Default: 10 seconds for queries
+	}
+	// Migration defaults
+	if c.Migrations.Path == "" {
+		c.Migrations.Path = "/db/migrations"
+	}
+}
+
+// validate checks if the Config has all required fields set.
+func (c Config) validate() error {
+	if c.ConnectionString != "" {
+		return nil
+	}
+	if c.Host == "" || c.Port == 0 || c.Database == "" {
+		return fmt.Errorf("invalid Mongo configuration: host, port, and database are required")
+	}
+	return nil
 }

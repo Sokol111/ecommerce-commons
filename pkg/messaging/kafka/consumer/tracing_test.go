@@ -8,18 +8,19 @@ import (
 	"github.com/stretchr/testify/assert"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/propagation"
+	"go.opentelemetry.io/otel/trace/noop"
 )
 
 func TestNewMessageTracer(t *testing.T) {
 	t.Run("creates tracer with default propagator", func(t *testing.T) {
-		tracer := newMessageTracer()
+		tracer := newMessageTracer(noop.NewTracerProvider())
 		assert.NotNil(t, tracer)
 	})
 }
 
 func TestMessageTracer_ExtractContext(t *testing.T) {
 	t.Run("returns original context when no headers", func(t *testing.T) {
-		tracer := newMessageTracer()
+		tracer := newMessageTracer(noop.NewTracerProvider())
 		ctx := context.Background()
 		topic := "test-topic"
 		msg := &kafka.Message{
@@ -36,7 +37,7 @@ func TestMessageTracer_ExtractContext(t *testing.T) {
 		// Set up a text map propagator
 		otel.SetTextMapPropagator(propagation.TraceContext{})
 
-		tracer := newMessageTracer()
+		tracer := newMessageTracer(noop.NewTracerProvider())
 		ctx := context.Background()
 		topic := "test-topic"
 		msg := &kafka.Message{
@@ -55,7 +56,7 @@ func TestMessageTracer_ExtractContext(t *testing.T) {
 
 func TestMessageTracer_StartConsumerSpan(t *testing.T) {
 	t.Run("creates span with correct attributes", func(t *testing.T) {
-		tracer := newMessageTracer()
+		tracer := newMessageTracer(noop.NewTracerProvider())
 		ctx := context.Background()
 		msg := createTestMessage()
 
@@ -70,7 +71,7 @@ func TestMessageTracer_StartConsumerSpan(t *testing.T) {
 
 func TestMessageTracer_StartDLQSpan(t *testing.T) {
 	t.Run("creates DLQ span with correct attributes", func(t *testing.T) {
-		tracer := newMessageTracer()
+		tracer := newMessageTracer(noop.NewTracerProvider())
 		ctx := context.Background()
 		msg := createTestMessage()
 		dlqTopic := "test-topic.dlq"
@@ -89,7 +90,7 @@ func TestMessageTracer_InjectContext(t *testing.T) {
 		// Set up a text map propagator
 		otel.SetTextMapPropagator(propagation.TraceContext{})
 
-		tracer := newMessageTracer()
+		tracer := newMessageTracer(noop.NewTracerProvider())
 		ctx := context.Background()
 		topic := "test-topic"
 
@@ -107,7 +108,7 @@ func TestMessageTracer_InjectContext(t *testing.T) {
 	})
 
 	t.Run("preserves existing headers", func(t *testing.T) {
-		tracer := newMessageTracer()
+		tracer := newMessageTracer(noop.NewTracerProvider())
 		ctx := context.Background()
 		topic := "test-topic"
 
@@ -132,7 +133,7 @@ func TestMessageTracer_InjectContext(t *testing.T) {
 	})
 
 	t.Run("handles empty headers", func(t *testing.T) {
-		tracer := newMessageTracer()
+		tracer := newMessageTracer(noop.NewTracerProvider())
 		ctx := context.Background()
 		topic := "test-topic"
 

@@ -7,6 +7,8 @@ import (
 	"github.com/Sokol111/ecommerce-commons/pkg/core/config"
 	"github.com/Sokol111/ecommerce-commons/pkg/core/health"
 	"github.com/spf13/viper"
+	"go.opentelemetry.io/otel/metric"
+	"go.opentelemetry.io/otel/trace"
 	"go.uber.org/fx"
 	"go.uber.org/zap"
 )
@@ -55,13 +57,17 @@ func provideConfig(opts *mongoOptions, v *viper.Viper) (Config, error) {
 		}
 	}
 
-	applyDefaults(&cfg)
+	cfg.applyDefaults()
+
+	if err := cfg.validate(); err != nil {
+		return cfg, err
+	}
 
 	return cfg, nil
 }
 
-func provideMongo(lc fx.Lifecycle, log *zap.Logger, appConf config.AppConfig, conf Config, readiness health.ComponentManager) (Mongo, Admin, error) {
-	m, err := newMongo(log, conf, appConf.ServiceName)
+func provideMongo(lc fx.Lifecycle, log *zap.Logger, appConf config.AppConfig, conf Config, readiness health.ComponentManager, tp trace.TracerProvider, mp metric.MeterProvider) (Mongo, Admin, error) {
+	m, err := newMongo(log, conf, appConf.ServiceName, tp, mp)
 
 	if err != nil {
 		return nil, nil, err
@@ -70,8 +76,17 @@ func provideMongo(lc fx.Lifecycle, log *zap.Logger, appConf config.AppConfig, co
 	markReady := readiness.AddComponent("mongo-module")
 	lc.Append(fx.Hook{
 		OnStart: func(ctx context.Context) error {
-			defer markReady()
-			return m.connect(ctx)
+			if err := m.connect(ctx); err != nil {
+				return err
+			}
+
+			// Run migrations after successful connection
+			if err := runMigrations(conf, log); err != nil {
+				return err
+			}
+
+			markReady()
+			return nil
 		},
 		OnStop: func(ctx context.Context) error {
 			return m.disconnect(ctx)

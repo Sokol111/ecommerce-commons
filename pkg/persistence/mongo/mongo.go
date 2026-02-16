@@ -3,10 +3,12 @@ package mongo
 import (
 	"context"
 	"fmt"
-	"net/url"
 
 	mongodriver "go.mongodb.org/mongo-driver/v2/mongo"
 	"go.mongodb.org/mongo-driver/v2/mongo/options"
+	"go.opentelemetry.io/contrib/instrumentation/go.mongodb.org/mongo-driver/v2/mongo/otelmongo"
+	"go.opentelemetry.io/otel/metric"
+	"go.opentelemetry.io/otel/trace"
 	"go.uber.org/zap"
 )
 
@@ -32,13 +34,9 @@ type mongo struct {
 	log           *zap.Logger
 }
 
-func newMongo(log *zap.Logger, conf Config, appName string) (*mongo, error) {
-	if err := validateConfig(conf); err != nil {
-		return nil, err
-	}
-
+func newMongo(log *zap.Logger, conf Config, appName string, tp trace.TracerProvider, mp metric.MeterProvider) (*mongo, error) {
 	// Build URI and create client options
-	uri := buildURI(conf)
+	uri := conf.BuildURI()
 	clientOptions := options.Client().
 		ApplyURI(uri).
 		SetAppName(appName).
@@ -46,9 +44,11 @@ func newMongo(log *zap.Logger, conf Config, appName string) (*mongo, error) {
 		SetMinPoolSize(conf.MinPoolSize).
 		SetMaxConnIdleTime(conf.MaxConnIdleTime).
 		SetServerSelectionTimeout(conf.ServerSelectTimeout).
-		SetTimeout(conf.QueryTimeout)
-	// TODO: Add OpenTelemetry tracing when otelmongo supports mongo-driver v2
-	// SetMonitor(otelmongo.NewMonitor())
+		SetTimeout(conf.QueryTimeout).
+		SetMonitor(otelmongo.NewMonitor(
+			otelmongo.WithTracerProvider(tp),
+			otelmongo.WithMeterProvider(mp),
+		))
 
 	// Create client and database reference
 	// Client is initialized here to avoid nil pointer errors in GetCollection* methods
@@ -67,16 +67,6 @@ func newMongo(log *zap.Logger, conf Config, appName string) (*mongo, error) {
 		conf:          conf,
 		log:           log,
 	}, nil
-}
-
-func validateConfig(conf Config) error {
-	if conf.ConnectionString != "" {
-		return nil
-	}
-	if conf.Host == "" || conf.Port == 0 || conf.Database == "" {
-		return fmt.Errorf("invalid Mongo configuration")
-	}
-	return nil
 }
 
 func (m *mongo) connect(ctx context.Context) error {
@@ -108,33 +98,6 @@ func (m *mongo) connect(ctx context.Context) error {
 
 func (m *mongo) StartSession(ctx context.Context) (*mongodriver.Session, error) {
 	return m.client.StartSession()
-}
-
-func buildURI(conf Config) string {
-	if conf.ConnectionString != "" {
-		return conf.ConnectionString
-	}
-
-	u := &url.URL{
-		Scheme: "mongodb",
-		Host:   fmt.Sprintf("%s:%d", conf.Host, conf.Port),
-		Path:   "/" + conf.Database,
-	}
-
-	if conf.Username != "" {
-		u.User = url.UserPassword(conf.Username, conf.Password)
-	}
-
-	q := u.Query()
-	if conf.ReplicaSet != "" {
-		q.Set("replicaSet", conf.ReplicaSet)
-	}
-	if conf.DirectConnection {
-		q.Set("directConnection", "true")
-	}
-	u.RawQuery = q.Encode()
-
-	return u.String()
 }
 
 // GetCollection returns a MongoDB collection.

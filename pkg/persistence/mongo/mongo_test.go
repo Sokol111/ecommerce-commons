@@ -87,9 +87,9 @@ func TestBuildURI(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			result := buildURI(tt.conf)
+			result := tt.conf.BuildURI()
 			if result != tt.expected {
-				t.Errorf("buildURI() = %q, want %q", result, tt.expected)
+				t.Errorf("BuildURI() = %q, want %q", result, tt.expected)
 			}
 		})
 	}
@@ -159,9 +159,9 @@ func TestValidateConfig(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			err := validateConfig(tt.conf)
+			err := tt.conf.validate()
 			if (err != nil) != tt.wantErr {
-				t.Errorf("validateConfig() error = %v, wantErr %v", err, tt.wantErr)
+				t.Errorf("validate() error = %v, wantErr %v", err, tt.wantErr)
 			}
 		})
 	}

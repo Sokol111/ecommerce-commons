@@ -179,7 +179,11 @@ func (c *BulkheadConfig) validate() error {
 
 func loadConfigFromViper(v *viper.Viper) (Config, error) {
 	var cfg Config
-	if err := v.Sub("server").UnmarshalExact(&cfg); err != nil {
+	sub := v.Sub("server")
+	if sub == nil {
+		return cfg, nil
+	}
+	if err := sub.UnmarshalExact(&cfg); err != nil {
 		return cfg, fmt.Errorf("failed to load server config: %w", err)
 	}
 	return cfg, nil

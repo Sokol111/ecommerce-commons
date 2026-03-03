@@ -21,6 +21,10 @@ func newLogger(conf Config) (*zap.Logger, zap.AtomicLevel, error) {
 	atomicLevel := zap.NewAtomicLevelAt(conf.Level)
 	cfg.Level = atomicLevel
 
+	// Disable automatic stack traces — they clutter structured logs.
+	// Errors should include enough context via zap fields.
+	cfg.DisableStacktrace = true
+
 	// Use ISO8601 time encoding for consistency
 	cfg.EncoderConfig.EncodeTime = zapcore.ISO8601TimeEncoder
 

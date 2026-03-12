@@ -29,6 +29,7 @@ func provideKgoClient(lc fx.Lifecycle, conf config.Config) (*kgo.Client, error) 
 
 	client, err := kgo.NewClient(
 		kgo.SeedBrokers(brokers...),
+		kgo.AllowAutoTopicCreation(),
 		kgo.ProducerLinger(conf.ProducerConfig.Linger),
 		kgo.ProducerBatchCompression(compression),
 		kgo.RecordDeliveryTimeout(conf.ProducerConfig.DeliveryTimeout),

@@ -6,7 +6,7 @@ import (
 	"time"
 
 	"github.com/Sokol111/ecommerce-commons/pkg/messaging/kafka/producer"
-	"github.com/confluentinc/confluent-kafka-go/v2/kafka"
+	"github.com/twmb/franz-go/pkg/kgo"
 	"go.opentelemetry.io/otel/codes"
 	"go.uber.org/zap"
 )
@@ -14,7 +14,7 @@ import (
 // DLQHandler відповідає за відправку повідомлень, які не вдалось обробити, в Dead Letter Queue.
 type DLQHandler interface {
 	// SendToDLQ відправляє повідомлення в DLQ з інформацією про помилку
-	SendToDLQ(ctx context.Context, message *kafka.Message, processingErr error)
+	SendToDLQ(ctx context.Context, record *kgo.Record, processingErr error)
 }
 
 type dlqHandler struct {
@@ -38,68 +38,53 @@ func newDLQHandler(
 	}
 }
 
-func (h *dlqHandler) SendToDLQ(ctx context.Context, message *kafka.Message, processingErr error) {
+func (h *dlqHandler) SendToDLQ(ctx context.Context, record *kgo.Record, processingErr error) {
 	// Створюємо span для операції відправки в DLQ
-	ctx, span := h.tracer.StartDLQSpan(ctx, message, h.dlqTopic)
+	ctx, span := h.tracer.StartDLQSpan(ctx, record, h.dlqTopic)
 	defer span.End()
 
 	// Створюємо DLQ повідомлення з оригінальними даними
-	dlqMessage := &kafka.Message{
-		TopicPartition: kafka.TopicPartition{
-			Topic:     &h.dlqTopic,
-			Partition: kafka.PartitionAny,
-		},
-		Key:   message.Key,
-		Value: message.Value,
-		Headers: append(message.Headers,
-			kafka.Header{Key: "dlq.original.topic", Value: []byte(*message.TopicPartition.Topic)},
-			kafka.Header{Key: "dlq.original.partition", Value: []byte(fmt.Sprintf("%d", message.TopicPartition.Partition))},
-			kafka.Header{Key: "dlq.original.offset", Value: []byte(fmt.Sprintf("%d", message.TopicPartition.Offset))},
-			kafka.Header{Key: "dlq.error", Value: []byte(processingErr.Error())},
-			kafka.Header{Key: "dlq.timestamp", Value: []byte(time.Now().UTC().Format(time.RFC3339))},
-		),
+	dlqHeaders := make([]kgo.RecordHeader, len(record.Headers), len(record.Headers)+5)
+	copy(dlqHeaders, record.Headers)
+	dlqHeaders = append(dlqHeaders,
+		kgo.RecordHeader{Key: "dlq.original.topic", Value: []byte(record.Topic)},
+		kgo.RecordHeader{Key: "dlq.original.partition", Value: []byte(fmt.Sprintf("%d", record.Partition))},
+		kgo.RecordHeader{Key: "dlq.original.offset", Value: []byte(fmt.Sprintf("%d", record.Offset))},
+		kgo.RecordHeader{Key: "dlq.error", Value: []byte(processingErr.Error())},
+		kgo.RecordHeader{Key: "dlq.timestamp", Value: []byte(time.Now().UTC().Format(time.RFC3339))},
+	)
+
+	dlqRecord := &kgo.Record{
+		Topic:   h.dlqTopic,
+		Key:     record.Key,
+		Value:   record.Value,
+		Headers: dlqHeaders,
 	}
 
 	// Додаємо оновлений trace context в headers DLQ повідомлення
-	h.tracer.InjectContext(ctx, dlqMessage)
+	h.tracer.InjectContext(ctx, dlqRecord)
 
 	// Відправляємо в DLQ синхронно
-	deliveryChan := make(chan kafka.Event, 1)
-	err := h.producer.Produce(dlqMessage, deliveryChan)
-	if err != nil {
-		span.RecordError(err)
-		span.SetStatus(codes.Error, "failed to send message to DLQ")
-		h.log.Error("failed to send message to DLQ",
-			zap.String("dlq_topic", h.dlqTopic),
-			zap.String("key", string(message.Key)),
-			zap.Error(err))
-		return
-	}
+	errCh := make(chan error, 1)
+	h.producer.Produce(ctx, dlqRecord, func(r *kgo.Record, err error) {
+		errCh <- err
+	})
 
-	// Чекаємо на delivery report
-	e := <-deliveryChan
-	m, ok := e.(*kafka.Message)
-	if !ok {
-		h.log.Error("unexpected event type from delivery channel")
-		close(deliveryChan)
-		return
-	}
-	if m.TopicPartition.Error != nil {
-		span.RecordError(m.TopicPartition.Error)
+	if err := <-errCh; err != nil {
+		span.RecordError(err)
 		span.SetStatus(codes.Error, "failed to deliver message to DLQ")
 		h.log.Error("failed to deliver message to DLQ",
 			zap.String("dlq_topic", h.dlqTopic),
-			zap.String("key", string(message.Key)),
-			zap.Error(m.TopicPartition.Error))
+			zap.String("key", string(record.Key)),
+			zap.Error(err))
 	} else {
 		span.SetStatus(codes.Ok, "message sent to DLQ")
 		h.log.Info("message sent to DLQ",
 			zap.String("dlq_topic", h.dlqTopic),
-			zap.String("key", string(message.Key)),
-			zap.Int32("original_partition", message.TopicPartition.Partition),
-			zap.Int64("original_offset", int64(message.TopicPartition.Offset)))
+			zap.String("key", string(record.Key)),
+			zap.Int32("original_partition", record.Partition),
+			zap.Int64("original_offset", record.Offset))
 	}
-	close(deliveryChan)
 }
 
 func newNoopDLQHandler(log *zap.Logger) DLQHandler {
@@ -113,9 +98,9 @@ type noopDLQHandler struct {
 	log *zap.Logger
 }
 
-func (h *noopDLQHandler) SendToDLQ(ctx context.Context, message *kafka.Message, processingErr error) {
+func (h *noopDLQHandler) SendToDLQ(ctx context.Context, record *kgo.Record, processingErr error) {
 	h.log.Warn("DLQ producer not configured, cannot send message to DLQ",
-		zap.String("key", string(message.Key)),
-		zap.Int32("partition", message.TopicPartition.Partition),
-		zap.Int64("offset", int64(message.TopicPartition.Offset)))
+		zap.String("key", string(record.Key)),
+		zap.Int32("partition", record.Partition),
+		zap.Int64("offset", record.Offset))
 }

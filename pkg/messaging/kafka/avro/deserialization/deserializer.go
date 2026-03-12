@@ -1,12 +1,12 @@
 package deserialization
 
 import (
-	"encoding/binary"
 	"fmt"
 
 	"github.com/Sokol111/ecommerce-commons/pkg/messaging/kafka/events"
 	"github.com/Sokol111/ecommerce-commons/pkg/messaging/kafka/serde"
 	hambavro "github.com/hamba/avro/v2"
+	"github.com/twmb/franz-go/pkg/sr"
 )
 
 // Verify at compile time that avroDeserializer implements serde.Deserializer.
@@ -27,7 +27,8 @@ func NewDeserializer(resolver WriterSchemaResolver, eventRegistry events.EventRe
 
 func (d *avroDeserializer) Deserialize(data []byte) (events.Event, error) {
 	// Parse Confluent wire format to extract schema ID and payload
-	schemaID, payload, err := parseConfluentWireFormat(data)
+	var h sr.ConfluentHeader
+	schemaID, payload, err := h.DecodeID(data)
 	if err != nil {
 		return nil, fmt.Errorf("failed to parse wire format: %w", err)
 	}
@@ -50,19 +51,4 @@ func (d *avroDeserializer) Deserialize(data []byte) (events.Event, error) {
 	}
 
 	return event, nil
-}
-
-// parseConfluentWireFormat extracts schema ID and payload from Confluent wire format.
-// Format: [0x00][schema_id (4 bytes big-endian)][payload].
-func parseConfluentWireFormat(data []byte) (schemaID int, payload []byte, err error) {
-	if len(data) < 5 {
-		return 0, nil, fmt.Errorf("data too short: expected at least 5 bytes, got %d", len(data))
-	}
-
-	if data[0] != 0x00 {
-		return 0, nil, fmt.Errorf("invalid magic byte: expected 0x00, got 0x%02x", data[0])
-	}
-
-	schemaID = int(binary.BigEndian.Uint32(data[1:5]))
-	return schemaID, data[5:], nil
 }

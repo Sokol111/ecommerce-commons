@@ -3,7 +3,7 @@ package consumer
 import (
 	"context"
 
-	"github.com/confluentinc/confluent-kafka-go/v2/kafka"
+	"github.com/twmb/franz-go/pkg/kgo"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/propagation"
@@ -13,16 +13,16 @@ import (
 // MessageTracer відповідає за OpenTelemetry tracing для Kafka повідомлень.
 type MessageTracer interface {
 	// ExtractContext витягує trace context з Kafka headers
-	ExtractContext(ctx context.Context, message *kafka.Message) context.Context
+	ExtractContext(ctx context.Context, record *kgo.Record) context.Context
 
 	// StartConsumerSpan створює span для обробки повідомлення
-	StartConsumerSpan(ctx context.Context, message *kafka.Message) (context.Context, trace.Span)
+	StartConsumerSpan(ctx context.Context, record *kgo.Record) (context.Context, trace.Span)
 
 	// StartDLQSpan створює span для відправки в DLQ
-	StartDLQSpan(ctx context.Context, message *kafka.Message, dlqTopic string) (context.Context, trace.Span)
+	StartDLQSpan(ctx context.Context, record *kgo.Record, dlqTopic string) (context.Context, trace.Span)
 
 	// InjectContext додає trace context в Kafka headers
-	InjectContext(ctx context.Context, message *kafka.Message)
+	InjectContext(ctx context.Context, record *kgo.Record)
 }
 
 type messageTracer struct {
@@ -35,14 +35,14 @@ func newMessageTracer(tp trace.TracerProvider) MessageTracer {
 	}
 }
 
-func (t *messageTracer) ExtractContext(ctx context.Context, message *kafka.Message) context.Context {
-	if len(message.Headers) == 0 {
+func (t *messageTracer) ExtractContext(ctx context.Context, record *kgo.Record) context.Context {
+	if len(record.Headers) == 0 {
 		return ctx
 	}
 
 	// Конвертуємо Kafka headers в map для propagator
 	headersMap := make(map[string]string)
-	for _, header := range message.Headers {
+	for _, header := range record.Headers {
 		headersMap[header.Key] = string(header.Value)
 	}
 
@@ -51,37 +51,37 @@ func (t *messageTracer) ExtractContext(ctx context.Context, message *kafka.Messa
 	return otel.GetTextMapPropagator().Extract(ctx, carrier)
 }
 
-func (t *messageTracer) StartConsumerSpan(ctx context.Context, message *kafka.Message) (context.Context, trace.Span) {
+func (t *messageTracer) StartConsumerSpan(ctx context.Context, record *kgo.Record) (context.Context, trace.Span) {
 	return t.tracer.Start(ctx, "kafka.consume",
 		trace.WithSpanKind(trace.SpanKindConsumer),
 		trace.WithAttributes(
 			attribute.String("messaging.system", "kafka"),
-			attribute.String("messaging.destination", *message.TopicPartition.Topic),
-			attribute.Int("messaging.partition", int(message.TopicPartition.Partition)),
-			attribute.Int64("messaging.offset", int64(message.TopicPartition.Offset)),
-			attribute.String("messaging.message.key", string(message.Key)),
+			attribute.String("messaging.destination", record.Topic),
+			attribute.Int("messaging.partition", int(record.Partition)),
+			attribute.Int64("messaging.offset", record.Offset),
+			attribute.String("messaging.message.key", string(record.Key)),
 		),
 	)
 }
 
-func (t *messageTracer) StartDLQSpan(ctx context.Context, message *kafka.Message, dlqTopic string) (context.Context, trace.Span) {
+func (t *messageTracer) StartDLQSpan(ctx context.Context, record *kgo.Record, dlqTopic string) (context.Context, trace.Span) {
 	return t.tracer.Start(ctx, "kafka.send_to_dlq",
 		trace.WithSpanKind(trace.SpanKindProducer),
 		trace.WithAttributes(
 			attribute.String("messaging.system", "kafka"),
 			attribute.String("messaging.destination", dlqTopic),
-			attribute.String("messaging.source.topic", *message.TopicPartition.Topic),
-			attribute.Int("messaging.source.partition", int(message.TopicPartition.Partition)),
-			attribute.Int64("messaging.source.offset", int64(message.TopicPartition.Offset)),
-			attribute.String("messaging.message.key", string(message.Key)),
+			attribute.String("messaging.source.topic", record.Topic),
+			attribute.Int("messaging.source.partition", int(record.Partition)),
+			attribute.Int64("messaging.source.offset", record.Offset),
+			attribute.String("messaging.message.key", string(record.Key)),
 		),
 	)
 }
 
-func (t *messageTracer) InjectContext(ctx context.Context, message *kafka.Message) {
+func (t *messageTracer) InjectContext(ctx context.Context, record *kgo.Record) {
 	// Конвертуємо існуючі headers в map
 	headersMap := make(map[string]string)
-	for _, header := range message.Headers {
+	for _, header := range record.Headers {
 		headersMap[header.Key] = string(header.Value)
 	}
 
@@ -90,9 +90,9 @@ func (t *messageTracer) InjectContext(ctx context.Context, message *kafka.Messag
 	otel.GetTextMapPropagator().Inject(ctx, carrier)
 
 	// Оновлюємо headers повідомлення
-	message.Headers = nil
+	record.Headers = nil
 	for key, value := range headersMap {
-		message.Headers = append(message.Headers, kafka.Header{
+		record.Headers = append(record.Headers, kgo.RecordHeader{
 			Key:   key,
 			Value: []byte(value),
 		})

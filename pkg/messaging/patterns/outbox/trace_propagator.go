@@ -4,7 +4,7 @@ import (
 	"context"
 	"maps"
 
-	"github.com/confluentinc/confluent-kafka-go/v2/kafka"
+	"github.com/twmb/franz-go/pkg/kgo"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/propagation"
@@ -17,7 +17,7 @@ type tracePropagator interface {
 
 	// StartKafkaProducerSpan restores trace context from stored headers, creates a producer span,
 	// and returns Kafka-ready headers with the new span context.
-	StartKafkaProducerSpan(headers map[string]string, topic, messageID string) (context.Context, trace.Span, []kafka.Header)
+	StartKafkaProducerSpan(headers map[string]string, topic, messageID string) (context.Context, trace.Span, []kgo.RecordHeader)
 }
 
 type otelTracePropagator struct {
@@ -42,7 +42,7 @@ func (t *otelTracePropagator) SaveTraceContext(ctx context.Context, headers map[
 // StartKafkaProducerSpan restores trace context from stored headers, creates a producer span,
 // and returns Kafka-ready headers with the new span context.
 // Called when sending a message to Kafka.
-func (t *otelTracePropagator) StartKafkaProducerSpan(headers map[string]string, topic, messageID string) (context.Context, trace.Span, []kafka.Header) {
+func (t *otelTracePropagator) StartKafkaProducerSpan(headers map[string]string, topic, messageID string) (context.Context, trace.Span, []kgo.RecordHeader) {
 	// Restore trace context from stored headers
 	ctx := context.Background()
 	if len(headers) > 0 {
@@ -69,9 +69,9 @@ func (t *otelTracePropagator) StartKafkaProducerSpan(headers map[string]string, 
 	otel.GetTextMapPropagator().Inject(ctx, carrier)
 
 	// Convert to Kafka headers
-	kafkaHeaders := make([]kafka.Header, 0, len(updatedHeaders))
+	kafkaHeaders := make([]kgo.RecordHeader, 0, len(updatedHeaders))
 	for key, value := range updatedHeaders {
-		kafkaHeaders = append(kafkaHeaders, kafka.Header{
+		kafkaHeaders = append(kafkaHeaders, kgo.RecordHeader{
 			Key:   key,
 			Value: []byte(value),
 		})

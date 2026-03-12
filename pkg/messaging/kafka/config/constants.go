@@ -10,8 +10,13 @@ const (
 	defaultMaxBackoff                  = 30 * time.Second
 	defaultProcessingTimeout           = 30 * time.Second
 	defaultChannelBufferSize           = 100
+	defaultMaxPollRecords              = 500
 	defaultConsumerReadinessTimeout    = 60
 	defaultProducerReadinessTimeout    = 30
+	defaultProducerLinger              = 5 * time.Millisecond
+	defaultProducerCompression         = "none"
+	defaultProducerDeliveryTimeout     = 30 * time.Second
+	defaultProducerMaxBufferedRecords  = 10000
 
 	// Validation bounds.
 	minMaxRetries          = uint(0)
@@ -24,7 +29,16 @@ const (
 	maxProcessingTimeout   = 10 * time.Minute
 	minChannelBufferSize   = 10
 	maxChannelBufferSize   = 10000
+	minMaxPollRecords      = 1
+	maxMaxPollRecords      = 10000
 	minSchemaCacheCapacity = 100
 	maxSchemaCacheCapacity = 100000
 	maxReadinessTimeout    = 600 // 10 minutes in seconds
+
+	// Producer bounds.
+	maxProducerLinger             = 1 * time.Second
+	minProducerDeliveryTimeout    = 1 * time.Second
+	maxProducerDeliveryTimeout    = 5 * time.Minute
+	minProducerMaxBufferedRecords = 100
+	maxProducerMaxBufferedRecords = 1000000
 )

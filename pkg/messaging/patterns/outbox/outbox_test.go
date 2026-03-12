@@ -7,9 +7,9 @@ import (
 
 	"github.com/Sokol111/ecommerce-commons/pkg/core/logger"
 	"github.com/Sokol111/ecommerce-commons/pkg/messaging/kafka/events"
-	"github.com/confluentinc/confluent-kafka-go/v2/kafka"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"github.com/twmb/franz-go/pkg/kgo"
 	"go.opentelemetry.io/otel/trace"
 	"go.uber.org/zap"
 )
@@ -78,7 +78,7 @@ func (m *mockTracePropagator) SaveTraceContext(ctx context.Context, headers map[
 	return headers
 }
 
-func (m *mockTracePropagator) StartKafkaProducerSpan(headers map[string]string, topic, messageID string) (context.Context, trace.Span, []kafka.Header) {
+func (m *mockTracePropagator) StartKafkaProducerSpan(headers map[string]string, topic, messageID string) (context.Context, trace.Span, []kgo.RecordHeader) {
 	return context.Background(), noopTestSpan{}, nil
 }
 

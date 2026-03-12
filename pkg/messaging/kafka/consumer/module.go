@@ -6,7 +6,7 @@ import (
 	"github.com/Sokol111/ecommerce-commons/pkg/core/worker"
 	"github.com/Sokol111/ecommerce-commons/pkg/messaging/kafka/config"
 	"github.com/Sokol111/ecommerce-commons/pkg/messaging/kafka/producer"
-	"github.com/confluentinc/confluent-kafka-go/v2/kafka"
+	"github.com/twmb/franz-go/pkg/kgo"
 	"go.uber.org/fx"
 	"go.uber.org/zap"
 )
@@ -53,7 +53,7 @@ func RegisterHandlerAndConsumer(
 				handlerConstructor,
 				fx.As(new(Handler)),
 			),
-			provideKafkaConsumer,
+			provideConsumerClient,
 			newProcessor,
 			newMessageDeserializer,
 			newMessageTracer,
@@ -72,8 +72,8 @@ func RegisterHandlerAndConsumer(
 	)
 }
 
-func provideMessageChannel(consumerConf config.ConsumerConfig) chan *kafka.Message {
-	return make(chan *kafka.Message, consumerConf.ChannelBufferSize)
+func provideMessageChannel(consumerConf config.ConsumerConfig) chan *kgo.Record {
+	return make(chan *kgo.Record, consumerConf.ChannelBufferSize)
 }
 
 func provideEnvelopeChannel(consumerConf config.ConsumerConfig) chan *MessageEnvelope {

@@ -4,39 +4,39 @@ import (
 	"context"
 	"errors"
 
-	"github.com/confluentinc/confluent-kafka-go/v2/kafka"
+	"github.com/twmb/franz-go/pkg/kgo"
 	"go.opentelemetry.io/otel/codes"
 	"go.opentelemetry.io/otel/trace"
 	"go.uber.org/zap"
 )
 
-// offsetStorer is an interface for storing message offsets.
-type offsetStorer interface {
-	StoreMessage(m *kafka.Message) (storedOffsets []kafka.TopicPartition, err error)
+// offsetMarker is an interface for marking records for commit.
+type offsetMarker interface {
+	MarkCommitRecords(...*kgo.Record)
 }
 
 // resultHandler handles message processing results.
 type resultHandler struct {
-	log        *zap.Logger
-	dlqHandler DLQHandler
-	consumer   offsetStorer
+	log          *zap.Logger
+	dlqHandler   DLQHandler
+	offsetMarker offsetMarker
 }
 
 func newResultHandler(
 	log *zap.Logger,
 	dlqHandler DLQHandler,
-	consumer offsetStorer,
+	client *kgo.Client,
 ) *resultHandler {
 	return &resultHandler{
-		log:        log,
-		dlqHandler: dlqHandler,
-		consumer:   consumer,
+		log:          log,
+		dlqHandler:   dlqHandler,
+		offsetMarker: client,
 	}
 }
 
 // handle processes the result of message handling and takes appropriate action.
-func (h *resultHandler) handle(ctx context.Context, err error, message *kafka.Message, span trace.Span) {
-	defer h.storeOffset(message)
+func (h *resultHandler) handle(ctx context.Context, err error, record *kgo.Record, span trace.Span) {
+	defer h.offsetMarker.MarkCommitRecords(record)
 
 	switch {
 	case err == nil:
@@ -44,36 +44,30 @@ func (h *resultHandler) handle(ctx context.Context, err error, message *kafka.Me
 
 	case errors.Is(err, ErrSkipMessage):
 		span.SetStatus(codes.Ok, "message skipped")
-		h.log.Info("skipping message", h.messageFields(message)...)
+		h.log.Info("skipping message", h.recordFields(record)...)
 
 	case errors.Is(err, ErrPermanent):
 		span.SetStatus(codes.Error, "permanent error - sending to DLQ")
-		h.log.Error("permanent error - sending message to DLQ", h.messageFieldsWithError(message, err)...)
-		h.dlqHandler.SendToDLQ(ctx, message, err)
+		h.log.Error("permanent error - sending message to DLQ", h.recordFieldsWithError(record, err)...)
+		h.dlqHandler.SendToDLQ(ctx, record, err)
 
 	default:
 		// Retry exhausted or context cancelled
 		span.RecordError(err)
 		span.SetStatus(codes.Error, "message processing failed - sending to DLQ")
-		h.log.Error("message processing failed after retries - sending to DLQ", h.messageFieldsWithError(message, err)...)
-		h.dlqHandler.SendToDLQ(ctx, message, err)
+		h.log.Error("message processing failed after retries - sending to DLQ", h.recordFieldsWithError(record, err)...)
+		h.dlqHandler.SendToDLQ(ctx, record, err)
 	}
 }
 
-func (h *resultHandler) storeOffset(message *kafka.Message) {
-	if _, err := h.consumer.StoreMessage(message); err != nil {
-		h.log.Error("failed to store offset", h.messageFieldsWithError(message, err)...)
-	}
-}
-
-func (h *resultHandler) messageFields(message *kafka.Message) []zap.Field {
+func (h *resultHandler) recordFields(record *kgo.Record) []zap.Field {
 	return []zap.Field{
-		zap.String("key", string(message.Key)),
-		zap.Int32("partition", message.TopicPartition.Partition),
-		zap.Int64("offset", int64(message.TopicPartition.Offset)),
+		zap.String("key", string(record.Key)),
+		zap.Int32("partition", record.Partition),
+		zap.Int64("offset", record.Offset),
 	}
 }
 
-func (h *resultHandler) messageFieldsWithError(message *kafka.Message, err error) []zap.Field {
-	return append(h.messageFields(message), zap.Error(err))
+func (h *resultHandler) recordFieldsWithError(record *kgo.Record, err error) []zap.Field {
+	return append(h.recordFields(record), zap.Error(err))
 }

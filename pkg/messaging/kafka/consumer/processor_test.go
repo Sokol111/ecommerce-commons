@@ -8,9 +8,9 @@ import (
 	"time"
 
 	"github.com/Sokol111/ecommerce-commons/pkg/messaging/kafka/config"
-	"github.com/confluentinc/confluent-kafka-go/v2/kafka"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"github.com/twmb/franz-go/pkg/kgo"
 	"go.opentelemetry.io/otel/trace"
 	"go.opentelemetry.io/otel/trace/noop"
 	"go.uber.org/zap"
@@ -32,43 +32,43 @@ func (m *mockHandler) Process(ctx context.Context, event any) error {
 
 // mockTracer is a test implementation of MessageTracer
 type mockTracer struct {
-	extractContextFunc    func(ctx context.Context, message *kafka.Message) context.Context
-	startConsumerSpanFunc func(ctx context.Context, message *kafka.Message) (context.Context, trace.Span)
-	startDLQSpanFunc      func(ctx context.Context, message *kafka.Message, dlqTopic string) (context.Context, trace.Span)
-	injectContextFunc     func(ctx context.Context, message *kafka.Message)
+	extractContextFunc    func(ctx context.Context, record *kgo.Record) context.Context
+	startConsumerSpanFunc func(ctx context.Context, record *kgo.Record) (context.Context, trace.Span)
+	startDLQSpanFunc      func(ctx context.Context, record *kgo.Record, dlqTopic string) (context.Context, trace.Span)
+	injectContextFunc     func(ctx context.Context, record *kgo.Record)
 }
 
 func newMockTracer() *mockTracer {
 	return &mockTracer{
-		extractContextFunc: func(ctx context.Context, message *kafka.Message) context.Context {
+		extractContextFunc: func(ctx context.Context, record *kgo.Record) context.Context {
 			return ctx
 		},
-		startConsumerSpanFunc: func(ctx context.Context, message *kafka.Message) (context.Context, trace.Span) {
+		startConsumerSpanFunc: func(ctx context.Context, record *kgo.Record) (context.Context, trace.Span) {
 			_, span := noop.NewTracerProvider().Tracer("test").Start(ctx, "test")
 			return ctx, span
 		},
-		startDLQSpanFunc: func(ctx context.Context, message *kafka.Message, dlqTopic string) (context.Context, trace.Span) {
+		startDLQSpanFunc: func(ctx context.Context, record *kgo.Record, dlqTopic string) (context.Context, trace.Span) {
 			_, span := noop.NewTracerProvider().Tracer("test").Start(ctx, "dlq")
 			return ctx, span
 		},
-		injectContextFunc: func(ctx context.Context, message *kafka.Message) {},
+		injectContextFunc: func(ctx context.Context, record *kgo.Record) {},
 	}
 }
 
-func (m *mockTracer) ExtractContext(ctx context.Context, message *kafka.Message) context.Context {
-	return m.extractContextFunc(ctx, message)
+func (m *mockTracer) ExtractContext(ctx context.Context, record *kgo.Record) context.Context {
+	return m.extractContextFunc(ctx, record)
 }
 
-func (m *mockTracer) StartConsumerSpan(ctx context.Context, message *kafka.Message) (context.Context, trace.Span) {
-	return m.startConsumerSpanFunc(ctx, message)
+func (m *mockTracer) StartConsumerSpan(ctx context.Context, record *kgo.Record) (context.Context, trace.Span) {
+	return m.startConsumerSpanFunc(ctx, record)
 }
 
-func (m *mockTracer) StartDLQSpan(ctx context.Context, message *kafka.Message, dlqTopic string) (context.Context, trace.Span) {
-	return m.startDLQSpanFunc(ctx, message, dlqTopic)
+func (m *mockTracer) StartDLQSpan(ctx context.Context, record *kgo.Record, dlqTopic string) (context.Context, trace.Span) {
+	return m.startDLQSpanFunc(ctx, record, dlqTopic)
 }
 
-func (m *mockTracer) InjectContext(ctx context.Context, message *kafka.Message) {
-	m.injectContextFunc(ctx, message)
+func (m *mockTracer) InjectContext(ctx context.Context, record *kgo.Record) {
+	m.injectContextFunc(ctx, record)
 }
 
 // uintPtr is a helper function to create a pointer to uint.
@@ -88,16 +88,13 @@ func createTestConsumerConfig() config.ConsumerConfig {
 	}
 }
 
-func createTestMessage() *kafka.Message {
-	topic := "test-topic"
-	return &kafka.Message{
-		TopicPartition: kafka.TopicPartition{
-			Topic:     &topic,
-			Partition: 0,
-			Offset:    100,
-		},
-		Key:   []byte("test-key"),
-		Value: []byte("test-value"),
+func createTestMessage() *kgo.Record {
+	return &kgo.Record{
+		Topic:     "test-topic",
+		Partition: 0,
+		Offset:    100,
+		Key:       []byte("test-key"),
+		Value:     []byte("test-value"),
 	}
 }
 

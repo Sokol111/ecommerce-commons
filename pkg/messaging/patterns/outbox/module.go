@@ -8,7 +8,6 @@ import (
 	"github.com/Sokol111/ecommerce-commons/pkg/core/worker"
 	"github.com/Sokol111/ecommerce-commons/pkg/messaging/kafka/events"
 	"github.com/Sokol111/ecommerce-commons/pkg/persistence/mongo"
-	"github.com/confluentinc/confluent-kafka-go/v2/kafka"
 	"go.uber.org/fx"
 	"go.uber.org/zap"
 )
@@ -31,7 +30,7 @@ func NewOutboxModule() fx.Option {
 			newTracePropagator,
 			newMetadataPopulator,
 			provideEntitiesChannel,
-			provideDeliveryChannel,
+			provideConfirmChannel,
 		),
 		fx.Invoke(
 			worker.RunWorker[*fetcher]("outbox-fetcher", worker.WithTrafficReady()),
@@ -65,6 +64,6 @@ func provideEntitiesChannel() chan *outboxEntity {
 	return make(chan *outboxEntity, 100)
 }
 
-func provideDeliveryChannel() chan kafka.Event {
-	return make(chan kafka.Event, 1000)
+func provideConfirmChannel() chan confirmResult {
+	return make(chan confirmResult, 1000)
 }

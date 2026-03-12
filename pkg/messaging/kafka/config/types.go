@@ -19,6 +19,7 @@ type ConsumersConfig struct {
 	DefaultMaxBackoff        time.Duration    `mapstructure:"default-max-backoff"`         // Default maximum backoff duration for retries (1s-5m)
 	DefaultProcessingTimeout time.Duration    `mapstructure:"default-processing-timeout"`  // Default timeout for processing a single message (1s-10m)
 	DefaultChannelBufferSize int              `mapstructure:"default-channel-buffer-size"` // Default internal message channel buffer size (10-10000)
+	DefaultMaxPollRecords    int              `mapstructure:"default-max-poll-records"`    // Default max records per poll iteration (1-10000)
 	ConsumerConfig           []ConsumerConfig `mapstructure:"consumers"`                   // Individual consumer configurations
 }
 
@@ -37,12 +38,17 @@ type ConsumerConfig struct {
 	MaxBackoff              time.Duration `mapstructure:"max-backoff"`               // Maximum backoff duration between retries (1s-5m, defaults to DefaultMaxBackoff)
 	ProcessingTimeout       time.Duration `mapstructure:"processing-timeout"`        // Timeout for processing a single message attempt (1s-10m, defaults to DefaultProcessingTimeout)
 	ChannelBufferSize       int           `mapstructure:"channel-buffer-size"`       // Internal message channel buffer size (10-10000, defaults to DefaultChannelBufferSize)
+	MaxPollRecords          int           `mapstructure:"max-poll-records"`          // Max records fetched per poll iteration (1-10000, defaults to DefaultMaxPollRecords)
 }
 
 // ProducerConfig represents configuration for Kafka producer.
 type ProducerConfig struct {
-	ReadinessTimeoutSeconds int  `mapstructure:"readiness-timeout-seconds"` // Timeout in seconds for waiting brokers readiness (0 = no timeout, max 600s, default 30s)
-	FailOnBrokerError       bool `mapstructure:"fail-on-broker-error"`      // Whether to fail application startup if brokers are not available (default false)
+	ReadinessTimeoutSeconds int           `mapstructure:"readiness-timeout-seconds"` // Timeout in seconds for waiting brokers readiness (0 = no timeout, max 600s, default 30s)
+	FailOnBrokerError       bool          `mapstructure:"fail-on-broker-error"`      // Whether to fail application startup if brokers are not available (default false)
+	Linger                  time.Duration `mapstructure:"linger"`                    // Time to wait for batching records before sending (0-1s, default 5ms)
+	Compression             string        `mapstructure:"compression"`               // Compression codec: "none", "snappy", "lz4", "zstd" (default "snappy")
+	DeliveryTimeout         time.Duration `mapstructure:"delivery-timeout"`          // Max time a record can sit in buffer before timing out (1s-5m, default 30s)
+	MaxBufferedRecords      int           `mapstructure:"max-buffered-records"`      // Max records buffered in memory before blocking (100-1000000, default 10000)
 }
 
 // SchemaRegistryConfig represents Confluent Schema Registry configuration.

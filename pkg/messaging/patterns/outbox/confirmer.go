@@ -2,29 +2,33 @@ package outbox
 
 import (
 	"context"
-	"fmt"
 	"sync"
 	"time"
 
-	"github.com/confluentinc/confluent-kafka-go/v2/kafka"
 	"go.uber.org/zap"
 )
 
+// confirmResult carries the result of a Kafka produce callback.
+type confirmResult struct {
+	ID  string
+	Err error
+}
+
 type confirmer struct {
 	outboxRepository repository
-	deliveryChan     <-chan kafka.Event
+	confirmChan      <-chan confirmResult
 	logger           *zap.Logger
 	wg               sync.WaitGroup
 }
 
 func newConfirmer(
 	outboxRepository repository,
-	deliveryChan chan kafka.Event,
+	confirmChan chan confirmResult,
 	logger *zap.Logger,
 ) *confirmer {
 	return &confirmer{
 		outboxRepository: outboxRepository,
-		deliveryChan:     deliveryChan,
+		confirmChan:      confirmChan,
 		logger:           logger,
 	}
 }
@@ -32,17 +36,17 @@ func newConfirmer(
 func (c *confirmer) Run(ctx context.Context) error {
 	defer c.wg.Wait()
 
-	events := make([]kafka.Event, 0, 100)
+	results := make([]confirmResult, 0, 100)
 
 	flush := func() {
-		if len(events) == 0 {
+		if len(results) == 0 {
 			return
 		}
-		copySlice := make([]kafka.Event, len(events))
-		copy(copySlice, events)
+		copySlice := make([]confirmResult, len(results))
+		copy(copySlice, results)
 		c.wg.Add(1)
 		go c.handleConfirmation(ctx, copySlice)
-		events = events[:0]
+		results = results[:0]
 	}
 
 	ticker := time.NewTicker(2 * time.Second)
@@ -60,9 +64,9 @@ func (c *confirmer) Run(ctx context.Context) error {
 		case <-ctx.Done():
 			flush()
 			return nil
-		case event := <-c.deliveryChan:
-			events = append(events, event)
-			if len(events) == 100 {
+		case result := <-c.confirmChan:
+			results = append(results, result)
+			if len(results) == 100 {
 				flush()
 			}
 		case <-ticker.C:
@@ -71,36 +75,18 @@ func (c *confirmer) Run(ctx context.Context) error {
 	}
 }
 
-func (c *confirmer) handleConfirmation(ctx context.Context, events []kafka.Event) {
+func (c *confirmer) handleConfirmation(ctx context.Context, results []confirmResult) {
 	defer c.wg.Done()
 
-	ids := make([]string, 0, len(events))
-	for _, event := range events {
-		msg, ok := event.(*kafka.Message)
-		if !ok {
-			c.logger.Error("skipping confirmation",
-				zap.String("reason", "unexpected event type"),
-				zap.String("got", fmt.Sprintf("%T", event)),
-				zap.String("expected", "*kafka.Message"))
-			continue
-		}
-		if msg.TopicPartition.Error != nil {
-			// Kafka delivery failed - outbox message will be retried by fetcher
+	ids := make([]string, 0, len(results))
+	for _, r := range results {
+		if r.Err != nil {
 			c.logger.Error("kafka delivery failed - message will be retried",
-				zap.String("message_id", fmt.Sprintf("%v", msg.Opaque)),
-				zap.Error(msg.TopicPartition.Error),
-				zap.String("topic", fmt.Sprintf("%v", msg.TopicPartition.Topic)),
-				zap.Int32("partition", msg.TopicPartition.Partition))
+				zap.String("message_id", r.ID),
+				zap.Error(r.Err))
 			continue
 		}
-		id, ok := msg.Opaque.(string)
-		if !ok {
-			c.logger.Error("skipping confirmation",
-				zap.String("reason", "failed to cast Opaque to string"),
-				zap.Any("opaque", msg.Opaque))
-			continue
-		}
-		ids = append(ids, id)
+		ids = append(ids, r.ID)
 	}
 
 	if len(ids) == 0 {

@@ -4,16 +4,12 @@ import (
 	"context"
 	"time"
 
-	"github.com/confluentinc/confluent-kafka-go/v2/kafka"
+	"github.com/twmb/franz-go/pkg/kadm"
+	"github.com/twmb/franz-go/pkg/kgo"
 	"go.uber.org/zap"
 )
 
-// metadataProvider is the interface for getting Kafka metadata.
-type metadataProvider interface {
-	GetMetadata(topic *string, allTopics bool, timeoutMs int) (*kafka.Metadata, error)
-}
-
-func waitForBrokers(ctx context.Context, p metadataProvider, log *zap.Logger, timeoutSec int, failOnError bool) error {
+func waitForBrokers(ctx context.Context, client *kgo.Client, log *zap.Logger, timeoutSec int, failOnError bool) error {
 	log.Info("waiting for kafka brokers", zap.Int("timeout_seconds", timeoutSec))
 
 	if timeoutSec > 0 {
@@ -22,7 +18,7 @@ func waitForBrokers(ctx context.Context, p metadataProvider, log *zap.Logger, ti
 		defer cancel()
 	}
 
-	if err := pollBrokers(ctx, p); err != nil {
+	if err := pollBrokers(ctx, client); err != nil {
 		if failOnError {
 			return err
 		}
@@ -33,7 +29,8 @@ func waitForBrokers(ctx context.Context, p metadataProvider, log *zap.Logger, ti
 	return nil
 }
 
-func pollBrokers(ctx context.Context, p metadataProvider) error {
+func pollBrokers(ctx context.Context, client *kgo.Client) error {
+	admClient := kadm.NewClient(client)
 	for {
 		select {
 		case <-ctx.Done():
@@ -41,8 +38,11 @@ func pollBrokers(ctx context.Context, p metadataProvider) error {
 		default:
 		}
 
-		if meta, err := p.GetMetadata(nil, false, 5000); err == nil && len(meta.Brokers) > 0 {
+		brokers, err := admClient.ListBrokers(ctx)
+		if err == nil && len(brokers) > 0 {
 			return nil
 		}
+
+		time.Sleep(500 * time.Millisecond)
 	}
 }

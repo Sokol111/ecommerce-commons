@@ -2,11 +2,10 @@ package consumer
 
 import (
 	"context"
-	"errors"
 	"testing"
 
-	"github.com/confluentinc/confluent-kafka-go/v2/kafka"
 	"github.com/stretchr/testify/assert"
+	"github.com/twmb/franz-go/pkg/kgo"
 	"go.opentelemetry.io/otel/codes"
 	"go.opentelemetry.io/otel/trace"
 	"go.opentelemetry.io/otel/trace/noop"
@@ -39,32 +38,27 @@ func (m *mockSpan) RecordError(err error, options ...trace.EventOption) {
 
 func (m *mockSpan) End(options ...trace.SpanEndOption) {}
 
-// mockOffsetStorer is a test implementation of OffsetStorer
-type mockOffsetStorer struct {
-	storeMessageFunc func(m *kafka.Message) ([]kafka.TopicPartition, error)
-	storedMessages   []*kafka.Message
+// mockOffsetMarker is a test implementation of offsetMarker
+type mockOffsetMarker struct {
+	markedRecords []*kgo.Record
 }
 
-func (m *mockOffsetStorer) StoreMessage(msg *kafka.Message) ([]kafka.TopicPartition, error) {
-	m.storedMessages = append(m.storedMessages, msg)
-	if m.storeMessageFunc != nil {
-		return m.storeMessageFunc(msg)
-	}
-	return []kafka.TopicPartition{msg.TopicPartition}, nil
+func (m *mockOffsetMarker) MarkCommitRecords(records ...*kgo.Record) {
+	m.markedRecords = append(m.markedRecords, records...)
 }
 
 func TestNewResultHandler(t *testing.T) {
 	t.Run("creates result handler with correct fields", func(t *testing.T) {
 		log := zap.NewNop()
 		dlqHandler := &mockDLQHandler{}
-		consumer := &mockOffsetStorer{}
+		marker := &mockOffsetMarker{}
 
-		rh := newResultHandler(log, dlqHandler, consumer)
+		rh := &resultHandler{log: log, dlqHandler: dlqHandler, offsetMarker: marker}
 
 		assert.NotNil(t, rh)
 		assert.Equal(t, log, rh.log)
 		assert.Equal(t, dlqHandler, rh.dlqHandler)
-		assert.Equal(t, consumer, rh.consumer)
+		assert.Equal(t, marker, rh.offsetMarker)
 	})
 }
 
@@ -72,140 +66,121 @@ func TestResultHandler_Handle(t *testing.T) {
 	t.Run("handles successful processing", func(t *testing.T) {
 		log := zap.NewNop()
 		dlqHandler := &mockDLQHandler{}
-		consumer := &mockOffsetStorer{}
-		rh := newResultHandler(log, dlqHandler, consumer)
+		marker := &mockOffsetMarker{}
+		rh := &resultHandler{log: log, dlqHandler: dlqHandler, offsetMarker: marker}
 
 		span := newMockSpan()
-		msg := createTestMessage()
+		record := createTestMessage()
 
-		rh.handle(context.Background(), nil, msg, span)
+		rh.handle(context.Background(), nil, record, span)
 
 		assert.Equal(t, codes.Ok, span.statusCode)
 		assert.Equal(t, "message processed successfully", span.statusMessage)
-		assert.Len(t, consumer.storedMessages, 1)
-		assert.Equal(t, msg, consumer.storedMessages[0])
+		assert.Len(t, marker.markedRecords, 1)
+		assert.Equal(t, record, marker.markedRecords[0])
 		assert.Equal(t, int32(0), dlqHandler.callCount.Load())
 	})
 
 	t.Run("handles ErrSkipMessage", func(t *testing.T) {
 		log := zap.NewNop()
 		dlqHandler := &mockDLQHandler{}
-		consumer := &mockOffsetStorer{}
-		rh := newResultHandler(log, dlqHandler, consumer)
+		marker := &mockOffsetMarker{}
+		rh := &resultHandler{log: log, dlqHandler: dlqHandler, offsetMarker: marker}
 
 		span := newMockSpan()
-		msg := createTestMessage()
+		record := createTestMessage()
 
-		rh.handle(context.Background(), ErrSkipMessage, msg, span)
+		rh.handle(context.Background(), ErrSkipMessage, record, span)
 
 		assert.Equal(t, codes.Ok, span.statusCode)
 		assert.Equal(t, "message skipped", span.statusMessage)
-		assert.Len(t, consumer.storedMessages, 1)
+		assert.Len(t, marker.markedRecords, 1)
 		assert.Equal(t, int32(0), dlqHandler.callCount.Load())
 	})
 
 	t.Run("handles ErrPermanent - sends to DLQ", func(t *testing.T) {
 		log := zap.NewNop()
-		dlqMessages := make(chan *kafka.Message, 1)
+		dlqRecords := make(chan *kgo.Record, 1)
 		dlqHandler := &mockDLQHandler{
-			sendToDLQFunc: func(ctx context.Context, message *kafka.Message, processingErr error) {
-				dlqMessages <- message
+			sendToDLQFunc: func(ctx context.Context, record *kgo.Record, processingErr error) {
+				dlqRecords <- record
 			},
 		}
-		consumer := &mockOffsetStorer{}
-		rh := newResultHandler(log, dlqHandler, consumer)
+		marker := &mockOffsetMarker{}
+		rh := &resultHandler{log: log, dlqHandler: dlqHandler, offsetMarker: marker}
 
 		span := newMockSpan()
-		msg := createTestMessage()
+		record := createTestMessage()
 
-		rh.handle(context.Background(), ErrPermanent, msg, span)
+		rh.handle(context.Background(), ErrPermanent, record, span)
 
 		assert.Equal(t, codes.Error, span.statusCode)
 		assert.Equal(t, "permanent error - sending to DLQ", span.statusMessage)
-		assert.Len(t, consumer.storedMessages, 1)
+		assert.Len(t, marker.markedRecords, 1)
 		assert.Equal(t, int32(1), dlqHandler.callCount.Load())
 
 		select {
-		case sentMsg := <-dlqMessages:
-			assert.Equal(t, msg, sentMsg)
+		case sentRecord := <-dlqRecords:
+			assert.Equal(t, record, sentRecord)
 		default:
-			t.Fatal("message was not sent to DLQ")
+			t.Fatal("record was not sent to DLQ")
 		}
 	})
 
 	t.Run("handles retry exhausted error - sends to DLQ", func(t *testing.T) {
 		log := zap.NewNop()
-		dlqMessages := make(chan *kafka.Message, 1)
+		dlqRecords := make(chan *kgo.Record, 1)
 		dlqHandler := &mockDLQHandler{
-			sendToDLQFunc: func(ctx context.Context, message *kafka.Message, processingErr error) {
-				dlqMessages <- message
+			sendToDLQFunc: func(ctx context.Context, record *kgo.Record, processingErr error) {
+				dlqRecords <- record
 			},
 		}
-		consumer := &mockOffsetStorer{}
-		rh := newResultHandler(log, dlqHandler, consumer)
+		marker := &mockOffsetMarker{}
+		rh := &resultHandler{log: log, dlqHandler: dlqHandler, offsetMarker: marker}
 
 		span := newMockSpan()
-		msg := createTestMessage()
+		record := createTestMessage()
 		someError := assert.AnError
 
-		rh.handle(context.Background(), someError, msg, span)
+		rh.handle(context.Background(), someError, record, span)
 
 		assert.Equal(t, codes.Error, span.statusCode)
 		assert.Equal(t, "message processing failed - sending to DLQ", span.statusMessage)
 		assert.Equal(t, someError, span.recordedError)
-		assert.Len(t, consumer.storedMessages, 1)
+		assert.Len(t, marker.markedRecords, 1)
 		assert.Equal(t, int32(1), dlqHandler.callCount.Load())
 
 		select {
-		case sentMsg := <-dlqMessages:
-			assert.Equal(t, msg, sentMsg)
+		case sentRecord := <-dlqRecords:
+			assert.Equal(t, record, sentRecord)
 		default:
-			t.Fatal("message was not sent to DLQ")
+			t.Fatal("record was not sent to DLQ")
 		}
-	})
-
-	t.Run("logs error when store offset fails", func(t *testing.T) {
-		log := zap.NewNop()
-		dlqHandler := &mockDLQHandler{}
-		consumer := &mockOffsetStorer{
-			storeMessageFunc: func(m *kafka.Message) ([]kafka.TopicPartition, error) {
-				return nil, errors.New("store failed")
-			},
-		}
-		rh := newResultHandler(log, dlqHandler, consumer)
-
-		span := newMockSpan()
-		msg := createTestMessage()
-
-		// Should not panic even when store fails
-		rh.handle(context.Background(), nil, msg, span)
-
-		assert.Len(t, consumer.storedMessages, 1)
 	})
 }
 
-func TestResultHandler_MessageFields(t *testing.T) {
-	t.Run("returns correct message fields", func(t *testing.T) {
+func TestResultHandler_RecordFields(t *testing.T) {
+	t.Run("returns correct record fields", func(t *testing.T) {
 		log := zap.NewNop()
 		dlqHandler := &mockDLQHandler{}
-		consumer := &mockOffsetStorer{}
-		rh := newResultHandler(log, dlqHandler, consumer)
-		msg := createTestMessage()
+		marker := &mockOffsetMarker{}
+		rh := &resultHandler{log: log, dlqHandler: dlqHandler, offsetMarker: marker}
+		record := createTestMessage()
 
-		fields := rh.messageFields(msg)
+		fields := rh.recordFields(record)
 
 		assert.Len(t, fields, 3)
 	})
 
-	t.Run("returns message fields with error", func(t *testing.T) {
+	t.Run("returns record fields with error", func(t *testing.T) {
 		log := zap.NewNop()
 		dlqHandler := &mockDLQHandler{}
-		consumer := &mockOffsetStorer{}
-		rh := newResultHandler(log, dlqHandler, consumer)
-		msg := createTestMessage()
+		marker := &mockOffsetMarker{}
+		rh := &resultHandler{log: log, dlqHandler: dlqHandler, offsetMarker: marker}
+		record := createTestMessage()
 
-		fields := rh.messageFieldsWithError(msg, assert.AnError)
+		fields := rh.recordFieldsWithError(record, assert.AnError)
 
-		assert.Len(t, fields, 4) // 3 message fields + 1 error field
+		assert.Len(t, fields, 4) // 3 record fields + 1 error field
 	})
 }

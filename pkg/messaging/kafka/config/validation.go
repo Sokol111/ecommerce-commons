@@ -75,6 +75,11 @@ func validateGlobalConsumerConfig(cfg *ConsumersConfig) error {
 		return fmt.Errorf("default channel buffer size must be between %d and %d, got: %d",
 			minChannelBufferSize, maxChannelBufferSize, cfg.DefaultChannelBufferSize)
 	}
+	if cfg.DefaultMaxPollRecords > 0 &&
+		(cfg.DefaultMaxPollRecords < minMaxPollRecords || cfg.DefaultMaxPollRecords > maxMaxPollRecords) {
+		return fmt.Errorf("default max poll records must be between %d and %d, got: %d",
+			minMaxPollRecords, maxMaxPollRecords, cfg.DefaultMaxPollRecords)
+	}
 	return nil
 }
 
@@ -134,6 +139,11 @@ func validateConsumer(index int, consumer *ConsumerConfig) error {
 		return fmt.Errorf("consumer[%d] (%s): channel buffer size must be between %d and %d, got: %d",
 			index, consumer.Name, minChannelBufferSize, maxChannelBufferSize, consumer.ChannelBufferSize)
 	}
+	if consumer.MaxPollRecords > 0 &&
+		(consumer.MaxPollRecords < minMaxPollRecords || consumer.MaxPollRecords > maxMaxPollRecords) {
+		return fmt.Errorf("consumer[%d] (%s): max poll records must be between %d and %d, got: %d",
+			index, consumer.Name, minMaxPollRecords, maxMaxPollRecords, consumer.MaxPollRecords)
+	}
 	if consumer.EnableDLQ && strings.TrimSpace(consumer.DLQTopic) != "" && consumer.DLQTopic == consumer.Topic {
 		return fmt.Errorf("consumer[%d] (%s): DLQ topic cannot be the same as main topic",
 			index, consumer.Name)
@@ -146,6 +156,23 @@ func validateProducerConfig(cfg *ProducerConfig) error {
 	if cfg.ReadinessTimeoutSeconds > maxReadinessTimeout {
 		return fmt.Errorf("producer readiness timeout cannot exceed %d seconds, got: %d",
 			maxReadinessTimeout, cfg.ReadinessTimeoutSeconds)
+	}
+	if cfg.Linger > maxProducerLinger {
+		return fmt.Errorf("producer linger cannot exceed %s, got: %s",
+			maxProducerLinger, cfg.Linger)
+	}
+	switch cfg.Compression {
+	case "none", "snappy", "lz4", "zstd", "":
+	default:
+		return fmt.Errorf("producer compression must be one of: none, snappy, lz4, zstd, got: %s", cfg.Compression)
+	}
+	if cfg.DeliveryTimeout != 0 && (cfg.DeliveryTimeout < minProducerDeliveryTimeout || cfg.DeliveryTimeout > maxProducerDeliveryTimeout) {
+		return fmt.Errorf("producer delivery timeout must be between %s and %s, got: %s",
+			minProducerDeliveryTimeout, maxProducerDeliveryTimeout, cfg.DeliveryTimeout)
+	}
+	if cfg.MaxBufferedRecords != 0 && (cfg.MaxBufferedRecords < minProducerMaxBufferedRecords || cfg.MaxBufferedRecords > maxProducerMaxBufferedRecords) {
+		return fmt.Errorf("producer max buffered records must be between %d and %d, got: %d",
+			minProducerMaxBufferedRecords, maxProducerMaxBufferedRecords, cfg.MaxBufferedRecords)
 	}
 	return nil
 }

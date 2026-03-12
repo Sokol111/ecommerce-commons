@@ -70,17 +70,17 @@ func (p *processor) Run(ctx context.Context) error {
 
 func (p *processor) processMessage(ctx context.Context, envelope *MessageEnvelope) {
 	// Витягуємо trace context з Kafka headers
-	ctx = p.tracer.ExtractContext(ctx, envelope.Message)
+	ctx = p.tracer.ExtractContext(ctx, envelope.Record)
 
 	// Створюємо span для обробки повідомлення
-	ctx, span := p.tracer.StartConsumerSpan(ctx, envelope.Message)
+	ctx, span := p.tracer.StartConsumerSpan(ctx, envelope.Record)
 	defer span.End()
 
 	// Обробляємо повідомлення з retry логікою
 	err := p.executeWithRetry(ctx, envelope.Event)
 
 	// Класифікуємо результат та застосовуємо відповідну стратегію
-	p.resultHandler.handle(ctx, err, envelope.Message, span)
+	p.resultHandler.handle(ctx, err, envelope.Record, span)
 }
 
 // executeWithRetry executes the handler with exponential backoff retry logic.

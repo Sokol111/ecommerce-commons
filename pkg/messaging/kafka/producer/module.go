@@ -2,11 +2,11 @@ package producer
 
 import (
 	"context"
-	"fmt"
+	"strings"
 
 	"github.com/Sokol111/ecommerce-commons/pkg/core/health"
 	"github.com/Sokol111/ecommerce-commons/pkg/messaging/kafka/config"
-	"github.com/confluentinc/confluent-kafka-go/v2/kafka"
+	"github.com/twmb/franz-go/pkg/kgo"
 	"go.uber.org/fx"
 	"go.uber.org/zap"
 )
@@ -15,34 +15,44 @@ import (
 func NewProducerModule() fx.Option {
 	return fx.Options(
 		fx.Provide(
-			provideKafkaProducer,
+			provideKgoClient,
 			provideProducer,
 		),
 		fx.Invoke(invokeInitializer),
 	)
 }
 
-func provideKafkaProducer(lc fx.Lifecycle, conf config.Config) (*kafka.Producer, error) {
-	p, err := kafka.NewProducer(&kafka.ConfigMap{"bootstrap.servers": conf.Brokers})
+func provideKgoClient(lc fx.Lifecycle, conf config.Config) (*kgo.Client, error) {
+	brokers := strings.Split(conf.Brokers, ",")
+
+	compression := compressionCodec(conf.ProducerConfig.Compression)
+
+	client, err := kgo.NewClient(
+		kgo.SeedBrokers(brokers...),
+		kgo.ProducerLinger(conf.ProducerConfig.Linger),
+		kgo.ProducerBatchCompression(compression),
+		kgo.RecordDeliveryTimeout(conf.ProducerConfig.DeliveryTimeout),
+		kgo.MaxBufferedRecords(conf.ProducerConfig.MaxBufferedRecords),
+	)
 	if err != nil {
-		return nil, fmt.Errorf("failed to create producer: %w", err)
+		return nil, err
 	}
 
 	lc.Append(fx.Hook{
 		OnStop: func(ctx context.Context) error {
-			p.Close()
+			client.Close()
 			return nil
 		},
 	})
 
-	return p, nil
+	return client, nil
 }
 
-func invokeInitializer(lc fx.Lifecycle, readiness health.ComponentManager, p *kafka.Producer, log *zap.Logger, conf config.Config) {
+func invokeInitializer(lc fx.Lifecycle, readiness health.ComponentManager, client *kgo.Client, log *zap.Logger, conf config.Config) {
 	markReady := readiness.AddComponent("kafka-producer")
 	lc.Append(fx.Hook{
 		OnStart: func(ctx context.Context) error {
-			if err := waitForBrokers(ctx, p, log.With(zap.String("component", "producer")), conf.ProducerConfig.ReadinessTimeoutSeconds, conf.ProducerConfig.FailOnBrokerError); err != nil {
+			if err := waitForBrokers(ctx, client, log.With(zap.String("component", "producer")), conf.ProducerConfig.ReadinessTimeoutSeconds, conf.ProducerConfig.FailOnBrokerError); err != nil {
 				return err
 			}
 			markReady()
@@ -51,6 +61,21 @@ func invokeInitializer(lc fx.Lifecycle, readiness health.ComponentManager, p *ka
 	})
 }
 
-func provideProducer(kafkaProducer *kafka.Producer, log *zap.Logger) Producer {
-	return newProducer(kafkaProducer, log.With(zap.String("component", "producer")))
+func provideProducer(client *kgo.Client) Producer {
+	return client
+}
+
+func compressionCodec(name string) kgo.CompressionCodec {
+	switch name {
+	case "snappy":
+		return kgo.SnappyCompression()
+	case "lz4":
+		return kgo.Lz4Compression()
+	case "zstd":
+		return kgo.ZstdCompression()
+	case "none":
+		return kgo.NoCompression()
+	default:
+		return kgo.NoCompression()
+	}
 }

@@ -1,13 +1,13 @@
 package serialization
 
 import (
-	"encoding/binary"
 	"fmt"
 	"sync"
 
 	"github.com/Sokol111/ecommerce-commons/pkg/messaging/kafka/events"
 	"github.com/Sokol111/ecommerce-commons/pkg/messaging/kafka/serde"
 	hambavro "github.com/hamba/avro/v2"
+	"github.com/twmb/franz-go/pkg/sr"
 )
 
 // Verify at compile time that avroSerializer implements serde.Serializer.
@@ -51,17 +51,12 @@ func (s *avroSerializer) Serialize(event events.Event) ([]byte, error) {
 	}
 
 	// Build Confluent wire format: [0x00][schema_id (4 bytes)][avro_data]
-	return buildConfluentWireFormat(schemaID, avroData), nil
-}
-
-// buildConfluentWireFormat creates Confluent wire format from schema ID and payload.
-// Format: [0x00][schema_id (4 bytes big-endian)][payload].
-func buildConfluentWireFormat(schemaID int, payload []byte) []byte {
-	result := make([]byte, 5+len(payload))
-	result[0] = 0x00                                          // Magic byte
-	binary.BigEndian.PutUint32(result[1:5], uint32(schemaID)) //nolint:gosec // schemaID is always positive from schema registry
-	copy(result[5:], payload)
-	return result
+	var h sr.ConfluentHeader
+	result, err := h.AppendEncode(nil, schemaID, nil)
+	if err != nil {
+		return nil, fmt.Errorf("failed to encode wire format header: %w", err)
+	}
+	return append(result, avroData...), nil
 }
 
 func (s *avroSerializer) getParsedSchema(schemaName string, schemaJSON []byte) (hambavro.Schema, error) {

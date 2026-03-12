@@ -1,11 +1,12 @@
 package deserialization
 
 import (
+	"context"
 	"fmt"
 	"sync"
 
-	schemaregistry "github.com/confluentinc/confluent-kafka-go/v2/schemaregistry"
 	hambavro "github.com/hamba/avro/v2"
+	"github.com/twmb/franz-go/pkg/sr"
 )
 
 // WriterSchemaResolver resolves schema IDs to writer schema metadata from Schema Registry.
@@ -21,13 +22,13 @@ type schemaCache struct {
 }
 
 type registryWriterSchemaResolver struct {
-	client schemaregistry.Client
+	client *sr.Client
 	cache  map[int]*schemaCache
 	mu     sync.RWMutex
 }
 
 // NewWriterSchemaResolver creates a Schema Registry-based writer schema resolver.
-func NewWriterSchemaResolver(client schemaregistry.Client) WriterSchemaResolver {
+func NewWriterSchemaResolver(client *sr.Client) WriterSchemaResolver {
 	return &registryWriterSchemaResolver{
 		client: client,
 		cache:  make(map[int]*schemaCache),
@@ -62,28 +63,14 @@ func (r *registryWriterSchemaResolver) Resolve(schemaID int) (hambavro.Schema, s
 }
 
 func (r *registryWriterSchemaResolver) fetchSchemaMetadata(schemaID int) (hambavro.Schema, string, error) {
-	// Fetch schema from Schema Registry
-	subjectVersions, err := r.client.GetSubjectsAndVersionsByID(schemaID)
+	// Fetch schema from Schema Registry by ID
+	resolvedSchema, err := r.client.SchemaByID(context.Background(), schemaID)
 	if err != nil {
-		return nil, "", fmt.Errorf("failed to get subjects for schema ID: %w", err)
-	}
-
-	if len(subjectVersions) == 0 {
-		return nil, "", fmt.Errorf("no subjects found for schema ID %d", schemaID)
-	}
-
-	// Use the first subject (typically there's only one for value schemas)
-	subject := subjectVersions[0].Subject
-
-	// Get schema metadata from registry
-	schemaMetadata, err := r.client.GetBySubjectAndID(subject, schemaID)
-	if err != nil {
-		return nil, "", fmt.Errorf("failed to fetch schema from registry: %w", err)
+		return nil, "", fmt.Errorf("failed to fetch schema for ID %d: %w", schemaID, err)
 	}
 
 	// Parse schema (writer schema from Registry)
-	// This is cached to avoid repeated parsing
-	schema, err := hambavro.Parse(schemaMetadata.Schema)
+	schema, err := hambavro.Parse(resolvedSchema.Schema)
 	if err != nil {
 		return nil, "", fmt.Errorf("failed to parse avro schema: %w", err)
 	}

@@ -9,7 +9,7 @@ import (
 	"github.com/Sokol111/ecommerce-commons/pkg/messaging/kafka/avro/serialization"
 	"github.com/Sokol111/ecommerce-commons/pkg/messaging/kafka/config"
 	"github.com/Sokol111/ecommerce-commons/pkg/messaging/kafka/events"
-	"github.com/confluentinc/confluent-kafka-go/v2/schemaregistry"
+	"github.com/twmb/franz-go/pkg/sr"
 	"go.uber.org/fx"
 	"go.uber.org/zap"
 )
@@ -29,29 +29,18 @@ func NewAvroModule() fx.Option {
 	)
 }
 
-func provideSchemaRegistryClient(lc fx.Lifecycle, kafkaConf config.Config, log *zap.Logger) (schemaregistry.Client, error) {
-	config := schemaregistry.NewConfig(kafkaConf.SchemaRegistry.URL)
-	config.RequestTimeoutMs = 5000 // 5 seconds timeout for Schema Registry requests
-
-	client, err := schemaregistry.NewClient(config)
+func provideSchemaRegistryClient(kafkaConf config.Config, log *zap.Logger) (*sr.Client, error) {
+	client, err := sr.NewClient(sr.URLs(kafkaConf.SchemaRegistry.URL))
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to create schema registry client: %w", err)
 	}
-
-	lc.Append(fx.Hook{
-		OnStop: func(ctx context.Context) error {
-			log.Info("closing schema registry client")
-			return client.Close()
-		},
-	})
-
 	return client, nil
 }
 
-func provideSchemaRegistry(lc fx.Lifecycle, client schemaregistry.Client, log *zap.Logger, cm health.ComponentManager, eventRegistry events.EventRegistry) serialization.SchemaRegistry {
-	registry := serialization.NewConfluentRegistry(client)
+func provideSchemaRegistry(lc fx.Lifecycle, client *sr.Client, log *zap.Logger, cm health.ComponentManager, eventRegistry events.EventRegistry) serialization.SchemaRegistry {
+	registry := serialization.NewSchemaRegistry(client)
 
-	markReady := cm.AddComponent("confluent_schema_registry")
+	markReady := cm.AddComponent("schema_registry")
 	lc.Append(fx.Hook{
 		OnStart: func(ctx context.Context) error {
 			// Register all event schemas on startup

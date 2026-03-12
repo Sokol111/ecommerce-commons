@@ -2,17 +2,16 @@ package outbox
 
 import (
 	"context"
-	"fmt"
 
 	"github.com/Sokol111/ecommerce-commons/pkg/messaging/kafka/producer"
-	"github.com/confluentinc/confluent-kafka-go/v2/kafka"
+	"github.com/twmb/franz-go/pkg/kgo"
 	"go.uber.org/zap"
 )
 
 type sender struct {
 	producer        producer.Producer
 	entitiesChan    <-chan *outboxEntity
-	deliveryChan    chan kafka.Event
+	confirmChan     chan<- confirmResult
 	logger          *zap.Logger
 	tracePropagator tracePropagator
 }
@@ -20,14 +19,14 @@ type sender struct {
 func newSender(
 	producer producer.Producer,
 	entitiesChan chan *outboxEntity,
-	deliveryChan chan kafka.Event,
+	confirmChan chan confirmResult,
 	logger *zap.Logger,
 	tracePropagator tracePropagator,
 ) *sender {
 	return &sender{
 		producer:        producer,
 		entitiesChan:    entitiesChan,
-		deliveryChan:    deliveryChan,
+		confirmChan:     confirmChan,
 		logger:          logger,
 		tracePropagator: tracePropagator,
 	}
@@ -47,32 +46,26 @@ func (s *sender) Run(ctx context.Context) error {
 		case <-ctx.Done():
 			return nil
 		case entity := <-s.entitiesChan:
-			if err := s.send(entity); err != nil {
-				s.logger.Error("failed to send outbox message",
-					zap.String("id", entity.ID),
-					zap.Error(err))
-				continue
-			}
+			s.send(ctx, entity)
 			s.logger.Debug("outbox sent to kafka", zap.String("id", entity.ID))
 		}
 	}
 }
 
-func (s *sender) send(entity *outboxEntity) error {
+func (s *sender) send(ctx context.Context, entity *outboxEntity) {
 	_, span, kafkaHeaders := s.tracePropagator.StartKafkaProducerSpan(entity.Headers, entity.Topic, entity.ID)
 	defer span.End()
 
-	err := s.producer.Produce(&kafka.Message{
-		TopicPartition: kafka.TopicPartition{Topic: &entity.Topic, Partition: kafka.PartitionAny},
-		Opaque:         entity.ID,
-		Value:          entity.Payload,
-		Key:            []byte(entity.Key),
-		Headers:        kafkaHeaders,
-	}, s.deliveryChan)
-
-	if err != nil {
-		return fmt.Errorf("failed to send outbox message with id %v: %w", entity.ID, err)
+	record := &kgo.Record{
+		Topic:   entity.Topic,
+		Key:     []byte(entity.Key),
+		Value:   entity.Payload,
+		Headers: kafkaHeaders,
 	}
 
-	return nil
+	entityID := entity.ID
+	confirmChan := s.confirmChan
+	s.producer.Produce(ctx, record, func(_ *kgo.Record, err error) {
+		confirmChan <- confirmResult{ID: entityID, Err: err}
+	})
 }

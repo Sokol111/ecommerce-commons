@@ -8,8 +8,8 @@ import (
 	"time"
 
 	"github.com/Sokol111/ecommerce-commons/pkg/messaging/kafka/events"
-	"github.com/confluentinc/confluent-kafka-go/v2/kafka"
 	"github.com/stretchr/testify/assert"
+	"github.com/twmb/franz-go/pkg/kgo"
 	"go.uber.org/zap"
 )
 
@@ -48,20 +48,20 @@ func (m *mockDeserializer) Deserialize(data []byte) (events.Event, error) {
 
 // mockDLQHandler is a test implementation of DLQHandler
 type mockDLQHandler struct {
-	sendToDLQFunc func(ctx context.Context, message *kafka.Message, processingErr error)
+	sendToDLQFunc func(ctx context.Context, record *kgo.Record, processingErr error)
 	callCount     atomic.Int32
 }
 
-func (m *mockDLQHandler) SendToDLQ(ctx context.Context, message *kafka.Message, processingErr error) {
+func (m *mockDLQHandler) SendToDLQ(ctx context.Context, record *kgo.Record, processingErr error) {
 	m.callCount.Add(1)
 	if m.sendToDLQFunc != nil {
-		m.sendToDLQFunc(ctx, message, processingErr)
+		m.sendToDLQFunc(ctx, record, processingErr)
 	}
 }
 
 func TestNewMessageDeserializer(t *testing.T) {
 	t.Run("creates deserializer with correct fields", func(t *testing.T) {
-		inputChan := make(chan *kafka.Message)
+		inputChan := make(chan *kgo.Record)
 		outputChan := make(chan *MessageEnvelope)
 		deserializer := &mockDeserializer{}
 		log := zap.NewNop()
@@ -76,7 +76,7 @@ func TestNewMessageDeserializer(t *testing.T) {
 
 func TestMessageDeserializer_Run(t *testing.T) {
 	t.Run("deserializes messages and sends to output", func(t *testing.T) {
-		inputChan := make(chan *kafka.Message, 1)
+		inputChan := make(chan *kgo.Record, 1)
 		outputChan := make(chan *MessageEnvelope, 1)
 		expectedEvent := &mockEvent{}
 		deserializer := &mockDeserializer{
@@ -103,7 +103,7 @@ func TestMessageDeserializer_Run(t *testing.T) {
 		select {
 		case envelope := <-outputChan:
 			assert.Equal(t, expectedEvent, envelope.Event)
-			assert.Equal(t, msg, envelope.Message)
+			assert.Equal(t, msg, envelope.Record)
 		case <-time.After(100 * time.Millisecond):
 			t.Fatal("envelope was not sent to output channel")
 		}
@@ -112,7 +112,7 @@ func TestMessageDeserializer_Run(t *testing.T) {
 	})
 
 	t.Run("sends to DLQ on deserialization error", func(t *testing.T) {
-		inputChan := make(chan *kafka.Message, 1)
+		inputChan := make(chan *kgo.Record, 1)
 		outputChan := make(chan *MessageEnvelope, 1)
 		deserializer := &mockDeserializer{
 			deserializeFunc: func(data []byte) (events.Event, error) {
@@ -122,10 +122,10 @@ func TestMessageDeserializer_Run(t *testing.T) {
 		log := zap.NewNop()
 		tracer := newMockTracer()
 
-		dlqCalled := make(chan *kafka.Message, 1)
+		dlqCalled := make(chan *kgo.Record, 1)
 		dlqHandler := &mockDLQHandler{
-			sendToDLQFunc: func(ctx context.Context, message *kafka.Message, processingErr error) {
-				dlqCalled <- message
+			sendToDLQFunc: func(ctx context.Context, record *kgo.Record, processingErr error) {
+				dlqCalled <- record
 			},
 		}
 
@@ -160,7 +160,7 @@ func TestMessageDeserializer_Run(t *testing.T) {
 	})
 
 	t.Run("stops on context cancellation", func(t *testing.T) {
-		inputChan := make(chan *kafka.Message)
+		inputChan := make(chan *kgo.Record)
 		outputChan := make(chan *MessageEnvelope)
 		deserializer := &mockDeserializer{}
 		log := zap.NewNop()
@@ -187,7 +187,7 @@ func TestMessageDeserializer_Run(t *testing.T) {
 	})
 
 	t.Run("handles multiple messages", func(t *testing.T) {
-		inputChan := make(chan *kafka.Message, 3)
+		inputChan := make(chan *kgo.Record, 3)
 		outputChan := make(chan *MessageEnvelope, 3)
 		deserializer := &mockDeserializer{
 			deserializeFunc: func(data []byte) (events.Event, error) {
@@ -228,7 +228,7 @@ func TestMessageDeserializer_Run(t *testing.T) {
 
 func TestMessageDeserializer_DeserializeAndSend(t *testing.T) {
 	t.Run("extracts trace context from message", func(t *testing.T) {
-		inputChan := make(chan *kafka.Message)
+		inputChan := make(chan *kgo.Record)
 		outputChan := make(chan *MessageEnvelope, 1)
 		deserializer := &mockDeserializer{
 			deserializeFunc: func(data []byte) (events.Event, error) {
@@ -239,7 +239,7 @@ func TestMessageDeserializer_DeserializeAndSend(t *testing.T) {
 
 		extractCalled := atomic.Bool{}
 		tracer := newMockTracer()
-		tracer.extractContextFunc = func(ctx context.Context, message *kafka.Message) context.Context {
+		tracer.extractContextFunc = func(ctx context.Context, record *kgo.Record) context.Context {
 			extractCalled.Store(true)
 			return ctx
 		}
@@ -254,7 +254,7 @@ func TestMessageDeserializer_DeserializeAndSend(t *testing.T) {
 	})
 
 	t.Run("respects context cancellation during send", func(t *testing.T) {
-		inputChan := make(chan *kafka.Message)
+		inputChan := make(chan *kgo.Record)
 		outputChan := make(chan *MessageEnvelope) // unbuffered - will block
 		deserializer := &mockDeserializer{
 			deserializeFunc: func(data []byte) (events.Event, error) {

@@ -28,6 +28,9 @@ func (cfg *Config) ApplyDefaults() {
 	if cfg.ConsumersConfig.DefaultChannelBufferSize == 0 {
 		cfg.ConsumersConfig.DefaultChannelBufferSize = defaultChannelBufferSize
 	}
+	if cfg.ConsumersConfig.DefaultMaxPollRecords == 0 {
+		cfg.ConsumersConfig.DefaultMaxPollRecords = defaultMaxPollRecords
+	}
 
 	// Apply defaults from global consumer config to individual consumers
 	for i := range cfg.ConsumersConfig.ConsumerConfig {
@@ -37,6 +40,18 @@ func (cfg *Config) ApplyDefaults() {
 	// Apply default producer config settings
 	if cfg.ProducerConfig.ReadinessTimeoutSeconds == 0 {
 		cfg.ProducerConfig.ReadinessTimeoutSeconds = defaultProducerReadinessTimeout
+	}
+	if cfg.ProducerConfig.Linger == 0 {
+		cfg.ProducerConfig.Linger = defaultProducerLinger
+	}
+	if cfg.ProducerConfig.Compression == "" {
+		cfg.ProducerConfig.Compression = defaultProducerCompression
+	}
+	if cfg.ProducerConfig.DeliveryTimeout == 0 {
+		cfg.ProducerConfig.DeliveryTimeout = defaultProducerDeliveryTimeout
+	}
+	if cfg.ProducerConfig.MaxBufferedRecords == 0 {
+		cfg.ProducerConfig.MaxBufferedRecords = defaultProducerMaxBufferedRecords
 	}
 }
 
@@ -75,5 +90,9 @@ func applyConsumerDefaults(consumer *ConsumerConfig, globalConfig *ConsumersConf
 	// Apply default channel buffer size from global config
 	if consumer.ChannelBufferSize == 0 {
 		consumer.ChannelBufferSize = globalConfig.DefaultChannelBufferSize
+	}
+	// Apply default max poll records from global config
+	if consumer.MaxPollRecords == 0 {
+		consumer.MaxPollRecords = globalConfig.DefaultMaxPollRecords
 	}
 }

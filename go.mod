@@ -1,6 +1,6 @@
 module github.com/Sokol111/ecommerce-commons
 
-go 1.26.0
+go 1.26.1
 
 require (
 	aidanwoods.dev/go-paseto v1.6.0
@@ -21,7 +21,7 @@ require (
 	github.com/twmb/franz-go/pkg/kadm v1.17.2
 	github.com/twmb/franz-go/pkg/sr v1.7.0
 	go.mongodb.org/mongo-driver/v2 v2.5.0
-	go.opentelemetry.io/contrib/instrumentation/go.mongodb.org/mongo-driver/v2/mongo/otelmongo v0.0.0-20260312145906-d6dbd68170c0
+	go.opentelemetry.io/contrib/instrumentation/go.mongodb.org/mongo-driver/v2/mongo/otelmongo v0.0.0-20260313081820-56eb3ca3b1f4
 	go.opentelemetry.io/contrib/instrumentation/runtime v0.67.0
 	go.opentelemetry.io/otel v1.42.0
 	go.opentelemetry.io/otel/exporters/otlp/otlpmetric/otlpmetricgrpc v1.42.0

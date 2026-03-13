@@ -45,7 +45,7 @@ func (r *reader) Run(ctx context.Context) error {
 
 		fetches := r.client.PollRecords(ctx, r.maxPollRecords)
 		if ctx.Err() != nil {
-			return nil
+			return nil //nolint:nilerr // context cancellation is a graceful shutdown, not an error
 		}
 
 		fetchErrors := fetches.Errors()

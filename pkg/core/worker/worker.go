@@ -61,7 +61,7 @@ type baseWorker struct {
 // Start starts the worker by running the function in a goroutine.
 func (w *baseWorker) Start() {
 	w.log.Info("starting worker", zap.String("worker", w.name))
-	w.ctx, w.cancelFunc = context.WithCancel(context.Background())
+	w.ctx, w.cancelFunc = context.WithCancel(context.Background()) //nolint:gosec // G118: cancel is stored in w.cancelFunc and called in Stop()
 	w.wg.Add(1)
 	go func() {
 		defer w.wg.Done()

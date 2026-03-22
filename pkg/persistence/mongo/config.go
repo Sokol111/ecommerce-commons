@@ -33,8 +33,8 @@ type Config struct {
 
 // MigrationConfig holds migration-specific configuration.
 type MigrationConfig struct {
-	// Enabled controls whether migrations run on startup
-	Enabled bool `mapstructure:"enabled"`
+	// Disabled controls whether migrations are skipped on startup
+	Disabled bool `mapstructure:"disabled"`
 	// Path to migrations directory
 	Path string `mapstructure:"path"`
 }
@@ -70,6 +70,9 @@ func (c Config) BuildURI() string {
 
 // applyDefaults sets default values for unset configuration fields.
 func (c *Config) applyDefaults() {
+	if c.Port == 0 {
+		c.Port = 27017 // Default MongoDB port
+	}
 	if c.MaxPoolSize == 0 {
 		c.MaxPoolSize = 100 // Default: 100 connections
 	}

@@ -12,7 +12,7 @@ import (
 
 // runMigrations applies database migrations if enabled in config.
 func runMigrations(cfg Config, log *zap.Logger) error {
-	if !cfg.Migrations.Enabled {
+	if cfg.Migrations.Disabled {
 		log.Info("Database migrations disabled")
 		return nil
 	}

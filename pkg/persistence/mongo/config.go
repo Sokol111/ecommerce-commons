@@ -40,9 +40,17 @@ type MigrationConfig struct {
 }
 
 // BuildURI constructs a MongoDB connection string from Config.
-// Returns ConnectionString if set, otherwise builds URI from individual fields.
+// Returns ConnectionString if set (with Database injected into path if missing),
+// otherwise builds URI from individual fields.
 func (c Config) BuildURI() string {
 	if c.ConnectionString != "" {
+		if c.Database != "" {
+			u, err := url.Parse(c.ConnectionString)
+			if err == nil && (u.Path == "" || u.Path == "/") {
+				u.Path = "/" + c.Database
+				return u.String()
+			}
+		}
 		return c.ConnectionString
 	}
 

@@ -3,7 +3,9 @@ package pprof
 import (
 	"context"
 	"net/http"
-	_ "net/http/pprof"
+	_ "net/http/pprof" //nolint:gosec // G108: pprof is intentionally exposed, controlled by config
+	"strconv"
+	"time"
 
 	"github.com/spf13/viper"
 	"go.uber.org/fx"
@@ -15,7 +17,7 @@ import (
 //
 //	pprof:
 //	  enabled: true
-//	  addr: "localhost:6060"
+//	  port: 6060
 //
 // If pprof.enabled is false or not set, the module does nothing.
 func NewPprofModule() fx.Option {
@@ -24,12 +26,16 @@ func NewPprofModule() fx.Option {
 			return
 		}
 
-		addr := v.GetString("pprof.addr")
-		if addr == "" {
-			addr = "localhost:6060"
+		port := v.GetInt("pprof.port")
+		if port == 0 {
+			port = 6060
 		}
 
-		srv := &http.Server{Addr: addr}
+		addr := ":" + strconv.Itoa(port)
+		srv := &http.Server{
+			Addr:              addr,
+			ReadHeaderTimeout: 10 * time.Second,
+		}
 
 		lc.Append(fx.Hook{
 			OnStart: func(_ context.Context) error {

@@ -11,10 +11,10 @@ import (
 
 // coreOptions holds internal configuration for the core module.
 type coreOptions struct {
-	appConfig          *config.AppConfig
-	loggerConfig       *logger.Config
-	disableDotEnv      bool
-	disableViperConfig bool
+	appConfig         *config.AppConfig
+	loggerConfig      *logger.Config
+	disableDotEnv     bool
+	disableConfigFile bool
 }
 
 // Option is a functional option for configuring the core module.
@@ -48,7 +48,7 @@ func WithoutEnvFile() Option {
 // Useful for tests where configuration is provided via options.
 func WithoutConfigFile() Option {
 	return func(opts *coreOptions) {
-		opts.disableViperConfig = true
+		opts.disableConfigFile = true
 	}
 }
 
@@ -83,6 +83,7 @@ func NewCoreModule(opts ...Option) fx.Option {
 
 		dotEnvModule(cfg),
 		viperModule(cfg),
+		koanfModule(cfg),
 		appConfigModule(cfg),
 		loggerModule(cfg),
 		health.NewReadinessModule(),
@@ -97,10 +98,17 @@ func dotEnvModule(cfg *coreOptions) fx.Option {
 }
 
 func viperModule(cfg *coreOptions) fx.Option {
-	if cfg.disableViperConfig {
+	if cfg.disableConfigFile {
 		return config.NewViperModule(config.WithoutConfigFile())
 	}
 	return config.NewViperModule()
+}
+
+func koanfModule(cfg *coreOptions) fx.Option {
+	if cfg.disableConfigFile {
+		return config.NewKoanfModule(config.WithoutKoanfConfigFile())
+	}
+	return config.NewKoanfModule()
 }
 
 func appConfigModule(cfg *coreOptions) fx.Option {

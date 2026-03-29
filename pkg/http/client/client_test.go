@@ -13,8 +13,9 @@ import (
 	"testing"
 	"time"
 
+	"github.com/knadh/koanf/providers/confmap"
+	"github.com/knadh/koanf/v2"
 	"github.com/samber/lo"
-	"github.com/spf13/viper"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -208,12 +209,14 @@ func TestNewHTTPClient(t *testing.T) {
 
 func TestProvideHTTPClient(t *testing.T) {
 	t.Run("creates client from valid config", func(t *testing.T) {
-		v := viper.New()
-		v.Set("clients.test-service.base-url", "http://test-service:8080")
-		v.Set("clients.test-service.timeout", "5s")
+		k := koanf.New(".")
+		k.Load(confmap.Provider(map[string]any{
+			"clients.test-service.base-url": "http://test-service:8080",
+			"clients.test-service.timeout":  "5s",
+		}, "."), nil)
 
 		provider := ProvideHTTPClient("test-service")
-		client, cfg, err := provider(v)
+		client, cfg, err := provider(k)
 
 		require.NoError(t, err)
 		require.NotNil(t, client)
@@ -222,22 +225,26 @@ func TestProvideHTTPClient(t *testing.T) {
 	})
 
 	t.Run("returns error for missing base url", func(t *testing.T) {
-		v := viper.New()
-		v.Set("clients.test-service.timeout", "5s")
+		k := koanf.New(".")
+		k.Load(confmap.Provider(map[string]any{
+			"clients.test-service.timeout": "5s",
+		}, "."), nil)
 
 		provider := ProvideHTTPClient("test-service")
-		_, _, err := provider(v)
+		_, _, err := provider(k)
 
 		require.Error(t, err)
 		assert.Contains(t, err.Error(), "base-url is required")
 	})
 
 	t.Run("applies defaults for missing optional fields", func(t *testing.T) {
-		v := viper.New()
-		v.Set("clients.test-service.base-url", "http://test-service:8080")
+		k := koanf.New(".")
+		k.Load(confmap.Provider(map[string]any{
+			"clients.test-service.base-url": "http://test-service:8080",
+		}, "."), nil)
 
 		provider := ProvideHTTPClient("test-service")
-		_, cfg, err := provider(v)
+		_, cfg, err := provider(k)
 
 		require.NoError(t, err)
 		assert.Equal(t, DefaultTimeout, *cfg.Timeout)
@@ -247,10 +254,10 @@ func TestProvideHTTPClient(t *testing.T) {
 	})
 
 	t.Run("returns error for non-existent client name", func(t *testing.T) {
-		v := viper.New()
+		k := koanf.New(".")
 
 		provider := ProvideHTTPClient("non-existent")
-		_, _, err := provider(v)
+		_, _, err := provider(k)
 
 		require.Error(t, err)
 		assert.Contains(t, err.Error(), "base-url is required")

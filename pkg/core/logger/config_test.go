@@ -3,18 +3,19 @@ package logger
 import (
 	"testing"
 
-	"github.com/spf13/viper"
+	"github.com/knadh/koanf/providers/confmap"
+	"github.com/knadh/koanf/v2"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zapcore"
 )
 
 func TestNewConfig_DefaultValues(t *testing.T) {
-	// Given: viper without logger configuration
-	v := viper.New()
+	// Given: koanf without logger configuration
+	k := koanf.New(".")
 
 	// When: creating config
-	cfg, err := newConfig(v)
+	cfg, err := newConfig(k)
 
 	// Then: default values should be used
 	require.NoError(t, err)
@@ -69,13 +70,15 @@ func TestNewConfig_ValidConfiguration(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			// Given: viper with specific logger configuration
-			v := viper.New()
-			v.Set("logger.level", tt.level)
-			v.Set("logger.development", tt.development)
+			// Given: koanf with specific logger configuration
+			k := koanf.New(".")
+			k.Load(confmap.Provider(map[string]any{
+				"logger.level":       tt.level,
+				"logger.development": tt.development,
+			}, "."), nil)
 
 			// When: creating config
-			cfg, err := newConfig(v)
+			cfg, err := newConfig(k)
 
 			// Then: configuration should match expected values
 			require.NoError(t, err)
@@ -105,12 +108,14 @@ func TestNewConfig_InvalidLevel(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			// Given: viper with invalid configuration
-			v := viper.New()
-			v.Set("logger.level", tt.level)
+			// Given: koanf with invalid configuration
+			k := koanf.New(".")
+			k.Load(confmap.Provider(map[string]any{
+				"logger.level": tt.level,
+			}, "."), nil)
 
 			// When: creating config
-			_, err := newConfig(v)
+			_, err := newConfig(k)
 
 			// Then: should return error
 			require.Error(t, err)
@@ -122,22 +127,26 @@ func TestNewConfig_InvalidLevel(t *testing.T) {
 func TestNewConfig_PartialConfiguration(t *testing.T) {
 	tests := []struct {
 		name                string
-		setupViper          func(*viper.Viper)
+		setupKoanf          func(*koanf.Koanf)
 		expectedLevel       zapcore.Level
 		expectedDevelopment bool
 	}{
 		{
 			name: "only level specified",
-			setupViper: func(v *viper.Viper) {
-				v.Set("logger.level", "debug")
+			setupKoanf: func(k *koanf.Koanf) {
+				k.Load(confmap.Provider(map[string]any{
+					"logger.level": "debug",
+				}, "."), nil)
 			},
 			expectedLevel:       zapcore.DebugLevel,
 			expectedDevelopment: false, // default
 		},
 		{
 			name: "only development specified",
-			setupViper: func(v *viper.Viper) {
-				v.Set("logger.development", true)
+			setupKoanf: func(k *koanf.Koanf) {
+				k.Load(confmap.Provider(map[string]any{
+					"logger.development": true,
+				}, "."), nil)
 			},
 			expectedLevel:       zapcore.InfoLevel, // default
 			expectedDevelopment: true,
@@ -146,12 +155,12 @@ func TestNewConfig_PartialConfiguration(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			// Given: viper with partial configuration
-			v := viper.New()
-			tt.setupViper(v)
+			// Given: koanf with partial configuration
+			k := koanf.New(".")
+			tt.setupKoanf(k)
 
 			// When: creating config
-			cfg, err := newConfig(v)
+			cfg, err := newConfig(k)
 
 			// Then: should use defaults for unspecified values
 			require.NoError(t, err)
@@ -162,12 +171,14 @@ func TestNewConfig_PartialConfiguration(t *testing.T) {
 }
 
 func TestNewConfig_UnmarshalError(t *testing.T) {
-	// Given: viper with invalid type for boolean field
-	v := viper.New()
-	v.Set("logger.development", "not-a-boolean")
+	// Given: koanf with invalid type for boolean field
+	k := koanf.New(".")
+	k.Load(confmap.Provider(map[string]any{
+		"logger.development": "not-a-boolean",
+	}, "."), nil)
 
 	// When: creating config
-	_, err := newConfig(v)
+	_, err := newConfig(k)
 
 	// Then: should return unmarshal error
 	require.Error(t, err)
@@ -203,12 +214,14 @@ func TestNewConfig_CaseSensitivity(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			// Given: viper with various case formats
-			v := viper.New()
-			v.Set("logger.level", tt.level)
+			// Given: koanf with various case formats
+			k := koanf.New(".")
+			k.Load(confmap.Provider(map[string]any{
+				"logger.level": tt.level,
+			}, "."), nil)
 
 			// When: creating config
-			cfg, err := newConfig(v)
+			cfg, err := newConfig(k)
 
 			// Then: should handle case-insensitive parsing
 			if tt.shouldError {

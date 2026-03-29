@@ -17,7 +17,7 @@ type httpOptions struct {
 type HTTPOption func(*httpOptions)
 
 // WithServerConfig provides a static server Config (useful for tests).
-// When set, the server configuration will not be loaded from viper.
+// When set, the server configuration will not be loaded from koanf.
 func WithServerConfig(cfg server.Config) HTTPOption {
 	return func(opts *httpOptions) {
 		opts.serverConfig = &cfg
@@ -32,7 +32,7 @@ func WithServerConfig(cfg server.Config) HTTPOption {
 //
 // Example usage:
 //
-//	// Production - loads config from viper
+//	// Production - loads config from koanf
 //	modules.NewHTTPModule()
 //
 //	// Testing - with static config

@@ -17,7 +17,7 @@ type messagingOptions struct {
 type Option func(*messagingOptions)
 
 // WithKafkaConfig provides a static Kafka Config (useful for tests).
-// When set, the Kafka configuration will not be loaded from viper.
+// When set, the Kafka configuration will not be loaded from koanf.
 func WithKafkaConfig(cfg config.Config) Option {
 	return func(opts *messagingOptions) {
 		opts.kafkaConfig = &cfg
@@ -31,7 +31,7 @@ func WithKafkaConfig(cfg config.Config) Option {
 //
 // Example usage:
 //
-//	// Production - loads config from viper
+//	// Production - loads config from koanf
 //	messaging.NewMessagingModule()
 //
 //	// Testing - with static config

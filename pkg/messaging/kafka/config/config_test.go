@@ -1,18 +1,19 @@
 package config
 
 import (
-	"bytes"
 	"testing"
 	"time"
 
-	"github.com/spf13/viper"
+	"github.com/knadh/koanf/parsers/yaml"
+	"github.com/knadh/koanf/providers/rawbytes"
+	"github.com/knadh/koanf/v2"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
 // loadAndValidateConfig is a test helper that loads, validates, and applies defaults to Config.
-func loadAndValidateConfig(v *viper.Viper) (Config, error) {
-	cfg, err := loadFromViper(v)
+func loadAndValidateConfig(k *koanf.Koanf) (Config, error) {
+	cfg, err := loadConfig(k)
 	if err != nil {
 		return cfg, err
 	}
@@ -23,6 +24,15 @@ func loadAndValidateConfig(v *viper.Viper) (Config, error) {
 
 	cfg.ApplyDefaults()
 	return cfg, nil
+}
+
+// loadKoanfFromYAML is a test helper that creates a koanf instance from YAML string.
+func loadKoanfFromYAML(t *testing.T, yamlConfig string) *koanf.Koanf {
+	t.Helper()
+	k := koanf.New(".")
+	err := k.Load(rawbytes.Provider([]byte(yamlConfig)), yaml.Parser())
+	require.NoError(t, err)
+	return k
 }
 
 func TestNewConfig_ValidYAML(t *testing.T) {
@@ -57,12 +67,9 @@ kafka:
     fail-on-broker-error: true
 `
 
-	v := viper.New()
-	v.SetConfigType("yaml")
-	err := v.ReadConfig(bytes.NewBufferString(yamlConfig))
-	require.NoError(t, err)
+	k := loadKoanfFromYAML(t, yamlConfig)
 
-	cfg, err := loadAndValidateConfig(v)
+	cfg, err := loadAndValidateConfig(k)
 
 	require.NoError(t, err)
 	assert.Equal(t, "localhost:9092,localhost:9093", cfg.Brokers)
@@ -106,12 +113,9 @@ kafka:
     url: "http://schema-registry:8081"
 `
 
-	v := viper.New()
-	v.SetConfigType("yaml")
-	err := v.ReadConfig(bytes.NewBufferString(yamlConfig))
-	require.NoError(t, err)
+	k := loadKoanfFromYAML(t, yamlConfig)
 
-	cfg, err := loadAndValidateConfig(v)
+	cfg, err := loadAndValidateConfig(k)
 
 	require.NoError(t, err)
 
@@ -135,12 +139,9 @@ kafka:
     url: "http://schema-registry:8081"
 `
 
-	v := viper.New()
-	v.SetConfigType("yaml")
-	err := v.ReadConfig(bytes.NewBufferString(yamlConfig))
-	require.NoError(t, err)
+	k := loadKoanfFromYAML(t, yamlConfig)
 
-	_, err = loadAndValidateConfig(v)
+	_, err := loadAndValidateConfig(k)
 
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "brokers cannot be empty")
@@ -154,12 +155,9 @@ kafka:
     cache-capacity: 1000
 `
 
-	v := viper.New()
-	v.SetConfigType("yaml")
-	err := v.ReadConfig(bytes.NewBufferString(yamlConfig))
-	require.NoError(t, err)
+	k := loadKoanfFromYAML(t, yamlConfig)
 
-	_, err = loadAndValidateConfig(v)
+	_, err := loadAndValidateConfig(k)
 
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "schema registry URL cannot be empty")
@@ -180,12 +178,9 @@ kafka:
         enable-dlq: true
 `
 
-	v := viper.New()
-	v.SetConfigType("yaml")
-	err := v.ReadConfig(bytes.NewBufferString(yamlConfig))
-	require.NoError(t, err)
+	k := loadKoanfFromYAML(t, yamlConfig)
 
-	cfg, err := loadAndValidateConfig(v)
+	cfg, err := loadAndValidateConfig(k)
 
 	require.NoError(t, err)
 	require.Len(t, cfg.ConsumersConfig.ConsumerConfig, 1)
@@ -216,12 +211,9 @@ kafka:
         topic: "test-topic"
 `
 
-	v := viper.New()
-	v.SetConfigType("yaml")
-	err := v.ReadConfig(bytes.NewBufferString(yamlConfig))
-	require.NoError(t, err)
+	k := loadKoanfFromYAML(t, yamlConfig)
 
-	_, err = loadAndValidateConfig(v)
+	_, err := loadAndValidateConfig(k)
 
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "name cannot be empty")
@@ -236,12 +228,9 @@ kafka:
     cache-capacity: 50
 `
 
-	v := viper.New()
-	v.SetConfigType("yaml")
-	err := v.ReadConfig(bytes.NewBufferString(yamlConfig))
-	require.NoError(t, err)
+	k := loadKoanfFromYAML(t, yamlConfig)
 
-	_, err = loadAndValidateConfig(v)
+	_, err := loadAndValidateConfig(k)
 
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "cache capacity must be between")
@@ -258,12 +247,9 @@ kafka:
     default-max-backoff: 5s
 `
 
-	v := viper.New()
-	v.SetConfigType("yaml")
-	err := v.ReadConfig(bytes.NewBufferString(yamlConfig))
-	require.NoError(t, err)
+	k := loadKoanfFromYAML(t, yamlConfig)
 
-	_, err = loadAndValidateConfig(v)
+	_, err := loadAndValidateConfig(k)
 
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "initial backoff")
@@ -289,12 +275,9 @@ kafka:
         enable-dlq: true
 `
 
-	v := viper.New()
-	v.SetConfigType("yaml")
-	err := v.ReadConfig(bytes.NewBufferString(yamlConfig))
-	require.NoError(t, err)
+	k := loadKoanfFromYAML(t, yamlConfig)
 
-	cfg, err := loadAndValidateConfig(v)
+	cfg, err := loadAndValidateConfig(k)
 
 	require.NoError(t, err)
 	require.Len(t, cfg.ConsumersConfig.ConsumerConfig, 3)
@@ -323,12 +306,9 @@ kafka:
         auto-offset-reset: "invalid"
 `
 
-	v := viper.New()
-	v.SetConfigType("yaml")
-	err := v.ReadConfig(bytes.NewBufferString(yamlConfig))
-	require.NoError(t, err)
+	k := loadKoanfFromYAML(t, yamlConfig)
 
-	_, err = loadAndValidateConfig(v)
+	_, err := loadAndValidateConfig(k)
 
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "auto offset reset must be 'earliest' or 'latest'")

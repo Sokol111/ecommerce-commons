@@ -7,8 +7,8 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/knadh/koanf/v2"
 	"github.com/samber/lo"
-	"github.com/spf13/viper"
 )
 
 // Default values for HTTP client configuration.
@@ -34,11 +34,11 @@ const (
 //
 // Omit timeout fields to use defaults. Set to 0 to disable.
 type Config struct {
-	BaseURL             string         `mapstructure:"base-url"`
-	Timeout             *time.Duration `mapstructure:"timeout"`
-	MaxIdleConnsPerHost *int           `mapstructure:"max-idle-conns-per-host"`
-	IdleConnTimeout     *time.Duration `mapstructure:"idle-conn-timeout"`
-	MaxConnLifetime     *time.Duration `mapstructure:"max-conn-lifetime"`
+	BaseURL             string         `koanf:"base-url"`
+	Timeout             *time.Duration `koanf:"timeout"`
+	MaxIdleConnsPerHost *int           `koanf:"max-idle-conns-per-host"`
+	IdleConnTimeout     *time.Duration `koanf:"idle-conn-timeout"`
+	MaxConnLifetime     *time.Duration `koanf:"max-conn-lifetime"`
 }
 
 func newHTTPClient(cfg Config) *http.Client {
@@ -92,10 +92,10 @@ func newHTTPClient(cfg Config) *http.Client {
 // Usage with fx:
 //
 //	fx.Provide(fx.Private, httpclient.ProvideHTTPClient("catalog-service"))
-func ProvideHTTPClient(name string) func(*viper.Viper) (*http.Client, Config, error) {
-	return func(cfg *viper.Viper) (*http.Client, Config, error) {
+func ProvideHTTPClient(name string) func(*koanf.Koanf) (*http.Client, Config, error) {
+	return func(k *koanf.Koanf) (*http.Client, Config, error) {
 		var clientCfg Config
-		if err := cfg.UnmarshalKey("clients."+name, &clientCfg); err != nil {
+		if err := k.Unmarshal("clients."+name, &clientCfg); err != nil {
 			return nil, Config{}, fmt.Errorf("failed to unmarshal client config %q: %w", name, err)
 		}
 		if err := clientCfg.validate(); err != nil {

@@ -4,21 +4,21 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/spf13/viper"
+	"github.com/knadh/koanf/v2"
 )
 
 // Config holds the outbox pattern configuration.
 type Config struct {
 	// MaxBackoff is the maximum delay between retry attempts.
 	// Default: 10 hours
-	MaxBackoff time.Duration `mapstructure:"max-backoff"`
+	MaxBackoff time.Duration `koanf:"max-backoff"`
 }
 
-func newConfig(v *viper.Viper) (*Config, error) {
+func newConfig(k *koanf.Koanf) (*Config, error) {
 	cfg := &Config{}
 
-	if sub := v.Sub("outbox"); sub != nil {
-		if err := sub.Unmarshal(cfg); err != nil {
+	if k.Exists("outbox") {
+		if err := k.Unmarshal("outbox", cfg); err != nil {
 			return nil, fmt.Errorf("failed to load outbox config: %w", err)
 		}
 	}

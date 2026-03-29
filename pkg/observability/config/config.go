@@ -21,15 +21,15 @@ const (
 
 // Config holds all observability configuration.
 type Config struct {
-	OtelCollectorEndpoint string        `mapstructure:"otel-collector-endpoint"`
-	Tracing               TracingConfig `mapstructure:"tracing"`
-	Metrics               MetricsConfig `mapstructure:"metrics"`
+	OtelCollectorEndpoint string        `koanf:"otel-collector-endpoint"`
+	Tracing               TracingConfig `koanf:"tracing"`
+	Metrics               MetricsConfig `koanf:"metrics"`
 }
 
 // TracingConfig holds tracing-specific configuration.
 type TracingConfig struct {
-	Enabled     bool    `mapstructure:"enabled"`
-	SampleRatio float64 `mapstructure:"sample-ratio"`
+	Enabled     bool    `koanf:"enabled"`
+	SampleRatio float64 `koanf:"sample-ratio"`
 }
 
 const (
@@ -39,6 +39,6 @@ const (
 
 // MetricsConfig holds metrics-specific configuration.
 type MetricsConfig struct {
-	Enabled  bool          `mapstructure:"enabled"`
-	Interval time.Duration `mapstructure:"interval"`
+	Enabled  bool          `koanf:"enabled"`
+	Interval time.Duration `koanf:"interval"`
 }

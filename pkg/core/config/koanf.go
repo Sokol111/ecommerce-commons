@@ -59,25 +59,25 @@ func NewKoanfModule(opts ...KoanfOption) fx.Option {
 	)
 }
 
-func resolveKoanfConfigPath(cfg *koanfOptions) FilePath {
+func resolveKoanfConfigPath(cfg *koanfOptions) string {
 	if cfg.noConfigFile {
 		return ""
 	}
 	if cfg.configPath != nil {
-		return FilePath(*cfg.configPath)
+		return *cfg.configPath
 	}
 	if configFile := os.Getenv("CONFIG_FILE"); configFile != "" {
-		return FilePath(configFile)
+		return configFile
 	}
 	return ""
 }
 
-func newKoanf(configFile FilePath) (*koanf.Koanf, error) {
+func newKoanf(configFile string) (*koanf.Koanf, error) {
 	k := koanf.New(".")
 
 	// 1. Load config file (if provided).
 	if configFile != "" {
-		if err := k.Load(file.Provider(string(configFile)), yaml.Parser()); err != nil {
+		if err := k.Load(file.Provider(configFile), yaml.Parser()); err != nil {
 			return nil, fmt.Errorf("failed to read config file [%s]: %w", configFile, err)
 		}
 		fmt.Printf("[config] Configuration loaded from %s (keys: %d)\n", configFile, len(k.Keys()))

@@ -6,7 +6,7 @@ import (
 
 	"github.com/Sokol111/ecommerce-commons/pkg/core/config"
 	"github.com/Sokol111/ecommerce-commons/pkg/core/health"
-	"github.com/spf13/viper"
+	"github.com/knadh/koanf/v2"
 	"go.opentelemetry.io/otel/metric"
 	"go.opentelemetry.io/otel/trace"
 	"go.uber.org/fx"
@@ -29,7 +29,7 @@ func WithMongoConfig(cfg Config) Option {
 }
 
 // NewMongoModule provides MongoDB components for dependency injection.
-// By default, configuration is loaded from viper.
+// By default, configuration is loaded from koanf.
 // Use WithMongoConfig for static config (useful for tests).
 func NewMongoModule(opts ...Option) fx.Option {
 	cfg := &mongoOptions{}
@@ -47,12 +47,12 @@ func NewMongoModule(opts ...Option) fx.Option {
 	)
 }
 
-func provideConfig(opts *mongoOptions, v *viper.Viper) (Config, error) {
+func provideConfig(opts *mongoOptions, k *koanf.Koanf) (Config, error) {
 	var cfg Config
 	if opts.config != nil {
 		cfg = *opts.config
-	} else if sub := v.Sub("mongo"); sub != nil {
-		if err := sub.Unmarshal(&cfg); err != nil {
+	} else if k.Exists("mongo") {
+		if err := k.Unmarshal("mongo", &cfg); err != nil {
 			return cfg, fmt.Errorf("failed to load mongo config: %w", err)
 		}
 	}

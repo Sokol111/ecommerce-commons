@@ -29,7 +29,7 @@ func WithAppConfig(cfg config.AppConfig) Option {
 }
 
 // WithLoggerConfig provides a static logger Config (useful for tests).
-// When set, the logger configuration will not be loaded from viper.
+// When set, the logger configuration will not be loaded from koanf.
 func WithLoggerConfig(cfg logger.Config) Option {
 	return func(opts *coreOptions) {
 		opts.loggerConfig = &cfg
@@ -61,7 +61,7 @@ func WithoutConfigFile() Option {
 //
 // Example usage:
 //
-//	// Production - loads config from environment/viper
+//	// Production - loads config from environment/koanf
 //	core.NewCoreModule()
 //
 //	// Testing - with static configs
@@ -82,7 +82,6 @@ func NewCoreModule(opts ...Option) fx.Option {
 		fx.StopTimeout(5*time.Minute),
 
 		dotEnvModule(cfg),
-		viperModule(cfg),
 		koanfModule(cfg),
 		appConfigModule(cfg),
 		loggerModule(cfg),
@@ -95,13 +94,6 @@ func dotEnvModule(cfg *coreOptions) fx.Option {
 		return fx.Options()
 	}
 	return config.NewDotEnvModule()
-}
-
-func viperModule(cfg *coreOptions) fx.Option {
-	if cfg.disableConfigFile {
-		return config.NewViperModule(config.WithoutConfigFile())
-	}
-	return config.NewViperModule()
 }
 
 func koanfModule(cfg *coreOptions) fx.Option {

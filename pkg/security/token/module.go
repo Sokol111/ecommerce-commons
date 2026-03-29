@@ -3,7 +3,7 @@ package token
 import (
 	"fmt"
 
-	"github.com/spf13/viper"
+	"github.com/knadh/koanf/v2"
 	"go.uber.org/fx"
 )
 
@@ -102,26 +102,24 @@ func NewSecurityHandlerModule(opts ...Option) fx.Option {
 	)
 }
 
-func provideConfig(opts *tokenOptions, v *viper.Viper) (Config, error) {
+func provideConfig(opts *tokenOptions, k *koanf.Koanf) (Config, error) {
 	if opts.config != nil {
 		return *opts.config, nil
 	}
-	return loadConfigFromViper(v)
+	return loadConfig(k)
 }
 
-func loadConfigFromViper(v *viper.Viper) (Config, error) {
+func loadConfig(k *koanf.Koanf) (Config, error) {
 	var cfg Config
-	sub := v.Sub("security")
-	if sub == nil {
+	if !k.Exists("security") {
 		return cfg, fmt.Errorf("security configuration section is required")
 	}
 
-	tokenSub := sub.Sub("token")
-	if tokenSub == nil {
+	if !k.Exists("security.token") {
 		return cfg, fmt.Errorf("security.token configuration section is required")
 	}
 
-	if err := tokenSub.Unmarshal(&cfg); err != nil {
+	if err := k.Unmarshal("security.token", &cfg); err != nil {
 		return cfg, fmt.Errorf("failed to load token config: %w", err)
 	}
 

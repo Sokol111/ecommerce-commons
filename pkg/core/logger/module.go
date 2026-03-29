@@ -4,7 +4,7 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/spf13/viper"
+	"github.com/knadh/koanf/v2"
 	"go.uber.org/fx"
 	"go.uber.org/fx/fxevent"
 	"go.uber.org/zap"
@@ -27,7 +27,7 @@ func WithLoggerConfig(cfg Config) Option {
 
 // NewZapLoggingModule creates a new fx module for zap logger initialization.
 // It provides a configured *zap.Logger instance and integrates with fx lifecycle.
-// By default, loads from viper configuration.
+// By default, loads from koanf configuration.
 // Use WithLoggerConfig for static config (useful for tests).
 func NewZapLoggingModule(opts ...Option) fx.Option {
 	cfg := &loggerOptions{}
@@ -36,11 +36,11 @@ func NewZapLoggingModule(opts ...Option) fx.Option {
 	}
 
 	return fx.Options(
-		fx.Provide(func(v *viper.Viper) (Config, error) {
+		fx.Provide(func(k *koanf.Koanf) (Config, error) {
 			if cfg.config != nil {
 				return *cfg.config, nil
 			}
-			return newConfig(v)
+			return newConfig(k)
 		}),
 		fx.Provide(provideLogger),
 		fx.Invoke(func(log *zap.Logger, conf Config) {

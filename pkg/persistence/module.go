@@ -14,7 +14,7 @@ type persistenceOptions struct {
 type Option func(*persistenceOptions)
 
 // WithMongoConfig provides a static Mongo Config (useful for tests).
-// When set, the Mongo configuration will not be loaded from viper.
+// When set, the Mongo configuration will not be loaded from koanf.
 func WithMongoConfig(cfg mongo.Config) Option {
 	return func(opts *persistenceOptions) {
 		opts.mongoConfig = &cfg
@@ -28,7 +28,7 @@ func WithMongoConfig(cfg mongo.Config) Option {
 //
 // Example usage:
 //
-//	// Production - loads config from viper
+//	// Production - loads config from koanf
 //	persistence.NewPersistenceModule()
 //
 //	// Testing - with static config

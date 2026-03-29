@@ -8,35 +8,35 @@ import (
 
 // Config holds the MongoDB connection configuration.
 type Config struct {
-	ConnectionString string `mapstructure:"connection-string"`
-	Host             string `mapstructure:"host"`
-	Port             int    `mapstructure:"port"`
-	ReplicaSet       string `mapstructure:"replica-set"`
-	Username         string `mapstructure:"username"`
-	Password         string `mapstructure:"password"`
-	Database         string `mapstructure:"database"`
-	DirectConnection bool   `mapstructure:"direct-connection"`
+	ConnectionString string `koanf:"connection-string"`
+	Host             string `koanf:"host"`
+	Port             int    `koanf:"port"`
+	ReplicaSet       string `koanf:"replica-set"`
+	Username         string `koanf:"username"`
+	Password         string `koanf:"password"`
+	Database         string `koanf:"database"`
+	DirectConnection bool   `koanf:"direct-connection"`
 
 	// Connection Pool Settings
-	MaxPoolSize         uint64        `mapstructure:"max-pool-size"`         // Максимальна кількість з'єднань у пулі
-	MinPoolSize         uint64        `mapstructure:"min-pool-size"`         // Мінімальна кількість з'єднань у пулі
-	MaxConnIdleTime     time.Duration `mapstructure:"max-conn-idle-time"`    // Час простою з'єднання перед закриттям
-	ConnectTimeout      time.Duration `mapstructure:"connect-timeout"`       // Таймаут підключення
-	ServerSelectTimeout time.Duration `mapstructure:"server-select-timeout"` // Таймаут вибору сервера
+	MaxPoolSize         uint64        `koanf:"max-pool-size"`         // Максимальна кількість з'єднань у пулі
+	MinPoolSize         uint64        `koanf:"min-pool-size"`         // Мінімальна кількість з'єднань у пулі
+	MaxConnIdleTime     time.Duration `koanf:"max-conn-idle-time"`    // Час простою з'єднання перед закриттям
+	ConnectTimeout      time.Duration `koanf:"connect-timeout"`       // Таймаут підключення
+	ServerSelectTimeout time.Duration `koanf:"server-select-timeout"` // Таймаут вибору сервера
 
 	// Query Timeout Settings
-	QueryTimeout time.Duration `mapstructure:"query-timeout"` // Максимальний час виконання запиту до БД
+	QueryTimeout time.Duration `koanf:"query-timeout"` // Максимальний час виконання запиту до БД
 
 	// Migration Settings
-	Migrations MigrationConfig `mapstructure:"migrations"`
+	Migrations MigrationConfig `koanf:"migrations"`
 }
 
 // MigrationConfig holds migration-specific configuration.
 type MigrationConfig struct {
 	// Disabled controls whether migrations are skipped on startup
-	Disabled bool `mapstructure:"disabled"`
+	Disabled bool `koanf:"disabled"`
 	// Path to migrations directory
-	Path string `mapstructure:"path"`
+	Path string `koanf:"path"`
 }
 
 // BuildURI constructs a MongoDB connection string from Config.

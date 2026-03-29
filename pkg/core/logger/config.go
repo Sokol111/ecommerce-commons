@@ -3,7 +3,7 @@ package logger
 import (
 	"fmt"
 
-	"github.com/spf13/viper"
+	"github.com/knadh/koanf/v2"
 	"go.uber.org/zap/zapcore"
 )
 
@@ -18,9 +18,8 @@ type Config struct {
 	Development bool
 }
 
-func newConfig(v *viper.Viper) (Config, error) {
-	sub := v.Sub("logger")
-	if sub == nil {
+func newConfig(k *koanf.Koanf) (Config, error) {
+	if !k.Exists("logger") {
 		return Config{
 			Level: zapcore.InfoLevel,
 		}, nil
@@ -28,11 +27,11 @@ func newConfig(v *viper.Viper) (Config, error) {
 
 	// Parse level from string first
 	var rawCfg struct {
-		Level       string `mapstructure:"level"`
-		Development bool   `mapstructure:"development"`
+		Level       string `koanf:"level"`
+		Development bool   `koanf:"development"`
 	}
 
-	if err := sub.UnmarshalExact(&rawCfg); err != nil {
+	if err := k.Unmarshal("logger", &rawCfg); err != nil {
 		return Config{}, fmt.Errorf("failed to load logger config: %w", err)
 	}
 

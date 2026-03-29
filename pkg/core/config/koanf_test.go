@@ -46,7 +46,7 @@ observability:
 	tmpFile := filepath.Join(t.TempDir(), "config.yaml")
 	require.NoError(t, os.WriteFile(tmpFile, []byte(configContent), 0o600))
 
-	k, err := newKoanf(FilePath(tmpFile))
+	k, err := newKoanf(tmpFile)
 	require.NoError(t, err)
 
 	assert.Equal(t, "testdb", k.String("mongo.database"))
@@ -71,7 +71,7 @@ observability:
 	t.Setenv("OBSERVABILITY__OTEL_COLLECTOR_ENDPOINT", "localhost:4317")
 	t.Setenv("OBSERVABILITY__TRACING__ENABLED", "true")
 
-	k, err := newKoanf(FilePath(tmpFile))
+	k, err := newKoanf(tmpFile)
 	require.NoError(t, err)
 
 	assert.Equal(t, "from-env", k.String("mongo.database"))
@@ -95,7 +95,7 @@ func TestNewKoanf_NoConfigFile(t *testing.T) {
 }
 
 func TestNewKoanf_InvalidConfigFile(t *testing.T) {
-	_, err := newKoanf(FilePath("/nonexistent/config.yaml"))
+	_, err := newKoanf("/nonexistent/config.yaml")
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "failed to read config file")
 }
@@ -114,7 +114,7 @@ observability:
 
 	t.Setenv("OBSERVABILITY__OTEL_COLLECTOR_ENDPOINT", "localhost:4317")
 
-	k, err := newKoanf(FilePath(tmpFile))
+	k, err := newKoanf(tmpFile)
 	require.NoError(t, err)
 
 	type TracingConfig struct {

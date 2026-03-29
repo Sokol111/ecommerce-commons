@@ -3,7 +3,7 @@ package config
 import (
 	"fmt"
 
-	"github.com/spf13/viper"
+	"github.com/knadh/koanf/v2"
 	"go.uber.org/fx"
 	"go.uber.org/zap"
 )
@@ -24,7 +24,7 @@ func WithKafkaConfig(cfg Config) KafkaConfigOption {
 }
 
 // NewKafkaConfigModule provides Kafka configuration for dependency injection.
-// By default, configuration is loaded from viper.
+// By default, configuration is loaded from koanf.
 // Use WithKafkaConfig for static config (useful for tests).
 func NewKafkaConfigModule(opts ...KafkaConfigOption) fx.Option {
 	cfg := &kafkaConfigOptions{}
@@ -38,13 +38,13 @@ func NewKafkaConfigModule(opts ...KafkaConfigOption) fx.Option {
 	)
 }
 
-func provideConfig(opts *kafkaConfigOptions, v *viper.Viper, logger *zap.Logger) (Config, error) {
+func provideConfig(opts *kafkaConfigOptions, k *koanf.Koanf, logger *zap.Logger) (Config, error) {
 	var result Config
 	if opts.config != nil {
 		result = *opts.config
 	} else {
 		var err error
-		result, err = loadFromViper(v)
+		result, err = loadConfig(k)
 		if err != nil {
 			return result, err
 		}
@@ -62,10 +62,13 @@ func provideConfig(opts *kafkaConfigOptions, v *viper.Viper, logger *zap.Logger)
 	return result, nil
 }
 
-// loadFromViper loads Config from viper configuration.
-func loadFromViper(v *viper.Viper) (Config, error) {
+// loadConfig loads Config from koanf configuration.
+func loadConfig(k *koanf.Koanf) (Config, error) {
 	var cfg Config
-	if err := v.Sub("kafka").Unmarshal(&cfg); err != nil {
+	if !k.Exists("kafka") {
+		return cfg, nil
+	}
+	if err := k.Unmarshal("kafka", &cfg); err != nil {
 		return cfg, fmt.Errorf("failed to load kafka config: %w", err)
 	}
 	return cfg, nil

@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/spf13/viper"
+	"github.com/knadh/koanf/v2"
 )
 
 const (
@@ -28,19 +28,19 @@ const (
 
 // Config holds the HTTP server configuration.
 type Config struct {
-	Port int `mapstructure:"port"`
+	Port int `koanf:"port"`
 
 	// Server connection settings
-	Connection ConnectionConfig `mapstructure:"connection"`
+	Connection ConnectionConfig `koanf:"connection"`
 
 	// Request Timeout (middleware-based, returns proper HTTP response)
-	Timeout TimeoutConfig `mapstructure:"timeout"`
+	Timeout TimeoutConfig `koanf:"timeout"`
 
 	// Rate Limiting
-	RateLimit RateLimitConfig `mapstructure:"rate-limit"`
+	RateLimit RateLimitConfig `koanf:"rate-limit"`
 
 	// HTTP Bulkhead
-	Bulkhead BulkheadConfig `mapstructure:"bulkhead"`
+	Bulkhead BulkheadConfig `koanf:"bulkhead"`
 }
 
 // ConnectionConfig contains low-level HTTP server connection settings.
@@ -50,32 +50,32 @@ type Config struct {
 // calculated as RequestTimeout + buffer to ensure the timeout middleware
 // can send a proper HTTP response before the connection is closed.
 type ConnectionConfig struct {
-	ReadHeaderTimeout time.Duration `mapstructure:"read-header-timeout"` // Time to read request headers (Slowloris protection)
-	ReadTimeout       time.Duration `mapstructure:"read-timeout"`        // Time to read entire request (headers + body)
-	WriteTimeout      time.Duration `mapstructure:"-"`                   // Auto-calculated, not configurable
-	IdleTimeout       time.Duration `mapstructure:"idle-timeout"`        // Keep-alive timeout between requests
-	MaxHeaderBytes    int           `mapstructure:"max-header-bytes"`    // Max size of request headers
+	ReadHeaderTimeout time.Duration `koanf:"read-header-timeout"` // Time to read request headers (Slowloris protection)
+	ReadTimeout       time.Duration `koanf:"read-timeout"`        // Time to read entire request (headers + body)
+	WriteTimeout      time.Duration `koanf:"-"`                   // Auto-calculated, not configurable
+	IdleTimeout       time.Duration `koanf:"idle-timeout"`        // Keep-alive timeout between requests
+	MaxHeaderBytes    int           `koanf:"max-header-bytes"`    // Max size of request headers
 }
 
 // TimeoutConfig controls the middleware-based request timeout.
 // Unlike connection timeouts, this returns a proper HTTP 503 response.
 // Timeout is enabled when RequestTimeout > 0.
 type TimeoutConfig struct {
-	RequestTimeout time.Duration `mapstructure:"request-timeout"` // Max time to handle a request (0 = disabled)
+	RequestTimeout time.Duration `koanf:"request-timeout"` // Max time to handle a request (0 = disabled)
 }
 
 // RateLimitConfig holds rate limiting configuration.
 type RateLimitConfig struct {
-	Enabled           bool `mapstructure:"enabled"`
-	RequestsPerSecond int  `mapstructure:"requests-per-second"`
-	Burst             int  `mapstructure:"burst"`
+	Enabled           bool `koanf:"enabled"`
+	RequestsPerSecond int  `koanf:"requests-per-second"`
+	Burst             int  `koanf:"burst"`
 }
 
 // BulkheadConfig holds HTTP bulkhead (concurrency limiting) configuration.
 type BulkheadConfig struct {
-	Enabled       bool          `mapstructure:"enabled"`
-	MaxConcurrent int           `mapstructure:"max-concurrent"`
-	Timeout       time.Duration `mapstructure:"timeout"`
+	Enabled       bool          `koanf:"enabled"`
+	MaxConcurrent int           `koanf:"max-concurrent"`
+	Timeout       time.Duration `koanf:"timeout"`
 }
 
 // Validate validates the configuration values.
@@ -177,13 +177,12 @@ func (c *BulkheadConfig) validate() error {
 	return nil
 }
 
-func loadConfigFromViper(v *viper.Viper) (Config, error) {
+func loadConfig(k *koanf.Koanf) (Config, error) {
 	var cfg Config
-	sub := v.Sub("server")
-	if sub == nil {
+	if !k.Exists("server") {
 		return cfg, nil
 	}
-	if err := sub.UnmarshalExact(&cfg); err != nil {
+	if err := k.Unmarshal("server", &cfg); err != nil {
 		return cfg, fmt.Errorf("failed to load server config: %w", err)
 	}
 	return cfg, nil

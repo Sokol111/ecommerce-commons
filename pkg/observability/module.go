@@ -41,7 +41,7 @@ type observabilityOptions struct {
 type Option func(*observabilityOptions)
 
 // WithConfig provides a static observability Config (useful for tests).
-// When set, the observability configuration will not be loaded from viper.
+// When set, the observability configuration will not be loaded from koanf.
 func WithConfig(cfg config.Config) Option {
 	return func(opts *observabilityOptions) {
 		opts.config = &cfg
@@ -73,7 +73,7 @@ func WithoutMetrics() Option {
 //
 // Example usage:
 //
-//	// Production - loads config from viper
+//	// Production - loads config from koanf
 //	observability.NewObservabilityModule()
 //
 //	// Testing - disable observability

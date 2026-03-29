@@ -6,7 +6,7 @@ import (
 	"net/http"
 
 	"github.com/Sokol111/ecommerce-commons/pkg/core/health"
-	"github.com/spf13/viper"
+	"github.com/knadh/koanf/v2"
 	"go.uber.org/fx"
 	"go.uber.org/zap"
 )
@@ -27,7 +27,7 @@ func WithServerConfig(cfg Config) Option {
 }
 
 // NewHTTPServerModule provides HTTP server components for dependency injection.
-// By default, configuration is loaded from viper.
+// By default, configuration is loaded from koanf.
 // Use WithServerConfig for static config (useful for tests).
 func NewHTTPServerModule(opts ...Option) fx.Option {
 	cfg := &serverOptions{}
@@ -43,13 +43,13 @@ func NewHTTPServerModule(opts ...Option) fx.Option {
 	)
 }
 
-func provideConfig(opts *serverOptions, v *viper.Viper, logger *zap.Logger) (Config, error) {
+func provideConfig(opts *serverOptions, k *koanf.Koanf, logger *zap.Logger) (Config, error) {
 	var result Config
 	if opts.config != nil {
 		result = *opts.config
 	} else {
 		var err error
-		result, err = loadConfigFromViper(v)
+		result, err = loadConfig(k)
 		if err != nil {
 			return Config{}, err
 		}

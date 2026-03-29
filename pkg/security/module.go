@@ -16,7 +16,7 @@ type securityOptions struct {
 type Option func(*securityOptions)
 
 // WithTokenConfig provides a static token Config (useful for tests).
-// When set, the token configuration will not be loaded from viper.
+// When set, the token configuration will not be loaded from koanf.
 func WithTokenConfig(cfg token.Config) Option {
 	return func(opts *securityOptions) {
 		opts.tokenConfig = &cfg

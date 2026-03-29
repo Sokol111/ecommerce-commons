@@ -3,7 +3,7 @@ package config
 import (
 	"fmt"
 
-	"github.com/spf13/viper"
+	"github.com/knadh/koanf/v2"
 	"go.uber.org/fx"
 	"go.uber.org/zap"
 )
@@ -40,7 +40,7 @@ func WithDisableMetrics() Option {
 }
 
 // NewObservabilityConfigModule provides observability configuration.
-// By default, configuration is loaded from viper.
+// By default, configuration is loaded from koanf.
 // Use WithConfig for static config (useful for tests).
 func NewObservabilityConfigModule(opts ...Option) fx.Option {
 	cfg := &configOptions{}
@@ -54,12 +54,12 @@ func NewObservabilityConfigModule(opts ...Option) fx.Option {
 	)
 }
 
-func provideConfig(opts *configOptions, v *viper.Viper, logger *zap.Logger) (Config, error) {
+func provideConfig(opts *configOptions, k *koanf.Koanf, logger *zap.Logger) (Config, error) {
 	var cfg Config
 	if opts.config != nil {
 		cfg = *opts.config
-	} else if sub := v.Sub("observability"); sub != nil {
-		if err := sub.Unmarshal(&cfg); err != nil {
+	} else if k.Exists("observability") {
+		if err := k.Unmarshal("observability", &cfg); err != nil {
 			return cfg, fmt.Errorf("failed to load observability config: %w", err)
 		}
 	}

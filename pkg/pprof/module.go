@@ -7,13 +7,13 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/spf13/viper"
+	"github.com/knadh/koanf/v2"
 	"go.uber.org/fx"
 	"go.uber.org/zap"
 )
 
 // NewPprofModule returns an fx.Option that conditionally starts a pprof HTTP server.
-// Configuration is read from viper:
+// Configuration is read from koanf:
 //
 //	pprof:
 //	  enabled: true
@@ -21,12 +21,12 @@ import (
 //
 // If pprof.enabled is false or not set, the module does nothing.
 func NewPprofModule() fx.Option {
-	return fx.Invoke(func(lc fx.Lifecycle, v *viper.Viper, log *zap.Logger) {
-		if !v.GetBool("pprof.enabled") {
+	return fx.Invoke(func(lc fx.Lifecycle, k *koanf.Koanf, log *zap.Logger) {
+		if !k.Bool("pprof.enabled") {
 			return
 		}
 
-		port := v.GetInt("pprof.port")
+		port := k.Int("pprof.port")
 		if port == 0 {
 			port = 6060
 		}

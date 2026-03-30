@@ -15,9 +15,6 @@ var ExcludedPaths = []string{"/health", "/metrics"}
 func NewResource(ctx context.Context, appCfg appconfig.AppConfig) (*resource.Resource, error) {
 	return resource.New(ctx,
 		resource.WithFromEnv(),
-		resource.WithProcess(),
-		resource.WithOS(),
-		resource.WithHost(),
 		resource.WithAttributes(
 			semconv.ServiceNameKey.String(appCfg.ServiceName),
 			semconv.ServiceVersionKey.String(appCfg.ServiceVersion),

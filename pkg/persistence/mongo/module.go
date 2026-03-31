@@ -43,6 +43,7 @@ func NewMongoModule(opts ...Option) fx.Option {
 			provideMongo,
 			provideConfig,
 			newTxManager,
+			fx.Annotate(MetricViews, fx.ResultTags(`group:"metric_views"`)),
 		),
 	)
 }

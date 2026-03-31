@@ -10,6 +10,7 @@ import (
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/metric"
 	"go.opentelemetry.io/otel/metric/noop"
+	sdkmetric "go.opentelemetry.io/otel/sdk/metric"
 	"go.uber.org/fx"
 	"go.uber.org/zap"
 )
@@ -17,11 +18,12 @@ import (
 // providerParams holds dependencies for metrics provider.
 type providerParams struct {
 	fx.In
-	Lc        fx.Lifecycle
-	Log       *zap.Logger
-	Cfg       otelconfig.Config
-	AppCfg    appconfig.AppConfig
-	Readiness health.ComponentManager
+	Lc         fx.Lifecycle
+	Log        *zap.Logger
+	Cfg        otelconfig.Config
+	AppCfg     appconfig.AppConfig
+	Readiness  health.ComponentManager
+	ExtraViews []sdkmetric.View `group:"metric_views,flatten"`
 }
 
 // NewMetricsModule returns fx.Option for metrics.
@@ -46,7 +48,7 @@ func NewMetricsModule() fx.Option {
 func provideMeterProvider(p providerParams) (metric.MeterProvider, error) {
 	markReady := p.Readiness.AddComponent(otelconfig.MetricsComponentName)
 
-	provider, err := newProvider(context.Background(), p.Cfg.OtelCollectorEndpoint, p.Cfg.Metrics.Interval, p.AppCfg)
+	provider, err := newProvider(context.Background(), p.Cfg.OtelCollectorEndpoint, p.Cfg.Metrics.Interval, p.AppCfg, p.ExtraViews)
 	if err != nil {
 		return nil, err
 	}

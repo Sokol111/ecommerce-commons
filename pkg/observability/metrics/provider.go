@@ -12,7 +12,7 @@ import (
 )
 
 // newProvider creates a new metrics Provider.
-func newProvider(ctx context.Context, endpoint string, interval time.Duration, appCfg appconfig.AppConfig) (*sdkmetric.MeterProvider, error) {
+func newProvider(ctx context.Context, endpoint string, interval time.Duration, appCfg appconfig.AppConfig, extraViews []sdkmetric.View) (*sdkmetric.MeterProvider, error) {
 	if endpoint == "" {
 		return nil, fmt.Errorf("metrics: otel-collector-endpoint is required")
 	}
@@ -30,9 +30,28 @@ func newProvider(ctx context.Context, endpoint string, interval time.Duration, a
 		return nil, err
 	}
 
+	allViews := append(metricViews(), extraViews...)
+
 	reader := sdkmetric.NewPeriodicReader(exp, sdkmetric.WithInterval(interval))
 	return sdkmetric.NewMeterProvider(
 		sdkmetric.WithReader(reader),
 		sdkmetric.WithResource(res),
+		sdkmetric.WithView(allViews...),
 	), nil
+}
+
+// metricViews returns SDK views to reduce cardinality of runtime metrics.
+func metricViews() []sdkmetric.View {
+	return []sdkmetric.View{
+		// Drop all go.schedule.duration — rarely useful, high bucket count.
+		sdkmetric.NewView(
+			sdkmetric.Instrument{Name: "go.schedule.duration"},
+			sdkmetric.Stream{Aggregation: sdkmetric.AggregationDrop{}},
+		),
+		// Drop go.memory.limit — constant value, not useful.
+		sdkmetric.NewView(
+			sdkmetric.Instrument{Name: "go.memory.limit"},
+			sdkmetric.Stream{Aggregation: sdkmetric.AggregationDrop{}},
+		),
+	}
 }

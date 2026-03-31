@@ -23,7 +23,7 @@ type providerParams struct {
 	Cfg        otelconfig.Config
 	AppCfg     appconfig.AppConfig
 	Readiness  health.ComponentManager
-	ExtraViews []sdkmetric.View `group:"metric_views,flatten"`
+	ExtraViews []sdkmetric.View `group:"metric_views"`
 }
 
 // NewMetricsModule returns fx.Option for metrics.

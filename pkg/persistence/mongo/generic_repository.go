@@ -58,11 +58,23 @@ type EntityMapper[Domain any, Entity any] interface {
 
 // GenericRepository provides common CRUD operations for MongoDB.
 type GenericRepository[Domain any, Entity any] struct {
-	coll   *mongodriver.Collection
-	mapper EntityMapper[Domain, Entity]
+	collProvider CollectionProvider
+	mapper       EntityMapper[Domain, Entity]
 }
 
-// NewGenericRepository creates a new generic repository.
+// Collection resolves the MongoDB collection for the current request context.
+// Use this in custom repository methods that need raw collection access.
+func (r *GenericRepository[Domain, Entity]) Collection(ctx context.Context) *mongodriver.Collection {
+	return r.collProvider.GetCollection(ctx)
+}
+
+// Mapper returns the entity mapper used by this repository.
+func (r *GenericRepository[Domain, Entity]) Mapper() EntityMapper[Domain, Entity] {
+	return r.mapper
+}
+
+// NewGenericRepository creates a new generic repository with a fixed collection.
+// This is the standard constructor for single-tenant services.
 // Returns error if collection or mapper is nil.
 func NewGenericRepository[Domain any, Entity any](
 	coll *mongodriver.Collection,
@@ -71,12 +83,25 @@ func NewGenericRepository[Domain any, Entity any](
 	if coll == nil {
 		return nil, fmt.Errorf("collection is required")
 	}
+	return NewTenantAwareRepository(StaticCollectionProvider(coll), mapper)
+}
+
+// NewTenantAwareRepository creates a new generic repository with a dynamic CollectionProvider.
+// Used for multi-tenant services where the collection is resolved per-request
+// based on the tenant ID in the context.
+func NewTenantAwareRepository[Domain any, Entity any](
+	provider CollectionProvider,
+	mapper EntityMapper[Domain, Entity],
+) (*GenericRepository[Domain, Entity], error) {
+	if provider == nil {
+		return nil, fmt.Errorf("collection provider is required")
+	}
 	if mapper == nil {
 		return nil, fmt.Errorf("mapper is required")
 	}
 	return &GenericRepository[Domain, Entity]{
-		coll:   coll,
-		mapper: mapper,
+		collProvider: provider,
+		mapper:       mapper,
 	}, nil
 }
 
@@ -84,7 +109,7 @@ func NewGenericRepository[Domain any, Entity any](
 func (r *GenericRepository[Domain, Entity]) Insert(ctx context.Context, domain *Domain) error {
 	entity := r.mapper.ToEntity(domain)
 
-	_, err := r.coll.InsertOne(ctx, entity)
+	_, err := r.Collection(ctx).InsertOne(ctx, entity)
 	if err != nil {
 		return fmt.Errorf("failed to insert entity: %w", err)
 	}
@@ -99,7 +124,7 @@ func (r *GenericRepository[Domain, Entity]) FindByID(ctx context.Context, id str
 
 // FindOneByFilter retrieves a single entity matching the filter.
 func (r *GenericRepository[Domain, Entity]) FindOneByFilter(ctx context.Context, filter bson.D) (*Domain, error) {
-	result := r.coll.FindOne(ctx, filter)
+	result := r.Collection(ctx).FindOne(ctx, filter)
 
 	var entity Entity
 	err := result.Decode(&entity)
@@ -115,7 +140,7 @@ func (r *GenericRepository[Domain, Entity]) FindOneByFilter(ctx context.Context,
 
 // FindAll retrieves all entities.
 func (r *GenericRepository[Domain, Entity]) FindAll(ctx context.Context) ([]*Domain, error) {
-	cursor, err := r.coll.Find(ctx, bson.D{})
+	cursor, err := r.Collection(ctx).Find(ctx, bson.D{})
 	if err != nil {
 		return nil, fmt.Errorf("failed to query entities: %w", err)
 	}
@@ -149,7 +174,7 @@ func (r *GenericRepository[Domain, Entity]) FindAllWithFilter(
 		findOpts.SetSort(sort)
 	}
 
-	cursor, err := r.coll.Find(ctx, filter, findOpts)
+	cursor, err := r.Collection(ctx).Find(ctx, filter, findOpts)
 	if err != nil {
 		return nil, fmt.Errorf("failed to query entities: %w", err)
 	}
@@ -184,8 +209,10 @@ func (r *GenericRepository[Domain, Entity]) FindWithOptions(
 		opts.Filter = bson.D{}
 	}
 
+	coll := r.Collection(ctx)
+
 	// Count total documents matching the filter
-	total, err := r.coll.CountDocuments(ctx, opts.Filter)
+	total, err := coll.CountDocuments(ctx, opts.Filter)
 	if err != nil {
 		return nil, fmt.Errorf("failed to count entities: %w", err)
 	}
@@ -204,7 +231,7 @@ func (r *GenericRepository[Domain, Entity]) FindWithOptions(
 	}
 
 	// Execute query
-	cursor, err := r.coll.Find(ctx, opts.Filter, findOpts)
+	cursor, err := coll.Find(ctx, opts.Filter, findOpts)
 	if err != nil {
 		return nil, fmt.Errorf("failed to query entities: %w", err)
 	}
@@ -249,7 +276,7 @@ func (r *GenericRepository[Domain, Entity]) Update(ctx context.Context, domain *
 	r.mapper.SetVersion(entity, newVersion)
 
 	opts := options.FindOneAndReplace().SetReturnDocument(options.After)
-	result := r.coll.FindOneAndReplace(
+	result := r.Collection(ctx).FindOneAndReplace(
 		ctx,
 		bson.D{
 			{Key: "_id", Value: r.mapper.GetID(entity)},
@@ -278,7 +305,7 @@ func (r *GenericRepository[Domain, Entity]) Update(ctx context.Context, domain *
 
 // Delete hard deletes an entity by ID.
 func (r *GenericRepository[Domain, Entity]) Delete(ctx context.Context, id string) error {
-	_, err := r.coll.DeleteOne(ctx, bson.D{{Key: "_id", Value: id}})
+	_, err := r.Collection(ctx).DeleteOne(ctx, bson.D{{Key: "_id", Value: id}})
 	if err != nil {
 		return fmt.Errorf("failed to delete entity: %w", err)
 	}
@@ -287,7 +314,7 @@ func (r *GenericRepository[Domain, Entity]) Delete(ctx context.Context, id strin
 
 // Exists checks if an entity with the given ID exists.
 func (r *GenericRepository[Domain, Entity]) Exists(ctx context.Context, id string) (bool, error) {
-	count, err := r.coll.CountDocuments(ctx, bson.D{{Key: "_id", Value: id}}, options.Count().SetLimit(1))
+	count, err := r.Collection(ctx).CountDocuments(ctx, bson.D{{Key: "_id", Value: id}}, options.Count().SetLimit(1))
 	if err != nil {
 		return false, fmt.Errorf("failed to check entity existence: %w", err)
 	}
@@ -296,7 +323,7 @@ func (r *GenericRepository[Domain, Entity]) Exists(ctx context.Context, id strin
 
 // ExistsWithFilter checks if any entity matching the filter exists.
 func (r *GenericRepository[Domain, Entity]) ExistsWithFilter(ctx context.Context, filter bson.D) (bool, error) {
-	count, err := r.coll.CountDocuments(ctx, filter, options.Count().SetLimit(1))
+	count, err := r.Collection(ctx).CountDocuments(ctx, filter, options.Count().SetLimit(1))
 	if err != nil {
 		return false, fmt.Errorf("failed to check entity existence: %w", err)
 	}
@@ -315,7 +342,7 @@ func (r *GenericRepository[Domain, Entity]) UpsertIfNewer(ctx context.Context, d
 	}
 
 	opts := options.Replace().SetUpsert(true)
-	result, err := r.coll.ReplaceOne(ctx, filter, entity, opts)
+	result, err := r.Collection(ctx).ReplaceOne(ctx, filter, entity, opts)
 	if err != nil {
 		return false, fmt.Errorf("failed to upsert entity: %w", err)
 	}

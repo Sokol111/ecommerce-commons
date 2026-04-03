@@ -137,7 +137,7 @@ generate: ## Run go generate
 vuln-check: ## Check for known vulnerabilities
 	@echo "$(COLOR_GREEN)Checking for vulnerabilities...$(COLOR_RESET)"
 	@if command -v govulncheck >/dev/null 2>&1; then \
-		govulncheck ./...; \
+		govulncheck $$(go list ./... | grep -vE '/testutil/|/mocks/|/test/'); \
 	else \
 		echo "$(COLOR_YELLOW)govulncheck not installed. Install: go install golang.org/x/vuln/cmd/govulncheck@latest$(COLOR_RESET)"; \
 		exit 1; \

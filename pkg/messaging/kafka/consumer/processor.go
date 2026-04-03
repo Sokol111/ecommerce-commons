@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/Sokol111/ecommerce-commons/pkg/messaging/kafka/config"
+	"github.com/Sokol111/ecommerce-commons/pkg/tenant"
 	"github.com/cenkalti/backoff/v4"
 	"go.uber.org/zap"
 )
@@ -71,6 +72,9 @@ func (p *processor) Run(ctx context.Context) error {
 func (p *processor) processMessage(ctx context.Context, envelope *MessageEnvelope) {
 	// Витягуємо trace context з Kafka headers
 	ctx = p.tracer.ExtractContext(ctx, envelope.Record)
+
+	// Витягуємо tenant context з Kafka headers
+	ctx = tenant.ContextFromKafkaHeaders(ctx, envelope.Record.Headers)
 
 	// Створюємо span для обробки повідомлення
 	ctx, span := p.tracer.StartConsumerSpan(ctx, envelope.Record)

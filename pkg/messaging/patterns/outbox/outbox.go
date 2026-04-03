@@ -8,6 +8,7 @@ import (
 	"github.com/Sokol111/ecommerce-commons/pkg/core/logger"
 	"github.com/Sokol111/ecommerce-commons/pkg/messaging/kafka/events"
 	"github.com/Sokol111/ecommerce-commons/pkg/messaging/kafka/serde"
+	"github.com/Sokol111/ecommerce-commons/pkg/tenant"
 	"go.uber.org/zap"
 )
 
@@ -52,6 +53,9 @@ func (o *outbox) Create(ctx context.Context, msg Message) (SendFunc, error) {
 
 	// Save trace context into headers for storage in outbox
 	msg.Headers = o.tracePropagator.SaveTraceContext(ctx, msg.Headers)
+
+	// Save tenant context into headers for cross-service propagation
+	msg.Headers = tenant.SaveToHeaders(ctx, msg.Headers)
 
 	// Serialize the event - topic is obtained from event.GetTopic()
 	serializedMsg, err := o.serializer.Serialize(msg.Event)

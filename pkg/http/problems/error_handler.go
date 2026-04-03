@@ -9,6 +9,7 @@ import (
 	"github.com/Sokol111/ecommerce-commons/pkg/core/logger"
 	"github.com/Sokol111/ecommerce-commons/pkg/http/middleware"
 	"github.com/Sokol111/ecommerce-commons/pkg/security/token"
+	"github.com/Sokol111/ecommerce-commons/pkg/tenant"
 	"github.com/ogen-go/ogen/ogenerrors"
 	"go.opentelemetry.io/otel/trace"
 	"go.uber.org/fx"
@@ -75,6 +76,10 @@ func errorToStatusCode(err error) int {
 		return http.StatusInternalServerError
 	case errors.Is(err, token.ErrInsufficientPermissions):
 		return http.StatusForbidden
+	case errors.Is(err, tenant.ErrTenantNotFound):
+		return http.StatusBadRequest
+	case errors.Is(err, tenant.ErrInvalidTenant):
+		return http.StatusBadRequest
 	default:
 		return ogenerrors.ErrorCode(err)
 	}

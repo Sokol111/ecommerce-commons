@@ -78,8 +78,6 @@ func errorToStatusCode(err error) int {
 		return http.StatusForbidden
 	case errors.Is(err, tenant.ErrTenantNotFound):
 		return http.StatusBadRequest
-	case errors.Is(err, tenant.ErrInvalidTenant):
-		return http.StatusBadRequest
 	default:
 		return ogenerrors.ErrorCode(err)
 	}

@@ -57,6 +57,7 @@ func (v *tokenValidator) ValidateToken(tokenString string) (*Claims, error) {
 
 	role, _ := token.GetString("role")      //nolint:errcheck // Optional claim, empty string is valid default
 	tokenType, _ := token.GetString("type") //nolint:errcheck // Optional claim, empty string is valid default
+	tenant, _ := token.GetString("tenant")  //nolint:errcheck // Optional claim, empty for service tokens
 
 	// Parse permissions from token
 	var permissions []string
@@ -69,6 +70,7 @@ func (v *tokenValidator) ValidateToken(tokenString string) (*Claims, error) {
 
 	return &Claims{
 		UserID:      subject,
+		Tenant:      tenant,
 		Role:        role,
 		Permissions: permissions,
 		Type:        tokenType,

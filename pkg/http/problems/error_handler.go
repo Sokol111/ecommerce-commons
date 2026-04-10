@@ -76,6 +76,8 @@ func errorToStatusCode(err error) int {
 		return http.StatusInternalServerError
 	case errors.Is(err, token.ErrInsufficientPermissions):
 		return http.StatusForbidden
+	case errors.Is(err, token.ErrTenantMismatch):
+		return http.StatusForbidden
 	case errors.Is(err, tenant.ErrTenantNotFound):
 		return http.StatusBadRequest
 	default:

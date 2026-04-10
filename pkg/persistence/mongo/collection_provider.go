@@ -8,9 +8,9 @@ import (
 	mongodriver "go.mongodb.org/mongo-driver/v2/mongo"
 )
 
-// CollectionProvider resolves a MongoDB collection from context.
+// collectionProvider resolves a MongoDB collection from context.
 // Used by GenericRepository to support both fixed and tenant-aware collections.
-type CollectionProvider interface {
+type collectionProvider interface {
 	GetCollection(ctx context.Context) *mongodriver.Collection
 }
 
@@ -19,9 +19,7 @@ type staticCollectionProvider struct {
 	coll *mongodriver.Collection
 }
 
-// StaticCollectionProvider returns a CollectionProvider that always returns the same collection.
-// Used for non-tenant-aware (single-tenant) repositories.
-func StaticCollectionProvider(coll *mongodriver.Collection) CollectionProvider {
+func newStaticCollectionProvider(coll *mongodriver.Collection) collectionProvider {
 	return &staticCollectionProvider{coll: coll}
 }
 
@@ -29,20 +27,18 @@ func (s *staticCollectionProvider) GetCollection(_ context.Context) *mongodriver
 	return s.coll
 }
 
-// TenantCollectionProvider resolves a collection in the tenant-specific database
+// tenantCollectionProvider resolves a collection in the tenant-specific database
 // using the database-per-tenant strategy. Each tenant gets its own database
 // named "{baseDatabaseName}_{tenantSlug}".
-type TenantCollectionProvider struct {
+type tenantCollectionProvider struct {
 	client           *mongodriver.Client
 	baseDatabaseName string
 	collectionName   string
 }
 
-// NewTenantCollectionProvider creates a CollectionProvider that resolves the collection
-// in the tenant-specific database based on the tenant slug in the context.
-func NewTenantCollectionProvider(admin Admin, collectionName string) *TenantCollectionProvider {
+func newTenantCollectionProvider(admin Admin, collectionName string) collectionProvider {
 	db := admin.GetDatabase()
-	return &TenantCollectionProvider{
+	return &tenantCollectionProvider{
 		client:           db.Client(),
 		baseDatabaseName: db.Name(),
 		collectionName:   collectionName,
@@ -50,7 +46,7 @@ func NewTenantCollectionProvider(admin Admin, collectionName string) *TenantColl
 }
 
 // GetCollection resolves the collection for the tenant in the current context.
-func (t *TenantCollectionProvider) GetCollection(ctx context.Context) *mongodriver.Collection {
+func (t *tenantCollectionProvider) GetCollection(ctx context.Context) *mongodriver.Collection {
 	slug := tenant.MustSlugFromContext(ctx)
 	return t.client.Database(fmt.Sprintf("%s_%s", t.baseDatabaseName, slug)).Collection(t.collectionName)
 }

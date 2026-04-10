@@ -15,6 +15,7 @@ type testValidator struct{}
 // testTokenPayload is the JSON structure for test tokens.
 type testTokenPayload struct {
 	UserID      string   `json:"user_id"`
+	Tenant      string   `json:"tenant,omitempty"`
 	Role        string   `json:"role"`
 	Permissions []string `json:"permissions"`
 	Type        string   `json:"type"`
@@ -39,6 +40,7 @@ func (v *testValidator) ValidateToken(token string) (*Claims, error) {
 
 	return &Claims{
 		UserID:      payload.UserID,
+		Tenant:      payload.Tenant,
 		Role:        payload.Role,
 		Permissions: payload.Permissions,
 		Type:        payload.Type,

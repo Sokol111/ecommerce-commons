@@ -84,7 +84,7 @@ func newHTTPClient(cfg Config) *http.Client {
 
 	return &http.Client{
 		Timeout:   timeout,
-		Transport: retryTransport,
+		Transport: &tenantTransport{base: retryTransport},
 	}
 }
 

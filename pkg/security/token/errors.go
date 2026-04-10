@@ -7,6 +7,8 @@ var (
 	ErrInvalidToken = errors.New("invalid token")
 	// ErrExpiredToken is returned when the token has expired.
 	ErrExpiredToken = errors.New("token expired")
+	// ErrTenantMismatch is returned when the token's tenant claim doesn't match the request tenant.
+	ErrTenantMismatch = errors.New("token tenant mismatch")
 	// ErrInvalidPublicKey is returned when the public key is invalid.
 	ErrInvalidPublicKey = errors.New("invalid public key")
 )

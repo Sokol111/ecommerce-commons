@@ -12,6 +12,9 @@ import (
 type Claims struct {
 	// UserID is the unique identifier of the user (subject).
 	UserID string
+	// Tenant is the tenant slug this token was issued for.
+	// Empty for service tokens (they operate cross-tenant).
+	Tenant string
 	// Role is the user's role (e.g., "super_admin", "catalog_manager", "viewer").
 	Role string
 	// Permissions is the list of permissions granted to the user.
@@ -83,4 +86,9 @@ func (c *Claims) IsAccess() bool {
 // IsRefresh returns true if the token is a refresh token.
 func (c *Claims) IsRefresh() bool {
 	return c.Type == "refresh"
+}
+
+// IsServiceAccount returns true if the token belongs to a service account.
+func (c *Claims) IsServiceAccount() bool {
+	return c.Role == "service_account"
 }

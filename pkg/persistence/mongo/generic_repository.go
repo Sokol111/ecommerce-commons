@@ -58,7 +58,7 @@ type EntityMapper[Domain any, Entity any] interface {
 
 // GenericRepository provides common CRUD operations for MongoDB.
 type GenericRepository[Domain any, Entity any] struct {
-	collProvider CollectionProvider
+	collProvider collectionProvider
 	mapper       EntityMapper[Domain, Entity]
 }
 
@@ -75,27 +75,41 @@ func (r *GenericRepository[Domain, Entity]) Mapper() EntityMapper[Domain, Entity
 
 // NewGenericRepository creates a new generic repository with a fixed collection.
 // This is the standard constructor for single-tenant services.
-// Returns error if collection or mapper is nil.
 func NewGenericRepository[Domain any, Entity any](
-	coll *mongodriver.Collection,
+	db Mongo,
+	collectionName string,
 	mapper EntityMapper[Domain, Entity],
 ) (*GenericRepository[Domain, Entity], error) {
-	if coll == nil {
-		return nil, fmt.Errorf("collection is required")
+	if db == nil {
+		return nil, fmt.Errorf("db is required")
 	}
-	return NewTenantAwareRepository(StaticCollectionProvider(coll), mapper)
+	if collectionName == "" {
+		return nil, fmt.Errorf("collection name is required")
+	}
+	return newRepository(newStaticCollectionProvider(db.GetCollection(collectionName)), mapper)
 }
 
-// NewTenantAwareRepository creates a new generic repository with a dynamic CollectionProvider.
+// NewTenantRepository creates a new generic repository with tenant-aware collection resolution.
 // Used for multi-tenant services where the collection is resolved per-request
-// based on the tenant ID in the context.
-func NewTenantAwareRepository[Domain any, Entity any](
-	provider CollectionProvider,
+// based on the tenant slug in the context (database-per-tenant strategy).
+func NewTenantRepository[Domain any, Entity any](
+	admin Admin,
+	collectionName string,
 	mapper EntityMapper[Domain, Entity],
 ) (*GenericRepository[Domain, Entity], error) {
-	if provider == nil {
-		return nil, fmt.Errorf("collection provider is required")
+	if admin == nil {
+		return nil, fmt.Errorf("admin is required")
 	}
+	if collectionName == "" {
+		return nil, fmt.Errorf("collection name is required")
+	}
+	return newRepository(newTenantCollectionProvider(admin, collectionName), mapper)
+}
+
+func newRepository[Domain any, Entity any](
+	provider collectionProvider,
+	mapper EntityMapper[Domain, Entity],
+) (*GenericRepository[Domain, Entity], error) {
 	if mapper == nil {
 		return nil, fmt.Errorf("mapper is required")
 	}

@@ -3,6 +3,8 @@ package token
 import (
 	"context"
 	"errors"
+
+	"github.com/Sokol111/ecommerce-commons/pkg/tenant"
 )
 
 // ErrInsufficientPermissions is returned when user lacks required permissions.
@@ -44,6 +46,23 @@ func (s *securityHandler) HandleBearerAuth(
 	// Ensure it's an access token
 	if !claims.IsAccess() {
 		return ctx, nil, ErrInvalidToken
+	}
+
+	// Validate tenant claim.
+	// User tokens must have a tenant claim matching the request tenant.
+	// Service tokens must NOT have a tenant claim (they operate cross-tenant).
+	if claims.IsServiceAccount() {
+		if claims.Tenant != "" {
+			return ctx, nil, ErrInvalidToken
+		}
+	} else {
+		if claims.Tenant == "" {
+			return ctx, nil, ErrTenantMismatch
+		}
+		requestTenant, _ := tenant.SlugFromContext(ctx)
+		if claims.Tenant != requestTenant {
+			return ctx, nil, ErrTenantMismatch
+		}
 	}
 
 	// Check permissions if required by the operation

@@ -15,8 +15,8 @@ import (
 
 // mongoOptions holds internal configuration for the Mongo module.
 type mongoOptions struct {
-	config              *Config
-	tenantSlugsProvider TenantSlugsProvider
+	config           *Config
+	tenantMigrations bool
 }
 
 // Option is a functional option for configuring the Mongo module.
@@ -30,11 +30,12 @@ func WithMongoConfig(cfg Config) Option {
 }
 
 // WithTenantMigrations enables per-tenant database migrations.
+// When set, TenantSlugsProvider must be provided in the fx container.
 // The provider fetches tenant slugs at startup, and migrations run
 // against each tenant database ({database}_{slug}).
-func WithTenantMigrations(provider TenantSlugsProvider) Option {
+func WithTenantMigrations() Option {
 	return func(opts *mongoOptions) {
-		opts.tenantSlugsProvider = provider
+		opts.tenantMigrations = true
 	}
 }
 
@@ -77,27 +78,45 @@ func provideConfig(opts *mongoOptions, k *koanf.Koanf) (Config, error) {
 	return cfg, nil
 }
 
-func provideMongo(lc fx.Lifecycle, opts *mongoOptions, log *zap.Logger, appConf config.AppConfig, conf Config, readiness health.ComponentManager, tp trace.TracerProvider, mp metric.MeterProvider) (Mongo, Admin, error) {
-	m, err := newMongo(log, conf, appConf.ServiceName, tp, mp)
+type provideMongoParams struct {
+	fx.In
+
+	Lifecycle      fx.Lifecycle
+	Opts           *mongoOptions
+	Log            *zap.Logger
+	AppConf        config.AppConfig
+	Conf           Config
+	Readiness      health.ComponentManager
+	TracerProvider trace.TracerProvider
+	MeterProvider  metric.MeterProvider
+	SlugsProvider  TenantSlugsProvider `optional:"true"`
+}
+
+func provideMongo(p provideMongoParams) (Mongo, Admin, error) {
+	m, err := newMongo(p.Log, p.Conf, p.AppConf.ServiceName, p.TracerProvider, p.MeterProvider)
 
 	if err != nil {
 		return nil, nil, err
 	}
 
-	markReady := readiness.AddComponent("mongo-module")
-	lc.Append(fx.Hook{
+	if p.Opts.tenantMigrations && p.SlugsProvider == nil {
+		return nil, nil, fmt.Errorf("tenant migrations enabled but TenantSlugsProvider not provided in fx container")
+	}
+
+	markReady := p.Readiness.AddComponent("mongo-module")
+	p.Lifecycle.Append(fx.Hook{
 		OnStart: func(ctx context.Context) error {
 			if err := m.connect(ctx); err != nil {
 				return err
 			}
 
 			// Run migrations after successful connection
-			if opts.tenantSlugsProvider != nil {
-				if err := runTenantMigrations(ctx, conf, opts.tenantSlugsProvider, log); err != nil {
+			if p.SlugsProvider != nil {
+				if err := runTenantMigrations(ctx, p.Conf, p.SlugsProvider, p.Log); err != nil {
 					return err
 				}
 			} else {
-				if err := runMigrations(conf, log); err != nil {
+				if err := runMigrations(p.Conf, p.Log); err != nil {
 					return err
 				}
 			}

@@ -7,8 +7,8 @@ import (
 
 // persistenceOptions holds internal configuration for the persistence module.
 type persistenceOptions struct {
-	mongoConfig         *mongo.Config
-	tenantSlugsProvider mongo.TenantSlugsProvider
+	mongoConfig      *mongo.Config
+	tenantMigrations bool
 }
 
 // Option is a functional option for configuring the persistence module.
@@ -23,11 +23,10 @@ func WithMongoConfig(cfg mongo.Config) Option {
 }
 
 // WithTenantMigrations enables per-tenant database migrations.
-// The provider fetches tenant slugs at startup, and migrations run
-// against each tenant database ({database}_{slug}).
-func WithTenantMigrations(provider mongo.TenantSlugsProvider) Option {
+// When set, mongo.TenantSlugsProvider must be provided in the fx container.
+func WithTenantMigrations() Option {
 	return func(opts *persistenceOptions) {
-		opts.tenantSlugsProvider = provider
+		opts.tenantMigrations = true
 	}
 }
 
@@ -61,8 +60,8 @@ func mongoModule(cfg *persistenceOptions) fx.Option {
 	if cfg.mongoConfig != nil {
 		mongoOpts = append(mongoOpts, mongo.WithMongoConfig(*cfg.mongoConfig))
 	}
-	if cfg.tenantSlugsProvider != nil {
-		mongoOpts = append(mongoOpts, mongo.WithTenantMigrations(cfg.tenantSlugsProvider))
+	if cfg.tenantMigrations {
+		mongoOpts = append(mongoOpts, mongo.WithTenantMigrations())
 	}
 	return mongo.NewMongoModule(mongoOpts...)
 }

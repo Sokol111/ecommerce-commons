@@ -15,7 +15,8 @@ import (
 
 // mongoOptions holds internal configuration for the Mongo module.
 type mongoOptions struct {
-	config *Config
+	config              *Config
+	tenantSlugsProvider TenantSlugsProvider
 }
 
 // Option is a functional option for configuring the Mongo module.
@@ -25,6 +26,15 @@ type Option func(*mongoOptions)
 func WithMongoConfig(cfg Config) Option {
 	return func(opts *mongoOptions) {
 		opts.config = &cfg
+	}
+}
+
+// WithTenantMigrations enables per-tenant database migrations.
+// The provider fetches tenant slugs at startup, and migrations run
+// against each tenant database ({database}_{slug}).
+func WithTenantMigrations(provider TenantSlugsProvider) Option {
+	return func(opts *mongoOptions) {
+		opts.tenantSlugsProvider = provider
 	}
 }
 
@@ -67,7 +77,7 @@ func provideConfig(opts *mongoOptions, k *koanf.Koanf) (Config, error) {
 	return cfg, nil
 }
 
-func provideMongo(lc fx.Lifecycle, log *zap.Logger, appConf config.AppConfig, conf Config, readiness health.ComponentManager, tp trace.TracerProvider, mp metric.MeterProvider) (Mongo, Admin, error) {
+func provideMongo(lc fx.Lifecycle, opts *mongoOptions, log *zap.Logger, appConf config.AppConfig, conf Config, readiness health.ComponentManager, tp trace.TracerProvider, mp metric.MeterProvider) (Mongo, Admin, error) {
 	m, err := newMongo(log, conf, appConf.ServiceName, tp, mp)
 
 	if err != nil {
@@ -82,8 +92,14 @@ func provideMongo(lc fx.Lifecycle, log *zap.Logger, appConf config.AppConfig, co
 			}
 
 			// Run migrations after successful connection
-			if err := runMigrations(conf, log); err != nil {
-				return err
+			if opts.tenantSlugsProvider != nil {
+				if err := runTenantMigrations(ctx, conf, opts.tenantSlugsProvider, log); err != nil {
+					return err
+				}
+			} else {
+				if err := runMigrations(conf, log); err != nil {
+					return err
+				}
 			}
 
 			markReady()

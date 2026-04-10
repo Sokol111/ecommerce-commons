@@ -48,14 +48,20 @@ func NewMongoModule(opts ...Option) fx.Option {
 		opt(cfg)
 	}
 
+	providers := []any{
+		provideMongo,
+		provideConfig,
+		newTxManager,
+		fx.Annotate(MetricViews, fx.ResultTags(`group:"metric_views,flatten"`)),
+	}
+
+	if cfg.tenantMigrations {
+		providers = append(providers, newTenantMigrationRunner)
+	}
+
 	return fx.Options(
 		fx.Supply(cfg),
-		fx.Provide(
-			provideMongo,
-			provideConfig,
-			newTxManager,
-			fx.Annotate(MetricViews, fx.ResultTags(`group:"metric_views,flatten"`)),
-		),
+		fx.Provide(providers...),
 	)
 }
 

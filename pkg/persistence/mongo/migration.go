@@ -17,6 +17,35 @@ type TenantSlugsProvider interface {
 	GetSlugs(ctx context.Context) ([]string, error)
 }
 
+// TenantMigrationRunner runs migrations for a single tenant database on demand.
+// Used by Kafka consumer handlers when a new tenant is created.
+type TenantMigrationRunner interface {
+	MigrateTenant(ctx context.Context, slug string) error
+}
+
+type tenantMigrationRunner struct {
+	cfg Config
+	log *zap.Logger
+}
+
+func newTenantMigrationRunner(cfg Config, log *zap.Logger) TenantMigrationRunner {
+	return &tenantMigrationRunner{cfg: cfg, log: log}
+}
+
+func (r *tenantMigrationRunner) MigrateTenant(_ context.Context, slug string) error {
+	if r.cfg.Migrations.Disabled {
+		r.log.Info("Database migrations disabled, skipping tenant migration", zap.String("tenant", slug))
+		return nil
+	}
+
+	tenantCfg := r.cfg
+	tenantCfg.Database = fmt.Sprintf("%s_%s", r.cfg.Database, slug)
+
+	r.log.Info("Running migration for tenant", zap.String("tenant", slug), zap.String("database", tenantCfg.Database))
+
+	return migrateDatabase(tenantCfg.BuildURI(), r.cfg.Migrations.Path, r.log)
+}
+
 // runMigrations applies database migrations if enabled in config.
 func runMigrations(cfg Config, log *zap.Logger) error {
 	if cfg.Migrations.Disabled {

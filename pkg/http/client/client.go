@@ -88,22 +88,58 @@ func newHTTPClient(cfg Config) *http.Client {
 	}
 }
 
+// New creates an HTTP client from config, validating it and applying defaults.
+func New(cfg Config) (*http.Client, error) {
+	normalizedCfg, err := normalizeConfig(cfg)
+	if err != nil {
+		return nil, err
+	}
+
+	return newHTTPClient(normalizedCfg), nil
+}
+
+// LoadConfig loads an HTTP client config from the given koanf path.
+func LoadConfig(k *koanf.Koanf, path string) (Config, error) {
+	var clientCfg Config
+	if err := k.Unmarshal(path, &clientCfg); err != nil {
+		return Config{}, fmt.Errorf("failed to unmarshal client config %q: %w", path, err)
+	}
+
+	normalizedCfg, err := normalizeConfig(clientCfg)
+	if err != nil {
+		return Config{}, fmt.Errorf("invalid client config %q: %w", path, err)
+	}
+
+	return normalizedCfg, nil
+}
+
 // ProvideHTTPClient returns a provider function that creates an HTTP client from config
 // Usage with fx:
 //
 //	fx.Provide(fx.Private, httpclient.ProvideHTTPClient("catalog-service"))
 func ProvideHTTPClient(name string) func(*koanf.Koanf) (*http.Client, Config, error) {
 	return func(k *koanf.Koanf) (*http.Client, Config, error) {
-		var clientCfg Config
-		if err := k.Unmarshal("clients."+name, &clientCfg); err != nil {
-			return nil, Config{}, fmt.Errorf("failed to unmarshal client config %q: %w", name, err)
+		clientCfg, err := LoadConfig(k, "clients."+name)
+		if err != nil {
+			return nil, Config{}, err
 		}
-		if err := clientCfg.validate(); err != nil {
-			return nil, Config{}, fmt.Errorf("invalid client config %q: %w", name, err)
+
+		client, err := New(clientCfg)
+		if err != nil {
+			return nil, Config{}, err
 		}
-		clientCfg.applyDefaults()
-		return newHTTPClient(clientCfg), clientCfg, nil
+
+		return client, clientCfg, nil
 	}
+}
+
+func normalizeConfig(cfg Config) (Config, error) {
+	if err := cfg.validate(); err != nil {
+		return Config{}, err
+	}
+
+	cfg.applyDefaults()
+	return cfg, nil
 }
 
 func (c *Config) applyDefaults() {

@@ -182,7 +182,9 @@ func TestNewHTTPClient(t *testing.T) {
 		}
 
 		client := newHTTPClient(cfg)
-		rt, ok := client.Transport.(*retryTransport)
+		tt, ok := client.Transport.(*tenantTransport)
+		require.True(t, ok)
+		rt, ok := tt.base.(*retryTransport)
 		require.True(t, ok)
 		assert.Equal(t, 3, rt.maxRetries)
 	})
@@ -197,7 +199,9 @@ func TestNewHTTPClient(t *testing.T) {
 		}
 
 		client := newHTTPClient(cfg)
-		rt, ok := client.Transport.(*retryTransport)
+		tt, ok := client.Transport.(*tenantTransport)
+		require.True(t, ok)
+		rt, ok := tt.base.(*retryTransport)
 		require.True(t, ok)
 		assert.Equal(t, MaxRetriesCap, rt.maxRetries)
 	})
@@ -260,6 +264,47 @@ func TestProvideHTTPClient(t *testing.T) {
 		_, _, err := provider(k)
 
 		require.Error(t, err)
+		assert.Contains(t, err.Error(), "base-url is required")
+	})
+}
+
+func TestLoadConfig(t *testing.T) {
+	t.Run("loads config from arbitrary path", func(t *testing.T) {
+		k := koanf.New(".")
+		k.Load(confmap.Provider(map[string]any{
+			"clients.attribute-client.base-url": "http://catalog-service:8080",
+			"clients.attribute-client.timeout":  "7s",
+		}, "."), nil)
+
+		cfg, err := LoadConfig(k, "clients.attribute-client")
+
+		require.NoError(t, err)
+		assert.Equal(t, "http://catalog-service:8080", cfg.BaseURL)
+		assert.Equal(t, 7*time.Second, *cfg.Timeout)
+		assert.Equal(t, DefaultMaxIdleConnsPerHost, *cfg.MaxIdleConnsPerHost)
+	})
+}
+
+func TestNew(t *testing.T) {
+	t.Run("validates config and applies defaults", func(t *testing.T) {
+		client, err := New(Config{BaseURL: "http://example.com"})
+
+		require.NoError(t, err)
+		require.NotNil(t, client)
+		assert.Equal(t, DefaultTimeout, client.Timeout)
+		tt, ok := client.Transport.(*tenantTransport)
+		require.True(t, ok)
+		rt, ok := tt.base.(*retryTransport)
+		require.True(t, ok)
+		assert.Equal(t, DefaultMaxIdleConnsPerHost, rt.transport.MaxIdleConnsPerHost)
+		assert.Equal(t, DefaultIdleConnTimeout, rt.transport.IdleConnTimeout)
+	})
+
+	t.Run("returns validation error for invalid config", func(t *testing.T) {
+		client, err := New(Config{})
+
+		require.Error(t, err)
+		assert.Nil(t, client)
 		assert.Contains(t, err.Error(), "base-url is required")
 	})
 }

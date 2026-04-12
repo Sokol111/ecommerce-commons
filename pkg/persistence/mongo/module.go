@@ -59,10 +59,18 @@ func NewMongoModule(opts ...Option) fx.Option {
 		providers = append(providers, newTenantMigrationRunner)
 	}
 
-	return fx.Options(
+	modules := []fx.Option{
 		fx.Supply(cfg),
 		fx.Provide(providers...),
-	)
+	}
+
+	if cfg.tenantMigrations {
+		modules = append(modules, fx.Invoke(registerTenantMigrations))
+	} else {
+		modules = append(modules, fx.Invoke(registerMigrations))
+	}
+
+	return fx.Options(modules...)
 }
 
 func provideConfig(opts *mongoOptions, k *koanf.Koanf) (Config, error) {
@@ -88,14 +96,12 @@ type provideMongoParams struct {
 	fx.In
 
 	Lifecycle      fx.Lifecycle
-	Opts           *mongoOptions
 	Log            *zap.Logger
 	AppConf        config.AppConfig
 	Conf           Config
 	Readiness      health.ComponentManager
 	TracerProvider trace.TracerProvider
 	MeterProvider  metric.MeterProvider
-	SlugsProvider  TenantSlugsProvider `optional:"true"`
 }
 
 func provideMongo(p provideMongoParams) (Mongo, Admin, error) {
@@ -105,26 +111,11 @@ func provideMongo(p provideMongoParams) (Mongo, Admin, error) {
 		return nil, nil, err
 	}
 
-	if p.Opts.tenantMigrations && p.SlugsProvider == nil {
-		return nil, nil, fmt.Errorf("tenant migrations enabled but TenantSlugsProvider not provided in fx container")
-	}
-
 	markReady := p.Readiness.AddComponent("mongo-module")
 	p.Lifecycle.Append(fx.Hook{
 		OnStart: func(ctx context.Context) error {
 			if err := m.connect(ctx); err != nil {
 				return err
-			}
-
-			// Run migrations after successful connection
-			if p.SlugsProvider != nil {
-				if err := runTenantMigrations(ctx, p.Conf, p.SlugsProvider, p.Log); err != nil {
-					return err
-				}
-			} else {
-				if err := runMigrations(p.Conf, p.Log); err != nil {
-					return err
-				}
 			}
 
 			markReady()
@@ -136,4 +127,34 @@ func provideMongo(p provideMongoParams) (Mongo, Admin, error) {
 	})
 
 	return m, m, nil
+}
+
+// registerMigrations runs single-tenant migrations on startup.
+func registerMigrations(lc fx.Lifecycle, cfg Config, log *zap.Logger, readiness health.ComponentManager) {
+	markReady := readiness.AddComponent("migrations")
+	lc.Append(fx.Hook{
+		OnStart: func(_ context.Context) error {
+			if err := runMigrations(cfg, log); err != nil {
+				return err
+			}
+			markReady()
+			return nil
+		},
+	})
+}
+
+// registerTenantMigrations runs per-tenant migrations on startup.
+// TenantSlugsProvider is a required (non-optional) dependency here, so fx will
+// fail fast with a clear error if it's not provided.
+func registerTenantMigrations(lc fx.Lifecycle, provider TenantSlugsProvider, cfg Config, log *zap.Logger, readiness health.ComponentManager) {
+	markReady := readiness.AddComponent("tenant-migrations")
+	lc.Append(fx.Hook{
+		OnStart: func(ctx context.Context) error {
+			if err := runTenantMigrations(ctx, cfg, provider, log); err != nil {
+				return err
+			}
+			markReady()
+			return nil
+		},
+	})
 }

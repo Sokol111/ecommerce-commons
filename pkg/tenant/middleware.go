@@ -5,6 +5,7 @@ import (
 
 	"github.com/Sokol111/ecommerce-commons/pkg/core/logger"
 	httpmw "github.com/Sokol111/ecommerce-commons/pkg/http/middleware"
+	"github.com/Sokol111/ecommerce-commons/pkg/security/token"
 	"github.com/ogen-go/ogen/middleware"
 	"go.uber.org/fx"
 	"go.uber.org/zap"
@@ -17,6 +18,7 @@ const TenantSlugHeader = "X-Tenant-Slug"
 var ErrTenantNotFound = errors.New("tenant not found")
 
 // Middleware resolves tenant slug from the X-Tenant-Slug header and stores it in context.
+// It also validates that user tokens have a tenant claim matching the request tenant.
 func Middleware(log *zap.Logger) middleware.Middleware {
 	return func(req middleware.Request, next middleware.Next) (middleware.Response, error) {
 		slug := req.Raw.Header.Get(TenantSlugHeader)
@@ -26,6 +28,15 @@ func Middleware(log *zap.Logger) middleware.Middleware {
 		}
 
 		req.Context = ContextWithSlug(req.Context, slug)
+
+		// Validate tenant claim for user tokens.
+		// Security handler runs before middleware, so claims are already in context.
+		// User tokens must have a tenant claim matching the request tenant.
+		if claims := token.ClaimsFromContext(req.Context); claims != nil && !claims.IsServiceAccount() {
+			if claims.Tenant == "" || claims.Tenant != slug {
+				return middleware.Response{}, token.ErrTenantMismatch
+			}
+		}
 
 		reqLog := logger.Get(req.Context).With(zap.String("tenant", slug))
 		req.Context = logger.With(req.Context, reqLog)

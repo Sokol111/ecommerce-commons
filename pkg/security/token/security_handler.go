@@ -3,8 +3,6 @@ package token
 import (
 	"context"
 	"errors"
-
-	"github.com/Sokol111/ecommerce-commons/pkg/tenant"
 )
 
 // ErrInsufficientPermissions is returned when user lacks required permissions.
@@ -33,6 +31,10 @@ func NewSecurityHandler(validator Validator) SecurityHandler {
 }
 
 // HandleBearerAuth validates a token and checks permissions.
+// Note: tenant claim validation is NOT done here because ogen executes
+// security handlers before the middleware chain, so tenant slug is not
+// yet available in the context. Tenant validation is handled by the
+// tenant middleware after both security and tenant resolution have run.
 func (s *securityHandler) HandleBearerAuth(
 	ctx context.Context,
 	tokenString string,
@@ -48,21 +50,9 @@ func (s *securityHandler) HandleBearerAuth(
 		return ctx, nil, ErrInvalidToken
 	}
 
-	// Validate tenant claim.
-	// User tokens must have a tenant claim matching the request tenant.
 	// Service tokens must NOT have a tenant claim (they operate cross-tenant).
-	if claims.IsServiceAccount() {
-		if claims.Tenant != "" {
-			return ctx, nil, ErrInvalidToken
-		}
-	} else {
-		if claims.Tenant == "" {
-			return ctx, nil, ErrTenantMismatch
-		}
-		requestTenant, _ := tenant.SlugFromContext(ctx)
-		if claims.Tenant != requestTenant {
-			return ctx, nil, ErrTenantMismatch
-		}
+	if claims.IsServiceAccount() && claims.Tenant != "" {
+		return ctx, nil, ErrInvalidToken
 	}
 
 	// Check permissions if required by the operation

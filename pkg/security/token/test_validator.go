@@ -4,7 +4,6 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
-	"time"
 )
 
 // testValidator is a validator that decodes tokens from base64-encoded JSON.
@@ -14,11 +13,9 @@ type testValidator struct{}
 
 // testTokenPayload is the JSON structure for test tokens.
 type testTokenPayload struct {
-	UserID      string   `json:"user_id"`
 	Tenant      string   `json:"tenant,omitempty"`
 	Role        string   `json:"role"`
 	Permissions []string `json:"permissions"`
-	Type        string   `json:"type"`
 }
 
 // newTestValidator creates a new test validator.
@@ -39,25 +36,18 @@ func (v *testValidator) ValidateToken(token string) (*Claims, error) {
 	}
 
 	return &Claims{
-		UserID:      payload.UserID,
 		Tenant:      payload.Tenant,
 		Role:        payload.Role,
 		Permissions: payload.Permissions,
-		Type:        payload.Type,
-		IssuedAt:    time.Now(),
-		ExpiresAt:   time.Now().Add(24 * time.Hour),
-		NotBefore:   time.Now(),
 	}, nil
 }
 
 // GenerateTestToken creates a base64-encoded JSON token from claims.
 // Use this in tests to create tokens that testValidator can decode.
-func GenerateTestToken(userID, role string, permissions []string) string {
+func GenerateTestToken(role string, permissions []string) string {
 	payload := testTokenPayload{
-		UserID:      userID,
 		Role:        role,
 		Permissions: permissions,
-		Type:        "access",
 	}
 	data, err := json.Marshal(payload)
 	if err != nil {
@@ -68,5 +58,5 @@ func GenerateTestToken(userID, role string, permissions []string) string {
 
 // GenerateAdminTestToken creates a test token with admin role and wildcard permissions.
 func GenerateAdminTestToken() string {
-	return GenerateTestToken("test-admin", "admin", []string{WildcardPermission})
+	return GenerateTestToken("admin", []string{WildcardPermission})
 }

@@ -1,136 +1,132 @@
 package token
 
 import (
-	"encoding/hex"
+	"crypto/rand"
+	"crypto/rsa"
+	"encoding/base64"
+	"encoding/json"
+	"math/big"
+	"net/http"
+	"net/http/httptest"
 	"testing"
 	"time"
 
-	"aidanwoods.dev/go-paseto"
+	"github.com/golang-jwt/jwt/v5"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
-// generateTestKeyPair generates a new PASETO v4 asymmetric key pair for testing.
-func generateTestKeyPair() (paseto.V4AsymmetricSecretKey, paseto.V4AsymmetricPublicKey) {
-	secretKey := paseto.NewV4AsymmetricSecretKey()
-	publicKey := secretKey.Public()
-	return secretKey, publicKey
+// testJWKS creates an RSA key pair and returns the private key and an httptest
+// server serving the public key as a JWKS endpoint.
+func testJWKS(t *testing.T) (*rsa.PrivateKey, *httptest.Server) {
+	t.Helper()
+	privateKey, err := rsa.GenerateKey(rand.Reader, 2048)
+	require.NoError(t, err)
+
+	jwks := map[string]any{
+		"keys": []map[string]any{
+			{
+				"kty": "RSA",
+				"kid": "test-key",
+				"use": "sig",
+				"alg": "RS256",
+				"n":   base64URLUint(privateKey.N),
+				"e":   base64URLUint(big.NewInt(int64(privateKey.E))),
+			},
+		},
+	}
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(jwks) //nolint:errcheck
+	}))
+	t.Cleanup(server.Close)
+
+	return privateKey, server
 }
 
-// createTestToken creates a signed PASETO token for testing.
-func createTestToken(secretKey paseto.V4AsymmetricSecretKey, subject, role, tokenType string, permissions []string, expiry time.Time) string {
-	token := paseto.NewToken()
-	token.SetSubject(subject)
-	token.SetString("role", role)
-	token.SetString("type", tokenType)
-	token.Set("permissions", permissions)
-	token.SetIssuedAt(time.Now())
-	token.SetExpiration(expiry)
-	token.SetNotBefore(time.Now().Add(-1 * time.Minute))
+// base64URLUint encodes a big.Int as unpadded base64url (for JWK "n" and "e").
+func base64URLUint(n *big.Int) string {
+	return base64.RawURLEncoding.EncodeToString(n.Bytes())
+}
 
-	return token.V4Sign(secretKey, nil)
+// createTestJWT creates a signed JWT for testing.
+func createTestJWT(privateKey *rsa.PrivateKey, subject, role string, permissions []string, expiry time.Time) string {
+	claims := jwt.MapClaims{
+		"sub":         subject,
+		"role":        role,
+		"permissions": permissions,
+		"iat":         jwt.NewNumericDate(time.Now()),
+		"exp":         jwt.NewNumericDate(expiry),
+		"nbf":         jwt.NewNumericDate(time.Now().Add(-1 * time.Minute)),
+	}
+	token := jwt.NewWithClaims(jwt.SigningMethodRS256, claims)
+	token.Header["kid"] = "test-key"
+	signed, err := token.SignedString(privateKey)
+	if err != nil {
+		panic(err)
+	}
+	return signed
 }
 
 func TestNewTokenValidator(t *testing.T) {
-	secretKey, publicKey := generateTestKeyPair()
-	validPublicKeyHex := hex.EncodeToString(publicKey.ExportBytes())
+	_, server := testJWKS(t)
 
-	tests := []struct {
-		name      string
-		publicKey string
-		wantErr   error
-	}{
-		{
-			name:      "valid public key",
-			publicKey: validPublicKeyHex,
-			wantErr:   nil,
-		},
-		{
-			name:      "invalid hex encoding",
-			publicKey: "not-valid-hex",
-			wantErr:   ErrInvalidPublicKey,
-		},
-		{
-			name:      "wrong key length - too short",
-			publicKey: hex.EncodeToString([]byte("short")),
-			wantErr:   ErrInvalidPublicKey,
-		},
-		{
-			name:      "wrong key length - too long",
-			publicKey: hex.EncodeToString(make([]byte, 64)),
-			wantErr:   ErrInvalidPublicKey,
-		},
-		{
-			name:      "empty public key",
-			publicKey: "",
-			wantErr:   ErrInvalidPublicKey,
-		},
-	}
+	t.Run("valid JWKS URL", func(t *testing.T) {
+		cfg := Config{JwksURL: server.URL}
+		validator, err := newTokenValidator(cfg)
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			cfg := Config{PublicKey: tt.publicKey}
-			validator, err := newTokenValidator(cfg)
+		assert.NoError(t, err)
+		assert.NotNil(t, validator)
+	})
 
-			if tt.wantErr != nil {
-				assert.ErrorIs(t, err, tt.wantErr)
-				assert.Nil(t, validator)
-			} else {
-				assert.NoError(t, err)
-				assert.NotNil(t, validator)
-			}
-		})
-	}
+	t.Run("invalid JWKS URL - tokens fail validation", func(t *testing.T) {
+		cfg := Config{JwksURL: "http://localhost:1/nonexistent"}
+		validator, err := newTokenValidator(cfg)
 
-	// Verify the validator actually works with the generated key
+		// keyfunc creates the validator even if initial fetch fails (lazy refresh).
+		// But token validation will fail because no keys are available.
+		assert.NoError(t, err)
+		assert.NotNil(t, validator)
+
+		privateKey, _ := rsa.GenerateKey(rand.Reader, 2048)
+		tokenString := createTestJWT(privateKey, "user-1", "admin", nil, time.Now().Add(1*time.Hour))
+		claims, validErr := validator.ValidateToken(tokenString)
+		assert.ErrorIs(t, validErr, ErrInvalidToken)
+		assert.Nil(t, claims)
+	})
+
 	t.Run("validator works with valid token", func(t *testing.T) {
-		cfg := Config{PublicKey: validPublicKeyHex}
+		privateKey, svr := testJWKS(t)
+		cfg := Config{JwksURL: svr.URL}
 		validator, err := newTokenValidator(cfg)
 		require.NoError(t, err)
 
-		tokenString := createTestToken(secretKey, "user-123", "admin", "access", []string{"read", "write"}, time.Now().Add(1*time.Hour))
+		tokenString := createTestJWT(privateKey, "user-123", "admin", []string{"read", "write"}, time.Now().Add(1*time.Hour))
 		claims, err := validator.ValidateToken(tokenString)
 
 		assert.NoError(t, err)
 		assert.NotNil(t, claims)
-		assert.Equal(t, "user-123", claims.UserID)
 	})
 }
 
 func TestTokenValidator_ValidateToken(t *testing.T) {
-	secretKey, publicKey := generateTestKeyPair()
-	publicKeyHex := hex.EncodeToString(publicKey.ExportBytes())
+	privateKey, server := testJWKS(t)
 
-	cfg := Config{PublicKey: publicKeyHex}
+	cfg := Config{JwksURL: server.URL}
 	validator, err := newTokenValidator(cfg)
 	require.NoError(t, err)
 
 	t.Run("valid token with all claims", func(t *testing.T) {
 		permissions := []string{"read", "write", "delete"}
-		tokenString := createTestToken(secretKey, "user-456", "super_admin", "access", permissions, time.Now().Add(1*time.Hour))
+		tokenString := createTestJWT(privateKey, "user-456", "super_admin", permissions, time.Now().Add(1*time.Hour))
 
 		claims, err := validator.ValidateToken(tokenString)
 
 		assert.NoError(t, err)
 		require.NotNil(t, claims)
-		assert.Equal(t, "user-456", claims.UserID)
 		assert.Equal(t, "super_admin", claims.Role)
-		assert.Equal(t, "access", claims.Type)
 		assert.Equal(t, permissions, claims.Permissions)
-		assert.False(t, claims.IsExpired())
-		assert.True(t, claims.IsAccess())
-	})
-
-	t.Run("valid refresh token", func(t *testing.T) {
-		tokenString := createTestToken(secretKey, "user-789", "user", "refresh", nil, time.Now().Add(24*time.Hour))
-
-		claims, err := validator.ValidateToken(tokenString)
-
-		assert.NoError(t, err)
-		require.NotNil(t, claims)
-		assert.Equal(t, "refresh", claims.Type)
-		assert.True(t, claims.IsRefresh())
-		assert.False(t, claims.IsAccess())
 	})
 
 	t.Run("invalid token format", func(t *testing.T) {
@@ -148,56 +144,40 @@ func TestTokenValidator_ValidateToken(t *testing.T) {
 	})
 
 	t.Run("token signed with different key", func(t *testing.T) {
-		differentSecretKey := paseto.NewV4AsymmetricSecretKey()
-		tokenString := createTestToken(differentSecretKey, "user-123", "admin", "access", nil, time.Now().Add(1*time.Hour))
+		differentKey, err := rsa.GenerateKey(rand.Reader, 2048)
+		require.NoError(t, err)
+		tokenString := createTestJWT(differentKey, "user-123", "admin", nil, time.Now().Add(1*time.Hour))
 
-		claims, err := validator.ValidateToken(tokenString)
+		claims, validErr := validator.ValidateToken(tokenString)
 
-		assert.ErrorIs(t, err, ErrInvalidToken)
+		assert.ErrorIs(t, validErr, ErrInvalidToken)
 		assert.Nil(t, claims)
 	})
 
 	t.Run("token without subject", func(t *testing.T) {
-		token := paseto.NewToken()
-		token.SetString("role", "admin")
-		token.SetString("type", "access")
-		tokenString := token.V4Sign(secretKey, nil)
+		claims := jwt.MapClaims{
+			"role": "admin",
+			"iat":  jwt.NewNumericDate(time.Now()),
+			"exp":  jwt.NewNumericDate(time.Now().Add(1 * time.Hour)),
+		}
+		token := jwt.NewWithClaims(jwt.SigningMethodRS256, claims)
+		token.Header["kid"] = "test-key"
+		tokenString, err := token.SignedString(privateKey)
+		require.NoError(t, err)
 
-		claims, err := validator.ValidateToken(tokenString)
+		result, validErr := validator.ValidateToken(tokenString)
 
-		// GetSubject returns error for missing subject
-		assert.ErrorIs(t, err, ErrInvalidToken)
-		assert.Nil(t, claims)
+		assert.ErrorIs(t, validErr, ErrInvalidToken)
+		assert.Nil(t, result)
 	})
 
 	t.Run("token with empty permissions", func(t *testing.T) {
-		tokenString := createTestToken(secretKey, "user-123", "viewer", "access", []string{}, time.Now().Add(1*time.Hour))
+		tokenString := createTestJWT(privateKey, "user-123", "viewer", []string{}, time.Now().Add(1*time.Hour))
 
 		claims, err := validator.ValidateToken(tokenString)
 
 		assert.NoError(t, err)
 		require.NotNil(t, claims)
 		assert.Empty(t, claims.Permissions)
-	})
-
-	t.Run("claims token field is set for custom claims", func(t *testing.T) {
-		token := paseto.NewToken()
-		token.SetSubject("user-123")
-		token.SetString("role", "admin")
-		token.SetString("type", "access")
-		token.SetString("custom_field", "custom_value")
-		token.SetIssuedAt(time.Now())
-		token.SetExpiration(time.Now().Add(1 * time.Hour))
-		tokenString := token.V4Sign(secretKey, nil)
-
-		claims, err := validator.ValidateToken(tokenString)
-
-		assert.NoError(t, err)
-		require.NotNil(t, claims)
-
-		// Verify we can access custom claims
-		customValue, err := claims.GetString("custom_field")
-		assert.NoError(t, err)
-		assert.Equal(t, "custom_value", customValue)
 	})
 }

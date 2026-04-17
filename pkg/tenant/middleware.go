@@ -29,11 +29,12 @@ func Middleware(log *zap.Logger) middleware.Middleware {
 
 		req.Context = ContextWithSlug(req.Context, slug)
 
-		// Validate tenant claim for user tokens.
+		// Validate tenant claim for tenant-scoped tokens.
 		// Security handler runs before middleware, so claims are already in context.
-		// User tokens must have a tenant claim matching the request tenant.
-		if claims := token.ClaimsFromContext(req.Context); claims != nil && !claims.IsServiceAccount() {
-			if claims.Tenant == "" || claims.Tenant != slug {
+		// Tenant-scoped users must have a tenant claim matching the request tenant.
+		// Service accounts and platform admins are not tenant-scoped and can access any tenant.
+		if claims := token.ClaimsFromContext(req.Context); claims != nil && claims.IsTenantScoped() {
+			if claims.Tenant != slug {
 				return middleware.Response{}, token.ErrTenantMismatch
 			}
 		}

@@ -33,7 +33,7 @@ func WithoutSecurity() Option {
 
 // WithTestValidator enables the test validator that decodes base64-encoded JSON tokens.
 // Use token.GenerateTestToken or token.GenerateAdminTestToken to create tokens.
-// Useful for e2e/integration tests where you want realistic token flow without PASETO.
+// Useful for e2e/integration tests where you want realistic token flow without JWT JWKS.
 func WithTestValidator() Option {
 	return func(opts *securityOptions) {
 		opts.useTestValidator = true
@@ -49,7 +49,7 @@ func WithTestValidator() Option {
 //
 // Example usage:
 //
-//	// Production - validates PASETO tokens
+//	// Production - validates JWT tokens via JWKS
 //	security.NewSecurityModule()
 //
 //	// Unit tests - bypass security completely

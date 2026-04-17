@@ -21,12 +21,12 @@ type securityHandler struct {
 	validator Validator
 }
 
-// NewSecurityHandler creates a SecurityHandler with the given validator.
+// newSecurityHandler creates a SecurityHandler with the given validator.
 // The validator determines the behavior:
 //   - tokenValidator: production PASETO validation
 //   - testValidator: base64 JSON tokens for e2e tests
 //   - noopValidator: always returns admin claims (bypasses security)
-func NewSecurityHandler(validator Validator) SecurityHandler {
+func newSecurityHandler(validator Validator) SecurityHandler {
 	return &securityHandler{validator: validator}
 }
 
@@ -45,16 +45,6 @@ func (s *securityHandler) HandleBearerAuth(
 		return ctx, nil, err
 	}
 
-	// Ensure it's an access token
-	if !claims.IsAccess() {
-		return ctx, nil, ErrInvalidToken
-	}
-
-	// Service tokens must NOT have a tenant claim (they operate cross-tenant).
-	if claims.IsServiceAccount() && claims.Tenant != "" {
-		return ctx, nil, ErrInvalidToken
-	}
-
 	// Check permissions if required by the operation
 	if len(requiredPermissions) > 0 {
 		if !claims.HasAnyPermission(requiredPermissions) {
@@ -62,9 +52,8 @@ func (s *securityHandler) HandleBearerAuth(
 		}
 	}
 
-	// Store claims and token in context
+	// Store claims in context
 	ctx = ContextWithClaims(ctx, claims)
-	ctx = ContextWithToken(ctx, tokenString)
 
 	return ctx, claims, nil
 }

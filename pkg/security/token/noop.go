@@ -12,9 +12,7 @@ func newNoopValidator() Validator {
 // ValidateToken always returns admin claims with wildcard permission.
 func (v *noopValidator) ValidateToken(token string) (*Claims, error) {
 	return &Claims{
-		UserID:      "test-user",
 		Role:        "admin",
 		Permissions: []string{WildcardPermission},
-		Type:        "access",
 	}, nil
 }

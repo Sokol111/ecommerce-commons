@@ -43,7 +43,7 @@ func WithTestClaims(claims Claims) Option {
 
 // WithTestValidator enables the test validator that decodes base64-encoded JSON tokens.
 // Use GenerateTestToken or GenerateAdminTestToken to create tokens for this validator.
-// Useful for e2e/integration tests where you want realistic token flow without PASETO.
+// Useful for e2e/integration tests where you want realistic token flow without JWT JWKS.
 func WithTestValidator() Option {
 	return func(opts *tokenOptions) {
 		opts.useTestValidator = true
@@ -61,7 +61,7 @@ func WithTestValidator() Option {
 //
 // Example usage:
 //
-//	// Production - validates PASETO tokens
+//	// Production - validates JWT tokens via JWKS
 //	token.NewSecurityHandlerModule()
 //
 //	// Testing - bypass security completely
@@ -79,7 +79,7 @@ func NewSecurityHandlerModule(opts ...Option) fx.Option {
 	if cfg.useTestValidator {
 		return fx.Provide(
 			newTestValidator,
-			NewSecurityHandler,
+			newSecurityHandler,
 		)
 	}
 
@@ -87,7 +87,7 @@ func NewSecurityHandlerModule(opts ...Option) fx.Option {
 	if cfg.disable {
 		return fx.Provide(
 			newNoopValidator,
-			NewSecurityHandler,
+			newSecurityHandler,
 		)
 	}
 
@@ -96,8 +96,10 @@ func NewSecurityHandlerModule(opts ...Option) fx.Option {
 		fx.Supply(cfg),
 		fx.Provide(
 			provideConfig,
+			provideS2SConfig,
 			newTokenValidator,
-			NewSecurityHandler,
+			newSecurityHandler,
+			provideTokenProvider,
 		),
 	)
 }
@@ -107,6 +109,14 @@ func provideConfig(opts *tokenOptions, k *koanf.Koanf) (Config, error) {
 		return *opts.config, nil
 	}
 	return loadConfig(k)
+}
+
+func provideS2SConfig(k *koanf.Koanf) (S2SConfig, error) {
+	return loadS2SConfig(k)
+}
+
+func provideTokenProvider(cfg S2SConfig) Provider {
+	return newTokenProvider(cfg)
 }
 
 func loadConfig(k *koanf.Koanf) (Config, error) {
@@ -123,9 +133,20 @@ func loadConfig(k *koanf.Koanf) (Config, error) {
 		return cfg, fmt.Errorf("failed to load token config: %w", err)
 	}
 
-	if cfg.PublicKey == "" {
-		return cfg, fmt.Errorf("security.token.public-key is required")
+	if cfg.JwksURL == "" {
+		return cfg, fmt.Errorf("security.token.jwks-url is required")
 	}
 
+	return cfg, nil
+}
+
+func loadS2SConfig(k *koanf.Koanf) (S2SConfig, error) {
+	var cfg S2SConfig
+	if !k.Exists("security.s2s") {
+		return cfg, nil
+	}
+	if err := k.Unmarshal("security.s2s", &cfg); err != nil {
+		return cfg, fmt.Errorf("failed to load S2S config: %w", err)
+	}
 	return cfg, nil
 }

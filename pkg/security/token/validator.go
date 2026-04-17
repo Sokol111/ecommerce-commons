@@ -1,9 +1,8 @@
 package token
 
 import (
-	"encoding/hex"
-
-	"aidanwoods.dev/go-paseto"
+	"github.com/MicahParks/keyfunc/v3"
+	"github.com/golang-jwt/jwt/v5"
 )
 
 // Validator validates tokens and returns claims.
@@ -12,71 +11,50 @@ type Validator interface {
 	ValidateToken(token string) (*Claims, error)
 }
 
-// tokenValidator validates PASETO v4 public tokens using a public key.
+// jwtValidator validates JWT tokens using a JWKS endpoint.
 // This is intended for use in microservices that need to validate tokens
-// issued by the auth-service.
-type tokenValidator struct {
-	publicKey paseto.V4AsymmetricPublicKey
+// issued by Zitadel (or any OIDC provider).
+type jwtValidator struct {
+	jwks keyfunc.Keyfunc
 }
 
-// newTokenValidator creates a new token validator with the given public key.
-// The publicKey should be a hex-encoded 32-byte Ed25519 public key.
+// jwtClaims is the JWT claims structure expected from Zitadel tokens.
+type jwtClaims struct {
+	jwt.RegisteredClaims
+	Role        string   `json:"role"`
+	Tenant      string   `json:"tenant"`
+	Permissions []string `json:"permissions"`
+}
+
+// newTokenValidator creates a new JWT validator that fetches keys from a JWKS endpoint.
 func newTokenValidator(config Config) (Validator, error) {
-	keyBytes, err := hex.DecodeString(config.PublicKey)
+	jwks, err := keyfunc.NewDefault([]string{config.JwksURL})
 	if err != nil {
 		return nil, ErrInvalidPublicKey
 	}
 
-	if len(keyBytes) != 32 {
-		return nil, ErrInvalidPublicKey
-	}
-
-	publicKey, err := paseto.NewV4AsymmetricPublicKeyFromBytes(keyBytes)
-	if err != nil {
-		return nil, ErrInvalidPublicKey
-	}
-
-	return &tokenValidator{
-		publicKey: publicKey,
+	return &jwtValidator{
+		jwks: jwks,
 	}, nil
 }
 
-// ValidateToken validates a token and returns the claims.
-func (v *tokenValidator) ValidateToken(tokenString string) (*Claims, error) {
-	parser := paseto.NewParser()
-
-	token, err := parser.ParseV4Public(v.publicKey, tokenString, nil)
-	if err != nil {
+// ValidateToken validates a JWT and returns the claims.
+func (v *jwtValidator) ValidateToken(tokenString string) (*Claims, error) {
+	token, err := jwt.ParseWithClaims(tokenString, &jwtClaims{}, v.jwks.Keyfunc,
+		jwt.WithValidMethods([]string{"RS256"}),
+	)
+	if err != nil || !token.Valid {
 		return nil, ErrInvalidToken
 	}
 
-	subject, err := token.GetSubject()
-	if err != nil {
+	c, ok := token.Claims.(*jwtClaims)
+	if !ok || c.Subject == "" {
 		return nil, ErrInvalidToken
 	}
-
-	role, _ := token.GetString("role")      //nolint:errcheck // Optional claim, empty string is valid default
-	tokenType, _ := token.GetString("type") //nolint:errcheck // Optional claim, empty string is valid default
-	tenant, _ := token.GetString("tenant")  //nolint:errcheck // Optional claim, empty for service tokens
-
-	// Parse permissions from token
-	var permissions []string
-	_ = token.Get("permissions", &permissions) //nolint:errcheck // Optional claim, nil slice is valid default
-
-	// Parse time claims
-	iat, _ := token.GetIssuedAt()   //nolint:errcheck // Optional claim, zero time is valid default
-	exp, _ := token.GetExpiration() //nolint:errcheck // Optional claim, zero time is valid default
-	nbf, _ := token.GetNotBefore()  //nolint:errcheck // Optional claim, zero time is valid default
 
 	return &Claims{
-		UserID:      subject,
-		Tenant:      tenant,
-		Role:        role,
-		Permissions: permissions,
-		Type:        tokenType,
-		IssuedAt:    iat,
-		ExpiresAt:   exp,
-		NotBefore:   nbf,
-		token:       token,
+		Tenant:      c.Tenant,
+		Role:        c.Role,
+		Permissions: c.Permissions,
 	}, nil
 }

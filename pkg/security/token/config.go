@@ -9,13 +9,18 @@ type Config struct {
 
 // S2SConfig holds the configuration for service-to-service authentication (outgoing requests).
 type S2SConfig struct {
-	// ClientID is the OAuth2 client ID for the Client Credentials flow.
+	// ClientID is the OAuth2 client ID (Zitadel machine user ID).
 	ClientID string `koanf:"client-id"`
 
-	// ClientSecret is the OAuth2 client secret for the Client Credentials flow.
+	// ClientSecret is the OAuth2 client secret for the client_credentials flow.
+	// Mutually exclusive with PrivateKey.
 	ClientSecret string `koanf:"client-secret"`
 
-	// TokenURL is the OAuth2 token endpoint for the Client Credentials flow.
+	// PrivateKey is a PEM-encoded RSA private key for private_key_jwt flow (RFC 7523).
+	// Mutually exclusive with ClientSecret.
+	PrivateKey string `koanf:"private-key"`
+
+	// TokenURL is the OAuth2 token endpoint.
 	// Example: "http://zitadel:8080/oauth/v2/token"
 	TokenURL string `koanf:"token-url"`
 }

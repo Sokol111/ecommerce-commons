@@ -5,6 +5,7 @@ import (
 
 	"github.com/knadh/koanf/v2"
 	"go.uber.org/fx"
+	"golang.org/x/oauth2"
 )
 
 // tokenOptions holds internal configuration for the token module.
@@ -80,6 +81,7 @@ func NewSecurityHandlerModule(opts ...Option) fx.Option {
 		return fx.Provide(
 			newTestValidator,
 			newSecurityHandler,
+			provideNoopTokenSource,
 		)
 	}
 
@@ -88,6 +90,7 @@ func NewSecurityHandlerModule(opts ...Option) fx.Option {
 		return fx.Provide(
 			newNoopValidator,
 			newSecurityHandler,
+			provideNoopTokenSource,
 		)
 	}
 
@@ -99,7 +102,7 @@ func NewSecurityHandlerModule(opts ...Option) fx.Option {
 			provideS2SConfig,
 			newTokenValidator,
 			newSecurityHandler,
-			provideTokenProvider,
+			provideTokenSource,
 		),
 	)
 }
@@ -115,8 +118,12 @@ func provideS2SConfig(k *koanf.Koanf) (S2SConfig, error) {
 	return loadS2SConfig(k)
 }
 
-func provideTokenProvider(cfg S2SConfig) Provider {
-	return newTokenProvider(cfg)
+func provideTokenSource(cfg S2SConfig) (oauth2.TokenSource, error) {
+	return newTokenSource(cfg)
+}
+
+func provideNoopTokenSource() oauth2.TokenSource {
+	return noopTokenSource{}
 }
 
 func loadConfig(k *koanf.Koanf) (Config, error) {
@@ -147,6 +154,18 @@ func loadS2SConfig(k *koanf.Koanf) (S2SConfig, error) {
 	}
 	if err := k.Unmarshal("security.s2s", &cfg); err != nil {
 		return cfg, fmt.Errorf("failed to load S2S config: %w", err)
+	}
+	if cfg.ClientID == "" {
+		return cfg, fmt.Errorf("security.s2s.client-id is required")
+	}
+	if cfg.TokenURL == "" {
+		return cfg, fmt.Errorf("security.s2s.token-url is required")
+	}
+	if cfg.PrivateKey == "" && cfg.ClientSecret == "" {
+		return cfg, fmt.Errorf("security.s2s requires either private-key or client-secret")
+	}
+	if cfg.PrivateKey != "" && cfg.ClientSecret != "" {
+		return cfg, fmt.Errorf("security.s2s: private-key and client-secret are mutually exclusive")
 	}
 	return cfg, nil
 }

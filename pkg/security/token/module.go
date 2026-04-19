@@ -158,14 +158,11 @@ func loadS2SConfig(k *koanf.Koanf) (S2SConfig, error) {
 	if cfg.ClientID == "" {
 		return cfg, fmt.Errorf("security.s2s.client-id is required")
 	}
+	if cfg.ClientSecret == "" {
+		return cfg, fmt.Errorf("security.s2s.client-secret is required")
+	}
 	if cfg.TokenURL == "" {
 		return cfg, fmt.Errorf("security.s2s.token-url is required")
-	}
-	if cfg.PrivateKey == "" && cfg.ClientSecret == "" {
-		return cfg, fmt.Errorf("security.s2s requires either private-key or client-secret")
-	}
-	if cfg.PrivateKey != "" && cfg.ClientSecret != "" {
-		return cfg, fmt.Errorf("security.s2s: private-key and client-secret are mutually exclusive")
 	}
 	return cfg, nil
 }

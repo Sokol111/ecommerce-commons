@@ -20,7 +20,12 @@ func newTokenSource(cfg S2SConfig) (oauth2.TokenSource, error) {
 		TokenURL:     cfg.TokenURL,
 		Scopes:       []string{"openid"},
 	}
-	return cc.TokenSource(context.Background()), nil
+
+	ctx := context.Background()
+	if cfg.HostOverride != "" {
+		ctx = context.WithValue(ctx, oauth2.HTTPClient, httpClientWithHostOverride(cfg.HostOverride))
+	}
+	return cc.TokenSource(ctx), nil
 }
 
 // noopTokenSource is a TokenSource that returns an empty token. Used in test/disabled modes.

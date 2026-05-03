@@ -1,6 +1,8 @@
 package token
 
 import (
+	"context"
+
 	"github.com/MicahParks/keyfunc/v3"
 	"github.com/golang-jwt/jwt/v5"
 )
@@ -28,7 +30,17 @@ type jwtClaims struct {
 
 // newTokenValidator creates a new JWT validator that fetches keys from a JWKS endpoint.
 func newTokenValidator(config Config) (Validator, error) {
-	jwks, err := keyfunc.NewDefault([]string{config.JwksURL})
+	var (
+		jwks keyfunc.Keyfunc
+		err  error
+	)
+	if config.HostOverride != "" {
+		jwks, err = keyfunc.NewDefaultOverrideCtx(context.Background(), []string{config.JwksURL}, keyfunc.Override{
+			Client: httpClientWithHostOverride(config.HostOverride),
+		})
+	} else {
+		jwks, err = keyfunc.NewDefault([]string{config.JwksURL})
+	}
 	if err != nil {
 		return nil, ErrInvalidPublicKey
 	}

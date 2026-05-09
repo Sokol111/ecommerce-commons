@@ -10,7 +10,7 @@ import (
 
 // tokenOptions holds internal configuration for the token module.
 type tokenOptions struct {
-	config           *Config
+	jwksConfig       *JWKSConfig
 	disable          bool
 	testClaims       *Claims
 	useTestValidator bool
@@ -19,10 +19,10 @@ type tokenOptions struct {
 // Option is a functional option for configuring the token module.
 type Option func(*tokenOptions)
 
-// WithTokenConfig provides a static Config (useful for tests).
-func WithTokenConfig(cfg Config) Option {
+// WithJWKSConfig provides a static Config (useful for tests).
+func WithJWKSConfig(cfg JWKSConfig) Option {
 	return func(opts *tokenOptions) {
-		opts.config = &cfg
+		opts.jwksConfig = &cfg
 	}
 }
 
@@ -99,7 +99,7 @@ func NewSecurityHandlerModule(opts ...Option) fx.Option {
 		fx.Supply(cfg),
 		fx.Provide(
 			provideConfig,
-			provideS2SConfig,
+			provideClientCredentialsConfig,
 			newTokenValidator,
 			newSecurityHandler,
 			provideTokenSource,
@@ -107,18 +107,18 @@ func NewSecurityHandlerModule(opts ...Option) fx.Option {
 	)
 }
 
-func provideConfig(opts *tokenOptions, k *koanf.Koanf) (Config, error) {
-	if opts.config != nil {
-		return *opts.config, nil
+func provideConfig(opts *tokenOptions, k *koanf.Koanf) (JWKSConfig, error) {
+	if opts.jwksConfig != nil {
+		return *opts.jwksConfig, nil
 	}
 	return loadConfig(k)
 }
 
-func provideS2SConfig(k *koanf.Koanf) (S2SConfig, error) {
-	return loadS2SConfig(k)
+func provideClientCredentialsConfig(k *koanf.Koanf) (ClientCredentialsConfig, error) {
+	return loadClientCredentialsConfig(k)
 }
 
-func provideTokenSource(cfg S2SConfig) (oauth2.TokenSource, error) {
+func provideTokenSource(cfg ClientCredentialsConfig) (oauth2.TokenSource, error) {
 	return newTokenSource(cfg)
 }
 
@@ -126,43 +126,43 @@ func provideNoopTokenSource() oauth2.TokenSource {
 	return noopTokenSource{}
 }
 
-func loadConfig(k *koanf.Koanf) (Config, error) {
-	var cfg Config
+func loadConfig(k *koanf.Koanf) (JWKSConfig, error) {
+	var cfg JWKSConfig
 	if !k.Exists("security") {
 		return cfg, fmt.Errorf("security configuration section is required")
 	}
 
-	if !k.Exists("security.token") {
-		return cfg, fmt.Errorf("security.token configuration section is required")
+	if !k.Exists("security.jwks") {
+		return cfg, fmt.Errorf("security.jwks configuration section is required")
 	}
 
-	if err := k.Unmarshal("security.token", &cfg); err != nil {
-		return cfg, fmt.Errorf("failed to load token config: %w", err)
+	if err := k.Unmarshal("security.jwks", &cfg); err != nil {
+		return cfg, fmt.Errorf("failed to load jwks config: %w", err)
 	}
 
 	if cfg.JwksURL == "" {
-		return cfg, fmt.Errorf("security.token.jwks-url is required")
+		return cfg, fmt.Errorf("security.jwks.jwks-url is required")
 	}
 
 	return cfg, nil
 }
 
-func loadS2SConfig(k *koanf.Koanf) (S2SConfig, error) {
-	var cfg S2SConfig
-	if !k.Exists("security.s2s") {
+func loadClientCredentialsConfig(k *koanf.Koanf) (ClientCredentialsConfig, error) {
+	var cfg ClientCredentialsConfig
+	if !k.Exists("security.client-credentials") {
 		return cfg, nil
 	}
-	if err := k.Unmarshal("security.s2s", &cfg); err != nil {
-		return cfg, fmt.Errorf("failed to load S2S config: %w", err)
+	if err := k.Unmarshal("security.client-credentials", &cfg); err != nil {
+		return cfg, fmt.Errorf("failed to load client-credentials config: %w", err)
 	}
 	if cfg.ClientID == "" {
-		return cfg, fmt.Errorf("security.s2s.client-id is required")
+		return cfg, fmt.Errorf("security.client-credentials.client-id is required")
 	}
 	if cfg.ClientSecret == "" {
-		return cfg, fmt.Errorf("security.s2s.client-secret is required")
+		return cfg, fmt.Errorf("security.client-credentials.client-secret is required")
 	}
 	if cfg.TokenURL == "" {
-		return cfg, fmt.Errorf("security.s2s.token-url is required")
+		return cfg, fmt.Errorf("security.client-credentials.token-url is required")
 	}
 	return cfg, nil
 }

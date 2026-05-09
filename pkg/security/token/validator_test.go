@@ -73,7 +73,7 @@ func TestNewTokenValidator(t *testing.T) {
 	_, server := testJWKS(t)
 
 	t.Run("valid JWKS URL", func(t *testing.T) {
-		cfg := Config{JwksURL: server.URL}
+		cfg := JWKSConfig{JwksURL: server.URL}
 		validator, err := newTokenValidator(cfg)
 
 		assert.NoError(t, err)
@@ -81,7 +81,7 @@ func TestNewTokenValidator(t *testing.T) {
 	})
 
 	t.Run("invalid JWKS URL - tokens fail validation", func(t *testing.T) {
-		cfg := Config{JwksURL: "http://localhost:1/nonexistent"}
+		cfg := JWKSConfig{JwksURL: "http://localhost:1/nonexistent"}
 		validator, err := newTokenValidator(cfg)
 
 		// keyfunc creates the validator even if initial fetch fails (lazy refresh).
@@ -98,7 +98,7 @@ func TestNewTokenValidator(t *testing.T) {
 
 	t.Run("validator works with valid token", func(t *testing.T) {
 		privateKey, svr := testJWKS(t)
-		cfg := Config{JwksURL: svr.URL}
+		cfg := JWKSConfig{JwksURL: svr.URL}
 		validator, err := newTokenValidator(cfg)
 		require.NoError(t, err)
 
@@ -113,7 +113,7 @@ func TestNewTokenValidator(t *testing.T) {
 func TestTokenValidator_ValidateToken(t *testing.T) {
 	privateKey, server := testJWKS(t)
 
-	cfg := Config{JwksURL: server.URL}
+	cfg := JWKSConfig{JwksURL: server.URL}
 	validator, err := newTokenValidator(cfg)
 	require.NoError(t, err)
 

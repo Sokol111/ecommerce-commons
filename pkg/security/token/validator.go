@@ -1,7 +1,7 @@
 package token
 
 import (
-	"context"
+	"strings"
 
 	"github.com/MicahParks/keyfunc/v3"
 	"github.com/golang-jwt/jwt/v5"
@@ -15,46 +15,54 @@ type Validator interface {
 
 // jwtValidator validates JWT tokens using a JWKS endpoint.
 // This is intended for use in microservices that need to validate tokens
-// issued by Zitadel (or any OIDC provider).
+// issued by an OIDC provider (e.g. Logto).
 type jwtValidator struct {
-	jwks keyfunc.Keyfunc
+	jwks     keyfunc.Keyfunc
+	audience string
 }
 
-// jwtClaims is the JWT claims structure expected from Zitadel tokens.
+// jwtClaims is the JWT claims structure expected from the OIDC provider.
+// Standard OIDC scopes are in the "scope" claim (space-separated).
+// Custom claims "role" and "tenant" are injected via custom JWT claims script.
 type jwtClaims struct {
 	jwt.RegisteredClaims
-	Role        string   `json:"role"`
-	Tenant      string   `json:"tenant"`
-	Permissions []string `json:"permissions"`
+	Role   string `json:"role"`
+	Tenant string `json:"tenant"`
+	Scope  string `json:"scope"`
+}
+
+// oidcScopes are standard OIDC scopes that should be filtered out from permissions.
+var oidcScopes = map[string]bool{
+	"openid":         true,
+	"profile":        true,
+	"email":          true,
+	"offline_access": true,
+	"all":            true,
 }
 
 // newTokenValidator creates a new JWT validator that fetches keys from a JWKS endpoint.
-func newTokenValidator(config Config) (Validator, error) {
-	var (
-		jwks keyfunc.Keyfunc
-		err  error
-	)
-	if config.HostOverride != "" {
-		jwks, err = keyfunc.NewDefaultOverrideCtx(context.Background(), []string{config.JwksURL}, keyfunc.Override{
-			Client: httpClientWithHostOverride(config.HostOverride),
-		})
-	} else {
-		jwks, err = keyfunc.NewDefault([]string{config.JwksURL})
-	}
+func newTokenValidator(config JWKSConfig) (Validator, error) {
+	jwks, err := keyfunc.NewDefault([]string{config.JwksURL})
 	if err != nil {
 		return nil, ErrInvalidPublicKey
 	}
 
 	return &jwtValidator{
-		jwks: jwks,
+		jwks:     jwks,
+		audience: config.Audience,
 	}, nil
 }
 
 // ValidateToken validates a JWT and returns the claims.
 func (v *jwtValidator) ValidateToken(tokenString string) (*Claims, error) {
-	token, err := jwt.ParseWithClaims(tokenString, &jwtClaims{}, v.jwks.Keyfunc,
-		jwt.WithValidMethods([]string{"RS256"}),
-	)
+	parserOpts := []jwt.ParserOption{
+		jwt.WithValidMethods([]string{"RS256", "ES256", "ES384"}),
+	}
+	if v.audience != "" {
+		parserOpts = append(parserOpts, jwt.WithAudience(v.audience))
+	}
+
+	token, err := jwt.ParseWithClaims(tokenString, &jwtClaims{}, v.jwks.Keyfunc, parserOpts...)
 	if err != nil || !token.Valid {
 		return nil, ErrInvalidToken
 	}
@@ -67,6 +75,21 @@ func (v *jwtValidator) ValidateToken(tokenString string) (*Claims, error) {
 	return &Claims{
 		Tenant:      c.Tenant,
 		Role:        c.Role,
-		Permissions: c.Permissions,
+		Permissions: parseScopes(c.Scope),
 	}, nil
+}
+
+// parseScopes splits the space-separated scope string and filters out standard OIDC scopes.
+func parseScopes(scope string) []string {
+	if scope == "" {
+		return nil
+	}
+	parts := strings.Split(scope, " ")
+	permissions := make([]string, 0, len(parts))
+	for _, s := range parts {
+		if s != "" && !oidcScopes[s] {
+			permissions = append(permissions, s)
+		}
+	}
+	return permissions
 }

@@ -1,49 +1,34 @@
 package token
 
-import "net/http"
-
-// Config holds the configuration for JWT token validation (incoming requests).
-type Config struct {
+// JWKSConfig holds the configuration for JWT token validation (incoming requests).
+type JWKSConfig struct {
 	// JwksURL is the URL to fetch the JSON Web Key Set for verifying tokens.
-	// Example: "http://zitadel:8080/oauth/v2/keys"
+	// Example: "http://logto:3001/oidc/jwks"
 	JwksURL string `koanf:"jwks-url"`
 
-	// HostOverride overrides the Host header in HTTP requests to the JWKS endpoint.
-	// Use when the server requires a specific Host header (e.g. Zitadel with ExternalDomain).
-	HostOverride string `koanf:"host-override"`
+	// Audience is the expected audience (aud) claim in JWT tokens.
+	// This should match the API resource indicator registered in the OIDC provider.
+	// Example: "https://api.sokolshop.com"
+	Audience string `koanf:"audience"`
 }
 
-// S2SConfig holds the configuration for service-to-service authentication (outgoing requests).
-type S2SConfig struct {
-	// ClientID is the OAuth2 client ID (Zitadel machine user ID).
+// ClientCredentialsConfig holds the configuration for service-to-service authentication (outgoing requests).
+type ClientCredentialsConfig struct {
+	// ClientID is the OAuth2 client ID for the client_credentials flow.
 	ClientID string `koanf:"client-id"`
 
 	// ClientSecret is the OAuth2 client secret for the client_credentials flow.
 	ClientSecret string `koanf:"client-secret"`
 
 	// TokenURL is the OAuth2 token endpoint.
-	// Example: "http://zitadel:8080/oauth/v2/token"
+	// Example: "http://logto:3001/oidc/token"
 	TokenURL string `koanf:"token-url"`
 
-	// HostOverride overrides the Host header in HTTP requests to the token endpoint.
-	// Use when the server requires a specific Host header (e.g. Zitadel with ExternalDomain).
-	HostOverride string `koanf:"host-override"`
-}
+	// Resource is the API resource indicator (RFC 8707) for token requests.
+	// When set, it is sent as the "resource" parameter in client_credentials requests.
+	// Example: "https://api.sokolshop.com"
+	Resource string `koanf:"resource"`
 
-// hostOverrideTransport wraps an http.RoundTripper and overrides the Host header.
-type hostOverrideTransport struct {
-	host string
-	base http.RoundTripper
-}
-
-func (t *hostOverrideTransport) RoundTrip(req *http.Request) (*http.Response, error) {
-	req = req.Clone(req.Context())
-	req.Host = t.host
-	return t.base.RoundTrip(req)
-}
-
-func httpClientWithHostOverride(host string) *http.Client {
-	return &http.Client{
-		Transport: &hostOverrideTransport{host: host, base: http.DefaultTransport},
-	}
+	// Scopes is the list of scopes to request. Defaults to ["openid"] if empty.
+	Scopes []string `koanf:"scopes"`
 }

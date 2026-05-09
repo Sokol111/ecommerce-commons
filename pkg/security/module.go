@@ -7,7 +7,7 @@ import (
 
 // securityOptions holds internal configuration for the security module.
 type securityOptions struct {
-	tokenConfig      *token.Config
+	jwksConfig       *token.JWKSConfig
 	disable          bool
 	useTestValidator bool
 }
@@ -15,11 +15,11 @@ type securityOptions struct {
 // Option is a functional option for configuring the security module.
 type Option func(*securityOptions)
 
-// WithTokenConfig provides a static token Config (useful for tests).
-// When set, the token configuration will not be loaded from koanf.
-func WithTokenConfig(cfg token.Config) Option {
+// WithJWKSConfig provides a static JWKS Config (useful for tests).
+// When set, the JWKS configuration will not be loaded from koanf.
+func WithJWKSConfig(cfg token.JWKSConfig) Option {
 	return func(opts *securityOptions) {
-		opts.tokenConfig = &cfg
+		opts.jwksConfig = &cfg
 	}
 }
 
@@ -79,8 +79,8 @@ func securityHandlerModule(cfg *securityOptions) fx.Option {
 	if cfg.disable {
 		return token.NewSecurityHandlerModule(token.WithDisableValidation())
 	}
-	if cfg.tokenConfig != nil {
-		return token.NewSecurityHandlerModule(token.WithTokenConfig(*cfg.tokenConfig))
+	if cfg.jwksConfig != nil {
+		return token.NewSecurityHandlerModule(token.WithJWKSConfig(*cfg.jwksConfig))
 	}
 	return token.NewSecurityHandlerModule()
 }

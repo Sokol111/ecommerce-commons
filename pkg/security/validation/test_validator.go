@@ -1,4 +1,4 @@
-package token
+package validation
 
 import (
 	"encoding/base64"

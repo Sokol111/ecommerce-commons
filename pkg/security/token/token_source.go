@@ -10,9 +10,9 @@ import (
 )
 
 // newTokenSource creates an oauth2.TokenSource using the client_credentials grant.
-func newTokenSource(cfg ClientCredentialsConfig) (oauth2.TokenSource, error) {
+func newTokenSource(cfg Config) (oauth2.TokenSource, error) {
 	if cfg.ClientID == "" || cfg.ClientSecret == "" || cfg.TokenURL == "" {
-		return nil, errors.New("ClientCredentialsConfig auth not configured: set client-id, client-secret, and token-url in security.client-credentials")
+		return nil, errors.New("client-credentials not configured: set client-id, client-secret, and token-url in security.client-credentials")
 	}
 
 	cc := &clientcredentials.Config{
@@ -28,11 +28,4 @@ func newTokenSource(cfg ClientCredentialsConfig) (oauth2.TokenSource, error) {
 	}
 
 	return cc.TokenSource(context.Background()), nil
-}
-
-// noopTokenSource is a TokenSource that returns an empty token. Used in test/disabled modes.
-type noopTokenSource struct{}
-
-func (noopTokenSource) Token() (*oauth2.Token, error) {
-	return &oauth2.Token{AccessToken: "noop"}, nil
 }

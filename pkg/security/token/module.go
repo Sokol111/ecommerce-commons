@@ -8,147 +8,25 @@ import (
 	"golang.org/x/oauth2"
 )
 
-// tokenOptions holds internal configuration for the token module.
-type tokenOptions struct {
-	jwksConfig       *JWKSConfig
-	disable          bool
-	testClaims       *Claims
-	useTestValidator bool
-}
-
-// Option is a functional option for configuring the token module.
-type Option func(*tokenOptions)
-
-// WithJWKSConfig provides a static Config (useful for tests).
-func WithJWKSConfig(cfg JWKSConfig) Option {
-	return func(opts *tokenOptions) {
-		opts.jwksConfig = &cfg
-	}
-}
-
-// WithDisableValidation disables token validation and returns noop validator.
-// Useful for tests where token validation should be bypassed.
-func WithDisableValidation() Option {
-	return func(opts *tokenOptions) {
-		opts.disable = true
-	}
-}
-
-// WithTestClaims provides a validator that always returns the given claims.
-// Useful for tests that need specific user context.
-func WithTestClaims(claims Claims) Option {
-	return func(opts *tokenOptions) {
-		opts.testClaims = &claims
-	}
-}
-
-// WithTestValidator enables the test validator that decodes base64-encoded JSON tokens.
-// Use GenerateTestToken or GenerateAdminTestToken to create tokens for this validator.
-// Useful for e2e/integration tests where you want realistic token flow without JWT JWKS.
-func WithTestValidator() Option {
-	return func(opts *tokenOptions) {
-		opts.useTestValidator = true
-	}
-}
-
-// NewSecurityHandlerModule provides a SecurityHandler for dependency injection.
-// This is the recommended way to handle authentication in services.
-// Also provides Validator for services that need direct token validation (e.g., refresh tokens).
-//
-// Options:
-//   - WithTokenConfig: provide static token Config (useful for tests)
-//   - WithDisableValidation: bypass all security, returns admin claims
-//   - WithTestValidator: use base64 JSON tokens (for e2e tests with realistic flow)
-//
-// Example usage:
-//
-//	// Production - validates JWT tokens via JWKS
-//	token.NewSecurityHandlerModule()
-//
-//	// Testing - bypass security completely
-//	token.NewSecurityHandlerModule(token.WithDisableValidation())
-//
-//	// E2E testing - use base64 JSON tokens
-//	token.NewSecurityHandlerModule(token.WithTestValidator())
-func NewSecurityHandlerModule(opts ...Option) fx.Option {
-	cfg := &tokenOptions{}
-	for _, opt := range opts {
-		opt(cfg)
-	}
-
-	// Test validator - decodes base64 JSON tokens
-	if cfg.useTestValidator {
-		return fx.Provide(
-			newTestValidator,
-			newSecurityHandler,
-			provideNoopTokenSource,
-		)
-	}
-
-	// Disabled - bypass all security
-	if cfg.disable {
-		return fx.Provide(
-			newNoopValidator,
-			newSecurityHandler,
-			provideNoopTokenSource,
-		)
-	}
-
-	// Production - validate with real validator
-	return fx.Options(
-		fx.Supply(cfg),
-		fx.Provide(
-			provideConfig,
-			provideClientCredentialsConfig,
-			newTokenValidator,
-			newSecurityHandler,
-			provideTokenSource,
-		),
+// NewModule provides an oauth2.TokenSource for outgoing service-to-service calls.
+// Reads configuration from security.client-credentials.
+func NewModule() fx.Option {
+	return fx.Provide(
+		provideConfig,
+		provideTokenSource,
 	)
 }
 
-func provideConfig(opts *tokenOptions, k *koanf.Koanf) (JWKSConfig, error) {
-	if opts.jwksConfig != nil {
-		return *opts.jwksConfig, nil
-	}
+func provideConfig(k *koanf.Koanf) (Config, error) {
 	return loadConfig(k)
 }
 
-func provideClientCredentialsConfig(k *koanf.Koanf) (ClientCredentialsConfig, error) {
-	return loadClientCredentialsConfig(k)
-}
-
-func provideTokenSource(cfg ClientCredentialsConfig) (oauth2.TokenSource, error) {
+func provideTokenSource(cfg Config) (oauth2.TokenSource, error) {
 	return newTokenSource(cfg)
 }
 
-func provideNoopTokenSource() oauth2.TokenSource {
-	return noopTokenSource{}
-}
-
-func loadConfig(k *koanf.Koanf) (JWKSConfig, error) {
-	var cfg JWKSConfig
-	if !k.Exists("security") {
-		return cfg, fmt.Errorf("security configuration section is required")
-	}
-
-	if !k.Exists("security.jwks") {
-		return cfg, fmt.Errorf("security.jwks configuration section is required")
-	}
-
-	if err := k.Unmarshal("security.jwks", &cfg); err != nil {
-		return cfg, fmt.Errorf("failed to load jwks config: %w", err)
-	}
-
-	if cfg.JwksURL == "" {
-		return cfg, fmt.Errorf("security.jwks.jwks-url is required")
-	}
-
-	return cfg, nil
-}
-
-func loadClientCredentialsConfig(k *koanf.Koanf) (ClientCredentialsConfig, error) {
-	var cfg ClientCredentialsConfig
+func loadConfig(k *koanf.Koanf) (Config, error) {
+	var cfg Config
 	if !k.Exists("security.client-credentials") {
 		return cfg, nil
 	}

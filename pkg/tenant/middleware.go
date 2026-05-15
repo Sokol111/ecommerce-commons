@@ -5,7 +5,7 @@ import (
 
 	"github.com/Sokol111/ecommerce-commons/pkg/core/logger"
 	httpmw "github.com/Sokol111/ecommerce-commons/pkg/http/middleware"
-	"github.com/Sokol111/ecommerce-commons/pkg/security/token"
+	"github.com/Sokol111/ecommerce-commons/pkg/security/validation"
 	"github.com/ogen-go/ogen/middleware"
 	"go.uber.org/fx"
 	"go.uber.org/zap"
@@ -33,9 +33,9 @@ func Middleware(log *zap.Logger) middleware.Middleware {
 		// Security handler runs before middleware, so claims are already in context.
 		// Tenant-scoped users must have a tenant claim matching the request tenant.
 		// Service accounts and platform admins are not tenant-scoped and can access any tenant.
-		if claims := token.ClaimsFromContext(req.Context); claims != nil && claims.IsTenantScoped() {
+		if claims := validation.ClaimsFromContext(req.Context); claims != nil && claims.IsTenantScoped() {
 			if claims.Tenant != slug {
-				return middleware.Response{}, token.ErrTenantMismatch
+				return middleware.Response{}, validation.ErrTenantMismatch
 			}
 		}
 

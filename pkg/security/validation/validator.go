@@ -1,4 +1,4 @@
-package token
+package validation
 
 import (
 	"strings"
@@ -41,7 +41,7 @@ var oidcScopes = map[string]bool{
 }
 
 // newTokenValidator creates a new JWT validator that fetches keys from a JWKS endpoint.
-func newTokenValidator(config JWKSConfig) (Validator, error) {
+func newTokenValidator(config Config) (Validator, error) {
 	jwks, err := keyfunc.NewDefault([]string{config.JwksURL})
 	if err != nil {
 		return nil, ErrInvalidPublicKey

@@ -8,7 +8,7 @@ import (
 
 	"github.com/Sokol111/ecommerce-commons/pkg/core/logger"
 	"github.com/Sokol111/ecommerce-commons/pkg/http/middleware"
-	"github.com/Sokol111/ecommerce-commons/pkg/security/token"
+	"github.com/Sokol111/ecommerce-commons/pkg/security/validation"
 	"github.com/Sokol111/ecommerce-commons/pkg/tenant"
 	"github.com/ogen-go/ogen/ogenerrors"
 	"go.opentelemetry.io/otel/trace"
@@ -72,11 +72,11 @@ func errorToStatusCode(err error) int {
 		return http.StatusServiceUnavailable
 	case errors.Is(err, middleware.ErrPanic):
 		return http.StatusInternalServerError
-	case errors.Is(err, token.ErrInvalidPublicKey):
+	case errors.Is(err, validation.ErrInvalidPublicKey):
 		return http.StatusInternalServerError
-	case errors.Is(err, token.ErrInsufficientPermissions):
+	case errors.Is(err, validation.ErrInsufficientPermissions):
 		return http.StatusForbidden
-	case errors.Is(err, token.ErrTenantMismatch):
+	case errors.Is(err, validation.ErrTenantMismatch):
 		return http.StatusForbidden
 	case errors.Is(err, tenant.ErrTenantNotFound):
 		return http.StatusBadRequest

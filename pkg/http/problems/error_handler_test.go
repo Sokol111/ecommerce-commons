@@ -10,7 +10,7 @@ import (
 
 	"github.com/Sokol111/ecommerce-commons/pkg/core/logger"
 	"github.com/Sokol111/ecommerce-commons/pkg/http/middleware"
-	"github.com/Sokol111/ecommerce-commons/pkg/security/token"
+	"github.com/Sokol111/ecommerce-commons/pkg/security/validation"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap"
@@ -44,12 +44,12 @@ func TestErrorToStatusCode(t *testing.T) {
 		},
 		{
 			name:         "ErrInvalidPublicKey returns 500 Internal Server Error",
-			err:          token.ErrInvalidPublicKey,
+			err:          validation.ErrInvalidPublicKey,
 			expectedCode: http.StatusInternalServerError,
 		},
 		{
 			name:         "ErrInsufficientPermissions returns 403 Forbidden",
-			err:          token.ErrInsufficientPermissions,
+			err:          validation.ErrInsufficientPermissions,
 			expectedCode: http.StatusForbidden,
 		},
 		{
@@ -156,7 +156,7 @@ func TestNewErrorHandler(t *testing.T) {
 		r := httptest.NewRequest("DELETE", "/api/v1/admin/users/123", nil)
 		r = r.WithContext(ctx)
 
-		handler(ctx, w, r, token.ErrInsufficientPermissions)
+		handler(ctx, w, r, validation.ErrInsufficientPermissions)
 
 		assert.Equal(t, http.StatusForbidden, w.Code)
 

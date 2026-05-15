@@ -1,4 +1,4 @@
-package token
+package validation
 
 // noopValidator is a validator that always returns valid claims.
 // Useful for tests where token validation should be bypassed.

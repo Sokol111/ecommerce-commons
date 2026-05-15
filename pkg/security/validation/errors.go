@@ -1,4 +1,4 @@
-package token
+package validation
 
 import "errors"
 
@@ -9,4 +9,6 @@ var (
 	ErrTenantMismatch = errors.New("token tenant mismatch")
 	// ErrInvalidPublicKey is returned when the public key is invalid.
 	ErrInvalidPublicKey = errors.New("invalid public key")
+	// ErrInsufficientPermissions is returned when user lacks required permissions.
+	ErrInsufficientPermissions = errors.New("insufficient permissions")
 )

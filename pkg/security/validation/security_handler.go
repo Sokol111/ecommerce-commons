@@ -1,12 +1,8 @@
-package token
+package validation
 
 import (
 	"context"
-	"errors"
 )
-
-// ErrInsufficientPermissions is returned when user lacks required permissions.
-var ErrInsufficientPermissions = errors.New("insufficient permissions")
 
 // SecurityHandler handles bearer token authentication and authorization.
 // Different validators provide different behaviors for production vs testing.

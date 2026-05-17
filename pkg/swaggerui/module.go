@@ -7,8 +7,9 @@ import (
 )
 
 // NewSwaggerModule provides Swagger UI endpoints for API documentation.
-func NewSwaggerModule(cfg SwaggerConfig) fx.Option {
-	return fx.Invoke(func(mux *http.ServeMux) {
+// SwaggerConfig is resolved from the fx dependency injection container.
+func NewSwaggerModule() fx.Option {
+	return fx.Invoke(func(mux *http.ServeMux, cfg SwaggerConfig) {
 		registerSwaggerUI(mux, cfg)
 	})
 }

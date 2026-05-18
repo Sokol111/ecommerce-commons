@@ -3,7 +3,12 @@ package mongo
 import (
 	"fmt"
 	"net/url"
+	"strconv"
 	"time"
+
+	"go.mongodb.org/mongo-driver/v2/mongo/readconcern"
+	"go.mongodb.org/mongo-driver/v2/mongo/readpref"
+	"go.mongodb.org/mongo-driver/v2/mongo/writeconcern"
 )
 
 // Config holds the MongoDB connection configuration.
@@ -27,8 +32,36 @@ type Config struct {
 	// Query Timeout Settings
 	QueryTimeout time.Duration `koanf:"query-timeout"` // Максимальний час виконання запиту до БД
 
+	// Read/Write Concern and Read Preference
+	WriteConcern   WriteConcernConfig   `koanf:"write-concern"`
+	ReadConcern    ReadConcernConfig    `koanf:"read-concern"`
+	ReadPreference ReadPreferenceConfig `koanf:"read-preference"`
+
 	// Migration Settings
 	Migrations MigrationConfig `koanf:"migrations"`
+}
+
+// WriteConcernConfig holds write concern settings.
+type WriteConcernConfig struct {
+	// W specifies the write concern level: "majority", or a number (e.g. "1", "2").
+	W string `koanf:"w"`
+	// Journal requests acknowledgment that the write operation has been written to the journal.
+	Journal *bool `koanf:"journal"`
+}
+
+// ReadConcernConfig holds read concern settings.
+type ReadConcernConfig struct {
+	// Level specifies the read concern level: "local", "majority", "linearizable", "snapshot", "available".
+	Level string `koanf:"level"`
+}
+
+// ReadPreferenceConfig holds read preference settings.
+type ReadPreferenceConfig struct {
+	// Mode specifies the read preference mode: "primary", "primaryPreferred", "secondary",
+	// "secondaryPreferred", "nearest".
+	Mode string `koanf:"mode"`
+	// MaxStaleness is the maximum replication lag for a secondary to be considered for read operations.
+	MaxStaleness time.Duration `koanf:"max-staleness"`
 }
 
 // MigrationConfig holds migration-specific configuration.
@@ -114,4 +147,81 @@ func (c Config) validate() error {
 		return fmt.Errorf("invalid Mongo configuration: host, port, and database are required")
 	}
 	return nil
+}
+
+// buildWriteConcern constructs a WriteConcern from config.
+// Returns nil if no write concern is configured.
+func (c WriteConcernConfig) buildWriteConcern() *writeconcern.WriteConcern {
+	if c.W == "" && c.Journal == nil {
+		return nil
+	}
+
+	wc := &writeconcern.WriteConcern{}
+
+	if c.W != "" {
+		if n, err := strconv.Atoi(c.W); err == nil {
+			wc.W = n
+		} else {
+			wc.W = c.W // e.g. "majority"
+		}
+	}
+	if c.Journal != nil {
+		wc.Journal = c.Journal
+	}
+
+	return wc
+}
+
+// buildReadConcern constructs a ReadConcern from config.
+// Returns nil if no read concern level is configured.
+func (c ReadConcernConfig) buildReadConcern() *readconcern.ReadConcern {
+	if c.Level == "" {
+		return nil
+	}
+
+	switch c.Level {
+	case "local":
+		return readconcern.Local()
+	case "majority":
+		return readconcern.Majority()
+	case "linearizable":
+		return readconcern.Linearizable()
+	case "available":
+		return readconcern.Available()
+	case "snapshot":
+		return readconcern.Snapshot()
+	default:
+		return &readconcern.ReadConcern{Level: c.Level}
+	}
+}
+
+// buildReadPreference constructs a ReadPreference from config.
+// Returns nil if no read preference mode is configured.
+func (c ReadPreferenceConfig) buildReadPreference() *readpref.ReadPref {
+	if c.Mode == "" {
+		return nil
+	}
+
+	var opts []readpref.Option
+	if c.MaxStaleness > 0 {
+		opts = append(opts, readpref.WithMaxStaleness(c.MaxStaleness))
+	}
+
+	var rp *readpref.ReadPref
+	switch c.Mode {
+	case "primary":
+		rp, _ = readpref.New(readpref.PrimaryMode, opts...)
+	case "primaryPreferred":
+		rp, _ = readpref.New(readpref.PrimaryPreferredMode, opts...)
+	case "secondary":
+		rp, _ = readpref.New(readpref.SecondaryMode, opts...)
+	case "secondaryPreferred":
+		rp, _ = readpref.New(readpref.SecondaryPreferredMode, opts...)
+	case "nearest":
+		rp, _ = readpref.New(readpref.NearestMode, opts...)
+	default:
+		return nil
+	}
+
+	return rp
 }

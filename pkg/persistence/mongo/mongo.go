@@ -50,6 +50,16 @@ func newMongo(log *zap.Logger, conf Config, appName string, tp trace.TracerProvi
 			otelmongo.WithMeterProvider(mp),
 		))
 
+	if wc := conf.WriteConcern.buildWriteConcern(); wc != nil {
+		clientOptions.SetWriteConcern(wc)
+	}
+	if rc := conf.ReadConcern.buildReadConcern(); rc != nil {
+		clientOptions.SetReadConcern(rc)
+	}
+	if rp := conf.ReadPreference.buildReadPreference(); rp != nil {
+		clientOptions.SetReadPreference(rp)
+	}
+
 	// Create client and database reference
 	// Client is initialized here to avoid nil pointer errors in GetCollection* methods
 	// Actual connection validation happens in connect() via Ping

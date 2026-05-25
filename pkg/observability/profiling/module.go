@@ -22,17 +22,14 @@ func startProfiler(lc fx.Lifecycle, cfg config.Config, appCfg appconfig.AppConfi
 		return
 	}
 
-	profileTypes := []pyroscope.ProfileType{
-		pyroscope.ProfileCPU,
-		pyroscope.ProfileInuseObjects,
-		pyroscope.ProfileInuseSpace,
-		pyroscope.ProfileAllocObjects,
-		pyroscope.ProfileAllocSpace,
-		pyroscope.ProfileGoroutines,
-	}
+	profileTypes := buildProfileTypes(cfg.Profiling)
 
-	runtime.SetMutexProfileFraction(5)
-	runtime.SetBlockProfileRate(5)
+	if *cfg.Profiling.Mutex {
+		runtime.SetMutexProfileFraction(cfg.Profiling.MutexProfileFraction)
+	}
+	if *cfg.Profiling.Block {
+		runtime.SetBlockProfileRate(cfg.Profiling.BlockProfileRate)
+	}
 
 	pyroCfg := pyroscope.Config{
 		ApplicationName: appCfg.ServiceName,
@@ -78,6 +75,31 @@ func (l *zapLogger) Infof(format string, args ...interface{}) {
 }
 
 func (l *zapLogger) Debugf(_ string, _ ...interface{}) {}
+
+func buildProfileTypes(cfg config.ProfilingConfig) []pyroscope.ProfileType {
+	var types []pyroscope.ProfileType
+	if *cfg.CPU {
+		types = append(types, pyroscope.ProfileCPU)
+	}
+	if *cfg.Heap {
+		types = append(types,
+			pyroscope.ProfileInuseObjects,
+			pyroscope.ProfileInuseSpace,
+			pyroscope.ProfileAllocObjects,
+			pyroscope.ProfileAllocSpace,
+		)
+	}
+	if *cfg.Goroutines {
+		types = append(types, pyroscope.ProfileGoroutines)
+	}
+	if *cfg.Mutex {
+		types = append(types, pyroscope.ProfileMutexCount, pyroscope.ProfileMutexDuration)
+	}
+	if *cfg.Block {
+		types = append(types, pyroscope.ProfileBlockCount, pyroscope.ProfileBlockDuration)
+	}
+	return types
+}
 
 func (l *zapLogger) Errorf(format string, args ...interface{}) {
 	l.log.Sugar().Errorf(format, args...)

@@ -36,6 +36,12 @@ type TracingConfig struct {
 const (
 	// DefaultSampleRatio is the default sampling ratio (100% for local development).
 	DefaultSampleRatio = 1.0
+
+	// DefaultMutexProfileFraction is the default mutex profile fraction.
+	DefaultMutexProfileFraction = 5
+
+	// DefaultBlockProfileRate is the default block profile rate.
+	DefaultBlockProfileRate = 5
 )
 
 // MetricsConfig holds metrics-specific configuration.
@@ -46,6 +52,13 @@ type MetricsConfig struct {
 
 // ProfilingConfig holds continuous profiling configuration.
 type ProfilingConfig struct {
-	Enabled  bool   `koanf:"enabled"`
-	Endpoint string `koanf:"endpoint"`
+	Enabled              bool   `koanf:"enabled"`
+	Endpoint             string `koanf:"endpoint"`
+	CPU                  *bool  `koanf:"cpu"`
+	Heap                 *bool  `koanf:"heap"`
+	Goroutines           *bool  `koanf:"goroutines"`
+	Mutex                *bool  `koanf:"mutex"`
+	Block                *bool  `koanf:"block"`
+	MutexProfileFraction int    `koanf:"mutex-profile-fraction"`
+	BlockProfileRate     int    `koanf:"block-profile-rate"`
 }

@@ -86,6 +86,33 @@ func applyDefaults(cfg *Config) {
 	if cfg.Tracing.SampleRatio == 0 {
 		cfg.Tracing.SampleRatio = DefaultSampleRatio
 	}
+	if cfg.Profiling.Enabled {
+		applyProfilingDefaults(&cfg.Profiling)
+	}
+}
+
+func applyProfilingDefaults(cfg *ProfilingConfig) {
+	if cfg.CPU == nil {
+		cfg.CPU = new(true)
+	}
+	if cfg.Heap == nil {
+		cfg.Heap = new(true)
+	}
+	if cfg.Goroutines == nil {
+		cfg.Goroutines = new(true)
+	}
+	if cfg.Mutex == nil {
+		cfg.Mutex = new(false)
+	}
+	if cfg.Block == nil {
+		cfg.Block = new(false)
+	}
+	if *cfg.Mutex && cfg.MutexProfileFraction == 0 {
+		cfg.MutexProfileFraction = DefaultMutexProfileFraction
+	}
+	if *cfg.Block && cfg.BlockProfileRate == 0 {
+		cfg.BlockProfileRate = DefaultBlockProfileRate
+	}
 }
 
 func applyDisableOptions(cfg *Config, opts *configOptions) {

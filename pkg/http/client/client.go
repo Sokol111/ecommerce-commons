@@ -113,26 +113,6 @@ func LoadConfig(k *koanf.Koanf, path string) (Config, error) {
 	return normalizedCfg, nil
 }
 
-// ProvideHTTPClient returns a provider function that creates an HTTP client from config
-// Usage with fx:
-//
-//	fx.Provide(fx.Private, httpclient.ProvideHTTPClient("catalog-service"))
-func ProvideHTTPClient(name string) func(*koanf.Koanf) (*http.Client, Config, error) {
-	return func(k *koanf.Koanf) (*http.Client, Config, error) {
-		clientCfg, err := LoadConfig(k, "clients."+name)
-		if err != nil {
-			return nil, Config{}, err
-		}
-
-		client, err := New(clientCfg)
-		if err != nil {
-			return nil, Config{}, err
-		}
-
-		return client, clientCfg, nil
-	}
-}
-
 func normalizeConfig(cfg Config) (Config, error) {
 	if err := cfg.validate(); err != nil {
 		return Config{}, err

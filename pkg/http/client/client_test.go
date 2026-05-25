@@ -208,65 +208,8 @@ func TestNewHTTPClient(t *testing.T) {
 }
 
 // ============================================================================
-// ProvideHTTPClient Tests
+// LoadConfig Tests
 // ============================================================================
-
-func TestProvideHTTPClient(t *testing.T) {
-	t.Run("creates client from valid config", func(t *testing.T) {
-		k := koanf.New(".")
-		k.Load(confmap.Provider(map[string]any{
-			"clients.test-service.base-url": "http://test-service:8080",
-			"clients.test-service.timeout":  "5s",
-		}, "."), nil)
-
-		provider := ProvideHTTPClient("test-service")
-		client, cfg, err := provider(k)
-
-		require.NoError(t, err)
-		require.NotNil(t, client)
-		assert.Equal(t, "http://test-service:8080", cfg.BaseURL)
-		assert.Equal(t, 5*time.Second, *cfg.Timeout)
-	})
-
-	t.Run("returns error for missing base url", func(t *testing.T) {
-		k := koanf.New(".")
-		k.Load(confmap.Provider(map[string]any{
-			"clients.test-service.timeout": "5s",
-		}, "."), nil)
-
-		provider := ProvideHTTPClient("test-service")
-		_, _, err := provider(k)
-
-		require.Error(t, err)
-		assert.Contains(t, err.Error(), "base-url is required")
-	})
-
-	t.Run("applies defaults for missing optional fields", func(t *testing.T) {
-		k := koanf.New(".")
-		k.Load(confmap.Provider(map[string]any{
-			"clients.test-service.base-url": "http://test-service:8080",
-		}, "."), nil)
-
-		provider := ProvideHTTPClient("test-service")
-		_, cfg, err := provider(k)
-
-		require.NoError(t, err)
-		assert.Equal(t, DefaultTimeout, *cfg.Timeout)
-		assert.Equal(t, DefaultMaxIdleConnsPerHost, *cfg.MaxIdleConnsPerHost)
-		assert.Equal(t, DefaultIdleConnTimeout, *cfg.IdleConnTimeout)
-		assert.Equal(t, DefaultMaxConnLifetime, *cfg.MaxConnLifetime)
-	})
-
-	t.Run("returns error for non-existent client name", func(t *testing.T) {
-		k := koanf.New(".")
-
-		provider := ProvideHTTPClient("non-existent")
-		_, _, err := provider(k)
-
-		require.Error(t, err)
-		assert.Contains(t, err.Error(), "base-url is required")
-	})
-}
 
 func TestLoadConfig(t *testing.T) {
 	t.Run("loads config from arbitrary path", func(t *testing.T) {

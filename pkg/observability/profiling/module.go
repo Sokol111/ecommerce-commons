@@ -39,7 +39,6 @@ func startProfiler(lc fx.Lifecycle, cfg config.Config, appCfg appconfig.AppConfi
 		ServerAddress:   cfg.Profiling.Endpoint,
 		Logger:          &zapLogger{log: log},
 		Tags: map[string]string{
-			"service":     appCfg.ServiceName,
 			"version":     appCfg.ServiceVersion,
 			"environment": appCfg.Environment,
 		},
@@ -78,9 +77,7 @@ func (l *zapLogger) Infof(format string, args ...interface{}) {
 	l.log.Sugar().Infof(format, args...)
 }
 
-func (l *zapLogger) Debugf(format string, args ...interface{}) {
-	l.log.Sugar().Debugf(format, args...)
-}
+func (l *zapLogger) Debugf(_ string, _ ...interface{}) {}
 
 func (l *zapLogger) Errorf(format string, args ...interface{}) {
 	l.log.Sugar().Errorf(format, args...)

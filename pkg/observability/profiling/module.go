@@ -1,39 +1,24 @@
-// Package pyroscope provides Grafana Pyroscope continuous profiling integration.
-//
-// Usage:
-//
-//	pyroscope.NewPyroscopeModule()
-//
-// Configuration (koanf):
-//
-//	pyroscope:
-//	  enabled: true
-//	  endpoint: "http://pyroscope:4040"
-//	  basic-auth-user: ""      # optional: Grafana Cloud instance ID
-//	  basic-auth-password: ""  # optional: Grafana Cloud API key
-package pyroscope
+// Package profiling provides Grafana Pyroscope continuous profiling integration.
+package profiling
 
 import (
 	"context"
 	"runtime"
 
 	appconfig "github.com/Sokol111/ecommerce-commons/pkg/core/config"
+	"github.com/Sokol111/ecommerce-commons/pkg/observability/config"
 	"github.com/grafana/pyroscope-go"
 	"go.uber.org/fx"
 	"go.uber.org/zap"
 )
 
-// NewPyroscopeModule returns an fx.Option that provides continuous profiling.
-// If pyroscope.enabled is false or not set, the module does nothing.
-func NewPyroscopeModule() fx.Option {
-	return fx.Options(
-		fx.Provide(provideConfig),
-		fx.Invoke(startProfiler),
-	)
+// NewProfilingModule returns an fx.Option that provides continuous profiling.
+func NewProfilingModule() fx.Option {
+	return fx.Invoke(startProfiler)
 }
 
-func startProfiler(lc fx.Lifecycle, cfg Config, appCfg appconfig.AppConfig, log *zap.Logger) {
-	if !cfg.Enabled {
+func startProfiler(lc fx.Lifecycle, cfg config.Config, appCfg appconfig.AppConfig, log *zap.Logger) {
+	if !cfg.Profiling.Enabled {
 		return
 	}
 
@@ -51,7 +36,7 @@ func startProfiler(lc fx.Lifecycle, cfg Config, appCfg appconfig.AppConfig, log 
 
 	pyroCfg := pyroscope.Config{
 		ApplicationName: appCfg.ServiceName,
-		ServerAddress:   cfg.Endpoint,
+		ServerAddress:   cfg.Profiling.Endpoint,
 		Logger:          &zapLogger{log: log},
 		Tags: map[string]string{
 			"service":     appCfg.ServiceName,
@@ -59,11 +44,6 @@ func startProfiler(lc fx.Lifecycle, cfg Config, appCfg appconfig.AppConfig, log 
 			"environment": appCfg.Environment,
 		},
 		ProfileTypes: profileTypes,
-	}
-
-	if cfg.BasicAuthUser != "" {
-		pyroCfg.BasicAuthUser = cfg.BasicAuthUser
-		pyroCfg.BasicAuthPassword = cfg.BasicAuthPassword
 	}
 
 	lc.Append(fx.Hook{
@@ -74,7 +54,7 @@ func startProfiler(lc fx.Lifecycle, cfg Config, appCfg appconfig.AppConfig, log 
 				return nil // non-fatal: don't prevent app from starting
 			}
 			log.Info("pyroscope profiling enabled",
-				zap.String("endpoint", cfg.Endpoint),
+				zap.String("endpoint", cfg.Profiling.Endpoint),
 				zap.String("app", appCfg.ServiceName),
 			)
 

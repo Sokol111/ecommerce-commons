@@ -21,9 +21,10 @@ const (
 
 // Config holds all observability configuration.
 type Config struct {
-	OtelCollectorEndpoint string        `koanf:"otel-collector-endpoint"`
-	Tracing               TracingConfig `koanf:"tracing"`
-	Metrics               MetricsConfig `koanf:"metrics"`
+	OtelCollectorEndpoint string          `koanf:"otel-collector-endpoint"`
+	Tracing               TracingConfig   `koanf:"tracing"`
+	Metrics               MetricsConfig   `koanf:"metrics"`
+	Profiling             ProfilingConfig `koanf:"profiling"`
 }
 
 // TracingConfig holds tracing-specific configuration.
@@ -41,4 +42,10 @@ const (
 type MetricsConfig struct {
 	Enabled  bool          `koanf:"enabled"`
 	Interval time.Duration `koanf:"interval"`
+}
+
+// ProfilingConfig holds continuous profiling configuration.
+type ProfilingConfig struct {
+	Enabled  bool   `koanf:"enabled"`
+	Endpoint string `koanf:"endpoint"`
 }

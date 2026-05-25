@@ -10,9 +10,10 @@ import (
 
 // configOptions holds internal configuration for the observability config module.
 type configOptions struct {
-	config         *Config
-	disableTracing bool
-	disableMetrics bool
+	config           *Config
+	disableTracing   bool
+	disableMetrics   bool
+	disableProfiling bool
 }
 
 // Option is a functional option for configuring the observability config module.
@@ -36,6 +37,13 @@ func WithDisableTracing() Option {
 func WithDisableMetrics() Option {
 	return func(opts *configOptions) {
 		opts.disableMetrics = true
+	}
+}
+
+// WithDisableProfiling disables profiling regardless of configuration.
+func WithDisableProfiling() Option {
+	return func(opts *configOptions) {
+		opts.disableProfiling = true
 	}
 }
 
@@ -86,5 +94,8 @@ func applyDisableOptions(cfg *Config, opts *configOptions) {
 	}
 	if opts.disableMetrics {
 		cfg.Metrics.Enabled = false
+	}
+	if opts.disableProfiling {
+		cfg.Profiling.Enabled = false
 	}
 }

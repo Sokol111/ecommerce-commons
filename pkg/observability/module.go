@@ -1,8 +1,8 @@
-// Package observability provides OpenTelemetry tracing and metrics integration.
+// Package observability provides OpenTelemetry tracing, metrics, and continuous profiling integration.
 //
 // Usage:
 //
-//	// Full observability (tracing + metrics)
+//	// Full observability (tracing + metrics + profiling)
 //	observability.NewObservabilityModule()
 //
 //	// Only tracing (requires config.NewObservabilityConfigModule())
@@ -11,10 +11,14 @@
 //	// Only metrics (requires config.NewObservabilityConfigModule())
 //	metrics.NewMetricsModule()
 //
+//	// Only profiling (requires config.NewObservabilityConfigModule())
+//	profiling.NewProfilingModule()
+//
 //	// Disable observability for tests
 //	observability.NewObservabilityModule(
 //	    observability.WithoutTracing(),
 //	    observability.WithoutMetrics(),
+//	    observability.WithoutProfiling(),
 //	)
 //
 //	// Disable only tracing
@@ -26,15 +30,17 @@ package observability
 import (
 	"github.com/Sokol111/ecommerce-commons/pkg/observability/config"
 	"github.com/Sokol111/ecommerce-commons/pkg/observability/metrics"
+	"github.com/Sokol111/ecommerce-commons/pkg/observability/profiling"
 	"github.com/Sokol111/ecommerce-commons/pkg/observability/tracing"
 	"go.uber.org/fx"
 )
 
 // observabilityOptions holds internal configuration for the observability module.
 type observabilityOptions struct {
-	config         *config.Config
-	disableTracing bool
-	disableMetrics bool
+	config           *config.Config
+	disableTracing   bool
+	disableMetrics   bool
+	disableProfiling bool
 }
 
 // Option is a functional option for configuring the observability module.
@@ -61,6 +67,14 @@ func WithoutTracing() Option {
 func WithoutMetrics() Option {
 	return func(opts *observabilityOptions) {
 		opts.disableMetrics = true
+	}
+}
+
+// WithoutProfiling disables continuous profiling regardless of configuration.
+// Useful for tests where profiling is not needed.
+func WithoutProfiling() Option {
+	return func(opts *observabilityOptions) {
+		opts.disableProfiling = true
 	}
 }
 
@@ -91,6 +105,7 @@ func NewObservabilityModule(opts ...Option) fx.Option {
 		configModule(cfg),
 		tracing.NewTracingModule(),
 		metrics.NewMetricsModule(),
+		profiling.NewProfilingModule(),
 	)
 }
 
@@ -105,6 +120,9 @@ func configModule(opts *observabilityOptions) fx.Option {
 	}
 	if opts.disableMetrics {
 		configOpts = append(configOpts, config.WithDisableMetrics())
+	}
+	if opts.disableProfiling {
+		configOpts = append(configOpts, config.WithDisableProfiling())
 	}
 
 	return config.NewObservabilityConfigModule(configOpts...)

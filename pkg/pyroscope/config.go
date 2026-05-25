@@ -15,7 +15,7 @@ type Config struct {
 	BasicAuthPassword string `koanf:"basic-auth-password"`
 }
 
-func (c Config) Validate() error {
+func (c Config) validate() error {
 	if !c.Enabled {
 		return nil
 	}
@@ -43,7 +43,7 @@ func provideConfig(k *koanf.Koanf, logger *zap.Logger) (Config, error) {
 		}
 	}
 
-	if err := cfg.Validate(); err != nil {
+	if err := cfg.validate(); err != nil {
 		return cfg, fmt.Errorf("invalid pyroscope config: %w", err)
 	}
 

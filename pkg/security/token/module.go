@@ -1,46 +1,47 @@
 package token
 
 import (
-	"fmt"
-
+	coreconfig "github.com/Sokol111/ecommerce-commons/pkg/core/config"
 	"github.com/knadh/koanf/v2"
 	"go.uber.org/fx"
 	"golang.org/x/oauth2"
 )
 
+// tokenOptions holds internal configuration for the token module.
+type tokenOptions struct {
+	config *Config
+}
+
+// Option is a functional option for configuring the token module.
+type Option func(*tokenOptions)
+
+// WithConfig provides a static Config (useful for tests).
+func WithConfig(cfg Config) Option {
+	return func(opts *tokenOptions) {
+		opts.config = &cfg
+	}
+}
+
 // NewModule provides an oauth2.TokenSource for outgoing service-to-service calls.
 // Reads configuration from security.client-credentials.
-func NewModule() fx.Option {
-	return fx.Provide(
-		provideConfig,
-		provideTokenSource,
+// Use WithConfig for static config (useful for tests).
+func NewModule(opts ...Option) fx.Option {
+	cfg := &tokenOptions{}
+	for _, opt := range opts {
+		opt(cfg)
+	}
+
+	return fx.Options(
+		fx.Supply(cfg),
+		fx.Provide(provideConfig),
+		fx.Provide(provideTokenSource),
 	)
 }
 
-func provideConfig(k *koanf.Koanf) (Config, error) {
-	return loadConfig(k)
+func provideConfig(opts *tokenOptions, k *koanf.Koanf) (Config, error) {
+	return coreconfig.Load[Config](k, "security.client-credentials", opts.config)
 }
 
 func provideTokenSource(cfg Config) (oauth2.TokenSource, error) {
 	return newTokenSource(cfg)
-}
-
-func loadConfig(k *koanf.Koanf) (Config, error) {
-	var cfg Config
-	if !k.Exists("security.client-credentials") {
-		return cfg, nil
-	}
-	if err := k.Unmarshal("security.client-credentials", &cfg); err != nil {
-		return cfg, fmt.Errorf("failed to load client-credentials config: %w", err)
-	}
-	if cfg.ClientID == "" {
-		return cfg, fmt.Errorf("security.client-credentials.client-id is required")
-	}
-	if cfg.ClientSecret == "" {
-		return cfg, fmt.Errorf("security.client-credentials.client-secret is required")
-	}
-	if cfg.TokenURL == "" {
-		return cfg, fmt.Errorf("security.client-credentials.token-url is required")
-	}
-	return cfg, nil
 }

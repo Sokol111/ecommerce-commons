@@ -4,10 +4,12 @@ import (
 	"context"
 
 	"github.com/Sokol111/ecommerce-commons/pkg/core/config"
+	coreconfig "github.com/Sokol111/ecommerce-commons/pkg/core/config"
 	"github.com/Sokol111/ecommerce-commons/pkg/core/health"
 	"github.com/Sokol111/ecommerce-commons/pkg/core/worker"
 	"github.com/Sokol111/ecommerce-commons/pkg/messaging/kafka/events"
 	"github.com/Sokol111/ecommerce-commons/pkg/persistence/mongo"
+	"github.com/knadh/koanf/v2"
 	"go.uber.org/fx"
 	"go.uber.org/zap"
 )
@@ -21,7 +23,7 @@ func NewOutboxModule() fx.Option {
 			},
 		),
 		fx.Provide(
-			newConfig,
+			provideConfig,
 			newOutboxRepository,
 			newFetcher,
 			newSender,
@@ -39,6 +41,10 @@ func NewOutboxModule() fx.Option {
 			ensureSchema,
 		),
 	)
+}
+
+func provideConfig(k *koanf.Koanf) (Config, error) {
+	return coreconfig.Load[Config](k, "outbox", nil)
 }
 
 func newMetadataPopulator(appCfg config.AppConfig) events.MetadataPopulator {

@@ -1,11 +1,6 @@
 package outbox
 
-import (
-	"fmt"
-	"time"
-
-	"github.com/knadh/koanf/v2"
-)
+import "time"
 
 // Config holds the outbox pattern configuration.
 type Config struct {
@@ -14,18 +9,14 @@ type Config struct {
 	MaxBackoff time.Duration `koanf:"max-backoff"`
 }
 
-func newConfig(k *koanf.Koanf) (*Config, error) {
-	cfg := &Config{}
-
-	if k.Exists("outbox") {
-		if err := k.Unmarshal("outbox", cfg); err != nil {
-			return nil, fmt.Errorf("failed to load outbox config: %w", err)
-		}
+// ApplyDefaults sets default values for unset configuration fields.
+func (c *Config) ApplyDefaults() {
+	if c.MaxBackoff <= 0 {
+		c.MaxBackoff = 10 * time.Hour
 	}
+}
 
-	if cfg.MaxBackoff <= 0 {
-		cfg.MaxBackoff = 10 * time.Hour
-	}
-
-	return cfg, nil
+// Validate validates the outbox configuration.
+func (c *Config) Validate() error {
+	return nil
 }

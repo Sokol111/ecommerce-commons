@@ -1,5 +1,7 @@
 package token
 
+import "fmt"
+
 // Config holds the configuration for service-to-service authentication (outgoing requests).
 type Config struct {
 	// ClientID is the OAuth2 client ID for the client_credentials flow.
@@ -19,4 +21,30 @@ type Config struct {
 
 	// Scopes is the list of scopes to request. Defaults to ["openid"] if empty.
 	Scopes []string `koanf:"scopes"`
+}
+
+// ApplyDefaults sets default values for unset configuration fields.
+func (c *Config) ApplyDefaults() {
+	if len(c.Scopes) == 0 {
+		c.Scopes = []string{"openid"}
+	}
+}
+
+// Validate validates the configuration.
+// Returns nil if the config is completely empty (module not configured).
+func (c *Config) Validate() error {
+	// If nothing is configured, the module is optional — skip validation.
+	if c.ClientID == "" && c.ClientSecret == "" && c.TokenURL == "" {
+		return nil
+	}
+	if c.ClientID == "" {
+		return fmt.Errorf("security.client-credentials.client-id is required")
+	}
+	if c.ClientSecret == "" {
+		return fmt.Errorf("security.client-credentials.client-secret is required")
+	}
+	if c.TokenURL == "" {
+		return fmt.Errorf("security.client-credentials.token-url is required")
+	}
+	return nil
 }

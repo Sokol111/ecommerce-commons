@@ -1,8 +1,7 @@
 package validation
 
 import (
-	"fmt"
-
+	coreconfig "github.com/Sokol111/ecommerce-commons/pkg/core/config"
 	"github.com/knadh/koanf/v2"
 	"go.uber.org/fx"
 )
@@ -84,29 +83,5 @@ func NewModule(opts ...Option) fx.Option {
 }
 
 func provideConfig(opts *options, k *koanf.Koanf) (Config, error) {
-	if opts.config != nil {
-		return *opts.config, nil
-	}
-	return loadConfig(k)
-}
-
-func loadConfig(k *koanf.Koanf) (Config, error) {
-	var cfg Config
-	if !k.Exists("security") {
-		return cfg, fmt.Errorf("security configuration section is required")
-	}
-
-	if !k.Exists("security.jwks") {
-		return cfg, fmt.Errorf("security.jwks configuration section is required")
-	}
-
-	if err := k.Unmarshal("security.jwks", &cfg); err != nil {
-		return cfg, fmt.Errorf("failed to load jwks config: %w", err)
-	}
-
-	if cfg.JwksURL == "" {
-		return cfg, fmt.Errorf("security.jwks.jwks-url is required")
-	}
-
-	return cfg, nil
+	return coreconfig.Load[Config](k, "security.jwks", opts.config)
 }

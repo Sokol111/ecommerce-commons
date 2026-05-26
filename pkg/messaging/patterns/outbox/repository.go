@@ -29,7 +29,7 @@ type outboxRepository struct {
 	maxBackoffMillis int64
 }
 
-func newOutboxRepository(m mongo.Mongo, config *Config) repository {
+func newOutboxRepository(m mongo.Mongo, config Config) repository {
 	return &outboxRepository{
 		coll:             m.GetCollection("outbox"),
 		maxBackoffMillis: config.MaxBackoff.Milliseconds(),

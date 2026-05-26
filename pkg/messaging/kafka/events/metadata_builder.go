@@ -53,7 +53,7 @@ func extractEventType(event Event) string {
 	t := reflect.TypeOf(event)
 
 	// Dereference pointer if needed
-	if t.Kind() == reflect.Ptr {
+	if t.Kind() == reflect.Pointer {
 		t = t.Elem()
 	}
 

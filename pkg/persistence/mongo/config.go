@@ -140,11 +140,68 @@ func (c *Config) applyDefaults() {
 
 // validate checks if the Config has all required fields set.
 func (c Config) validate() error {
-	if c.ConnectionString != "" {
+	if c.ConnectionString == "" {
+		if c.Host == "" || c.Port == 0 || c.Database == "" {
+			return fmt.Errorf("invalid Mongo configuration: host, port, and database are required")
+		}
+	}
+	if err := c.WriteConcern.validate(); err != nil {
+		return err
+	}
+	if err := c.ReadConcern.validate(); err != nil {
+		return err
+	}
+	if err := c.ReadPreference.validate(); err != nil {
+		return err
+	}
+	return nil
+}
+
+var validReadPreferenceModes = map[string]readpref.Mode{
+	"primary":            readpref.PrimaryMode,
+	"primaryPreferred":   readpref.PrimaryPreferredMode,
+	"secondary":          readpref.SecondaryMode,
+	"secondaryPreferred": readpref.SecondaryPreferredMode,
+	"nearest":            readpref.NearestMode,
+}
+
+func (c WriteConcernConfig) validate() error {
+	if c.W == "" {
 		return nil
 	}
-	if c.Host == "" || c.Port == 0 || c.Database == "" {
-		return fmt.Errorf("invalid Mongo configuration: host, port, and database are required")
+	if c.W == "majority" {
+		return nil
+	}
+	if n, err := strconv.Atoi(c.W); err != nil || n < 0 {
+		return fmt.Errorf("invalid write concern w %q: must be \"majority\" or a non-negative integer", c.W)
+	}
+	return nil
+}
+
+var validReadConcernLevels = map[string]struct{}{
+	"local":        {},
+	"majority":     {},
+	"linearizable": {},
+	"available":    {},
+	"snapshot":     {},
+}
+
+func (c ReadConcernConfig) validate() error {
+	if c.Level == "" {
+		return nil
+	}
+	if _, ok := validReadConcernLevels[c.Level]; !ok {
+		return fmt.Errorf("invalid read concern level %q: must be one of local, majority, linearizable, available, snapshot", c.Level)
+	}
+	return nil
+}
+
+func (c ReadPreferenceConfig) validate() error {
+	if c.Mode == "" {
+		return nil
+	}
+	if _, ok := validReadPreferenceModes[c.Mode]; !ok {
+		return fmt.Errorf("invalid read preference mode %q: must be one of primary, primaryPreferred, secondary, secondaryPreferred, nearest", c.Mode)
 	}
 	return nil
 }
@@ -174,11 +231,8 @@ func (c WriteConcernConfig) buildWriteConcern() *writeconcern.WriteConcern {
 
 // buildReadConcern constructs a ReadConcern from config.
 // Returns nil if no read concern level is configured.
+// Assumes validate() has been called to ensure Level is valid.
 func (c ReadConcernConfig) buildReadConcern() *readconcern.ReadConcern {
-	if c.Level == "" {
-		return nil
-	}
-
 	switch c.Level {
 	case "local":
 		return readconcern.Local()
@@ -191,14 +245,16 @@ func (c ReadConcernConfig) buildReadConcern() *readconcern.ReadConcern {
 	case "snapshot":
 		return readconcern.Snapshot()
 	default:
-		return &readconcern.ReadConcern{Level: c.Level}
+		return nil
 	}
 }
 
 // buildReadPreference constructs a ReadPreference from config.
 // Returns nil if no read preference mode is configured.
+// Assumes validate() has been called to ensure Mode is valid.
 func (c ReadPreferenceConfig) buildReadPreference() *readpref.ReadPref {
-	if c.Mode == "" {
+	mode, ok := validReadPreferenceModes[c.Mode]
+	if !ok {
 		return nil
 	}
 
@@ -207,21 +263,6 @@ func (c ReadPreferenceConfig) buildReadPreference() *readpref.ReadPref {
 		opts = append(opts, readpref.WithMaxStaleness(c.MaxStaleness))
 	}
 
-	var rp *readpref.ReadPref
-	switch c.Mode {
-	case "primary":
-		rp, _ = readpref.New(readpref.PrimaryMode, opts...)
-	case "primaryPreferred":
-		rp, _ = readpref.New(readpref.PrimaryPreferredMode, opts...)
-	case "secondary":
-		rp, _ = readpref.New(readpref.SecondaryMode, opts...)
-	case "secondaryPreferred":
-		rp, _ = readpref.New(readpref.SecondaryPreferredMode, opts...)
-	case "nearest":
-		rp, _ = readpref.New(readpref.NearestMode, opts...)
-	default:
-		return nil
-	}
-
+	rp, _ := readpref.New(mode, opts...)
 	return rp
 }

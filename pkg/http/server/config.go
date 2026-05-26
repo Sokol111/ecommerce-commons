@@ -4,8 +4,6 @@ import (
 	"errors"
 	"fmt"
 	"time"
-
-	"github.com/knadh/koanf/v2"
 )
 
 const (
@@ -177,29 +175,18 @@ func (c *BulkheadConfig) validate() error {
 	return nil
 }
 
-func loadConfig(k *koanf.Koanf) (Config, error) {
-	var cfg Config
-	if !k.Exists("server") {
-		return cfg, nil
-	}
-	if err := k.Unmarshal("server", &cfg); err != nil {
-		return cfg, fmt.Errorf("failed to load server config: %w", err)
-	}
-	return cfg, nil
-}
-
-// setDefaults sets default values for all configuration sections.
-func (c *Config) setDefaults() {
+// ApplyDefaults sets default values for all configuration sections.
+func (c *Config) ApplyDefaults() {
 	if c.Port == 0 {
 		c.Port = 8080 // Default: 8080
 	}
-	c.Connection.setDefaults(c.Timeout)
-	c.RateLimit.setDefaults()
-	c.Bulkhead.setDefaults()
+	c.Connection.applyDefaults(c.Timeout)
+	c.RateLimit.applyDefaults()
+	c.Bulkhead.applyDefaults()
 }
 
-// setDefaults sets default values for server connection settings (optimized for API services).
-func (c *ConnectionConfig) setDefaults(timeout TimeoutConfig) {
+// applyDefaults sets default values for server connection settings (optimized for API services).
+func (c *ConnectionConfig) applyDefaults(timeout TimeoutConfig) {
 	if c.ReadHeaderTimeout <= 0 {
 		c.ReadHeaderTimeout = 10 * time.Second // Default: 10s - protection against Slowloris
 	}
@@ -221,8 +208,8 @@ func (c *ConnectionConfig) setDefaults(timeout TimeoutConfig) {
 	}
 }
 
-// setDefaults sets default values for rate limiting configuration.
-func (c *RateLimitConfig) setDefaults() {
+// applyDefaults sets default values for rate limiting configuration.
+func (c *RateLimitConfig) applyDefaults() {
 	if !c.Enabled {
 		return
 	}
@@ -234,8 +221,8 @@ func (c *RateLimitConfig) setDefaults() {
 	}
 }
 
-// setDefaults sets default values for HTTP bulkhead configuration.
-func (c *BulkheadConfig) setDefaults() {
+// applyDefaults sets default values for HTTP bulkhead configuration.
+func (c *BulkheadConfig) applyDefaults() {
 	if !c.Enabled {
 		return
 	}

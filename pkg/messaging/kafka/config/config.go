@@ -1,8 +1,7 @@
 package config
 
 import (
-	"fmt"
-
+	coreconfig "github.com/Sokol111/ecommerce-commons/pkg/core/config"
 	"github.com/knadh/koanf/v2"
 	"go.uber.org/fx"
 	"go.uber.org/zap"
@@ -39,37 +38,11 @@ func NewKafkaConfigModule(opts ...KafkaConfigOption) fx.Option {
 }
 
 func provideConfig(opts *kafkaConfigOptions, k *koanf.Koanf, logger *zap.Logger) (Config, error) {
-	var result Config
-	if opts.config != nil {
-		result = *opts.config
-	} else {
-		var err error
-		result, err = loadConfig(k)
-		if err != nil {
-			return result, err
-		}
+	cfg, err := coreconfig.Load[Config](k, "kafka", opts.config)
+	if err != nil {
+		return Config{}, err
 	}
-
-	// Validate required fields
-	if err := result.Validate(); err != nil {
-		return result, err
-	}
-
-	// Apply default values
-	result.ApplyDefaults()
 
 	logger.Info("loaded kafka config")
-	return result, nil
-}
-
-// loadConfig loads Config from koanf configuration.
-func loadConfig(k *koanf.Koanf) (Config, error) {
-	var cfg Config
-	if !k.Exists("kafka") {
-		return cfg, nil
-	}
-	if err := k.Unmarshal("kafka", &cfg); err != nil {
-		return cfg, fmt.Errorf("failed to load kafka config: %w", err)
-	}
 	return cfg, nil
 }

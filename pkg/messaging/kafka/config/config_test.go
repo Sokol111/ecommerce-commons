@@ -4,6 +4,7 @@ import (
 	"testing"
 	"time"
 
+	coreconfig "github.com/Sokol111/ecommerce-commons/pkg/core/config"
 	"github.com/knadh/koanf/parsers/yaml"
 	"github.com/knadh/koanf/providers/rawbytes"
 	"github.com/knadh/koanf/v2"
@@ -13,17 +14,7 @@ import (
 
 // loadAndValidateConfig is a test helper that loads, validates, and applies defaults to Config.
 func loadAndValidateConfig(k *koanf.Koanf) (Config, error) {
-	cfg, err := loadConfig(k)
-	if err != nil {
-		return cfg, err
-	}
-
-	if err := cfg.Validate(); err != nil {
-		return cfg, err
-	}
-
-	cfg.ApplyDefaults()
-	return cfg, nil
+	return coreconfig.Load[Config](k, "kafka", nil)
 }
 
 // loadKoanfFromYAML is a test helper that creates a koanf instance from YAML string.

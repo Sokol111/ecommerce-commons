@@ -2,9 +2,9 @@ package server
 
 import (
 	"context"
-	"fmt"
 	"net/http"
 
+	"github.com/Sokol111/ecommerce-commons/pkg/core/config"
 	"github.com/Sokol111/ecommerce-commons/pkg/core/health"
 	"github.com/knadh/koanf/v2"
 	"go.uber.org/fx"
@@ -44,24 +44,13 @@ func NewHTTPServerModule(opts ...Option) fx.Option {
 }
 
 func provideConfig(opts *serverOptions, k *koanf.Koanf, logger *zap.Logger) (Config, error) {
-	var result Config
-	if opts.config != nil {
-		result = *opts.config
-	} else {
-		var err error
-		result, err = loadConfig(k)
-		if err != nil {
-			return Config{}, err
-		}
+	cfg, err := config.Load[Config](k, "server", opts.config)
+	if err != nil {
+		return Config{}, err
 	}
 
-	if err := result.Validate(); err != nil {
-		return Config{}, fmt.Errorf("invalid server config: %w", err)
-	}
-	result.setDefaults()
-
-	logger.Info("server config loaded", zap.Any("config", result))
-	return result, nil
+	logger.Info("server config loaded", zap.Any("config", cfg))
+	return cfg, nil
 }
 
 func newServeMux() (*http.ServeMux, http.Handler) {

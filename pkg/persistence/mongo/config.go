@@ -109,8 +109,8 @@ func (c Config) BuildURI() string {
 	return u.String()
 }
 
-// applyDefaults sets default values for unset configuration fields.
-func (c *Config) applyDefaults() {
+// ApplyDefaults sets default values for unset configuration fields.
+func (c *Config) ApplyDefaults() {
 	if c.Port == 0 {
 		c.Port = 27017 // Default MongoDB port
 	}
@@ -138,8 +138,8 @@ func (c *Config) applyDefaults() {
 	}
 }
 
-// validate checks if the Config has all required fields set.
-func (c Config) validate() error {
+// Validate checks if the Config has all required fields set.
+func (c *Config) Validate() error {
 	if c.ConnectionString == "" {
 		if c.Host == "" || c.Port == 0 || c.Database == "" {
 			return fmt.Errorf("invalid Mongo configuration: host, port, and database are required")

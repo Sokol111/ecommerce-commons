@@ -2,7 +2,6 @@ package mongo
 
 import (
 	"context"
-	"fmt"
 
 	"github.com/Sokol111/ecommerce-commons/pkg/core/config"
 	"github.com/Sokol111/ecommerce-commons/pkg/core/health"
@@ -74,22 +73,7 @@ func NewMongoModule(opts ...Option) fx.Option {
 }
 
 func provideConfig(opts *mongoOptions, k *koanf.Koanf) (Config, error) {
-	var cfg Config
-	if opts.config != nil {
-		cfg = *opts.config
-	} else if k.Exists("mongo") {
-		if err := k.Unmarshal("mongo", &cfg); err != nil {
-			return cfg, fmt.Errorf("failed to load mongo config: %w", err)
-		}
-	}
-
-	cfg.applyDefaults()
-
-	if err := cfg.validate(); err != nil {
-		return cfg, err
-	}
-
-	return cfg, nil
+	return config.Load[Config](k, "mongo", opts.config)
 }
 
 type provideMongoParams struct {

@@ -263,6 +263,9 @@ func (c ReadPreferenceConfig) buildReadPreference() *readpref.ReadPref {
 		opts = append(opts, readpref.WithMaxStaleness(c.MaxStaleness))
 	}
 
-	rp, _ := readpref.New(mode, opts...)
+	rp, err := readpref.New(mode, opts...)
+	if err != nil {
+		return nil
+	}
 	return rp
 }

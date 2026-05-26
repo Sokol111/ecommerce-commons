@@ -3,7 +3,6 @@ package outbox
 import (
 	"context"
 
-	"github.com/Sokol111/ecommerce-commons/pkg/core/config"
 	coreconfig "github.com/Sokol111/ecommerce-commons/pkg/core/config"
 	"github.com/Sokol111/ecommerce-commons/pkg/core/health"
 	"github.com/Sokol111/ecommerce-commons/pkg/core/worker"
@@ -47,7 +46,7 @@ func provideConfig(k *koanf.Koanf) (Config, error) {
 	return coreconfig.Load[Config](k, "outbox", nil)
 }
 
-func newMetadataPopulator(appCfg config.AppConfig) events.MetadataPopulator {
+func newMetadataPopulator(appCfg coreconfig.AppConfig) events.MetadataPopulator {
 	return events.NewMetadataPopulator(appCfg.ServiceName)
 }
 

@@ -3,6 +3,7 @@ package logger
 import (
 	"testing"
 
+	"github.com/Sokol111/ecommerce-commons/pkg/core/config"
 	"github.com/knadh/koanf/providers/confmap"
 	"github.com/knadh/koanf/v2"
 	"github.com/stretchr/testify/assert"
@@ -10,20 +11,20 @@ import (
 	"go.uber.org/zap/zapcore"
 )
 
-func TestNewConfig_DefaultValues(t *testing.T) {
+func TestConfig_DefaultValues(t *testing.T) {
 	// Given: koanf without logger configuration
 	k := koanf.New(".")
 
-	// When: creating config
-	cfg, err := newConfig(k)
+	// When: loading config via generic loader
+	cfg, err := config.Load[Config](k, "logger", nil)
 
 	// Then: default values should be used
 	require.NoError(t, err)
-	assert.Equal(t, zapcore.InfoLevel, cfg.Level)
+	assert.Equal(t, zapcore.InfoLevel, cfg.ParsedLevel())
 	assert.False(t, cfg.Development)
 }
 
-func TestNewConfig_ValidConfiguration(t *testing.T) {
+func TestConfig_ValidConfiguration(t *testing.T) {
 	tests := []struct {
 		name                string
 		level               string
@@ -77,18 +78,18 @@ func TestNewConfig_ValidConfiguration(t *testing.T) {
 				"logger.development": tt.development,
 			}, "."), nil)
 
-			// When: creating config
-			cfg, err := newConfig(k)
+			// When: loading config via generic loader
+			cfg, err := config.Load[Config](k, "logger", nil)
 
 			// Then: configuration should match expected values
 			require.NoError(t, err)
-			assert.Equal(t, tt.expectedLevel, cfg.Level)
+			assert.Equal(t, tt.expectedLevel, cfg.ParsedLevel())
 			assert.Equal(t, tt.expectedDevelopment, cfg.Development)
 		})
 	}
 }
 
-func TestNewConfig_InvalidLevel(t *testing.T) {
+func TestConfig_InvalidLevel(t *testing.T) {
 	tests := []struct {
 		name        string
 		level       string
@@ -114,8 +115,8 @@ func TestNewConfig_InvalidLevel(t *testing.T) {
 				"logger.level": tt.level,
 			}, "."), nil)
 
-			// When: creating config
-			_, err := newConfig(k)
+			// When: loading config via generic loader
+			_, err := config.Load[Config](k, "logger", nil)
 
 			// Then: should return error
 			require.Error(t, err)
@@ -124,7 +125,7 @@ func TestNewConfig_InvalidLevel(t *testing.T) {
 	}
 }
 
-func TestNewConfig_PartialConfiguration(t *testing.T) {
+func TestConfig_PartialConfiguration(t *testing.T) {
 	tests := []struct {
 		name                string
 		setupKoanf          func(*koanf.Koanf)
@@ -159,33 +160,33 @@ func TestNewConfig_PartialConfiguration(t *testing.T) {
 			k := koanf.New(".")
 			tt.setupKoanf(k)
 
-			// When: creating config
-			cfg, err := newConfig(k)
+			// When: loading config via generic loader
+			cfg, err := config.Load[Config](k, "logger", nil)
 
 			// Then: should use defaults for unspecified values
 			require.NoError(t, err)
-			assert.Equal(t, tt.expectedLevel, cfg.Level)
+			assert.Equal(t, tt.expectedLevel, cfg.ParsedLevel())
 			assert.Equal(t, tt.expectedDevelopment, cfg.Development)
 		})
 	}
 }
 
-func TestNewConfig_UnmarshalError(t *testing.T) {
+func TestConfig_UnmarshalError(t *testing.T) {
 	// Given: koanf with invalid type for boolean field
 	k := koanf.New(".")
 	k.Load(confmap.Provider(map[string]any{
 		"logger.development": "not-a-boolean",
 	}, "."), nil)
 
-	// When: creating config
-	_, err := newConfig(k)
+	// When: loading config via generic loader
+	_, err := config.Load[Config](k, "logger", nil)
 
 	// Then: should return unmarshal error
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "failed to load logger config")
 }
 
-func TestNewConfig_CaseSensitivity(t *testing.T) {
+func TestConfig_CaseSensitivity(t *testing.T) {
 	tests := []struct {
 		name          string
 		level         string
@@ -220,16 +221,33 @@ func TestNewConfig_CaseSensitivity(t *testing.T) {
 				"logger.level": tt.level,
 			}, "."), nil)
 
-			// When: creating config
-			cfg, err := newConfig(k)
+			// When: loading config via generic loader
+			cfg, err := config.Load[Config](k, "logger", nil)
 
 			// Then: should handle case-insensitive parsing
 			if tt.shouldError {
 				require.Error(t, err)
 			} else {
 				require.NoError(t, err)
-				assert.Equal(t, tt.expectedLevel, cfg.Level)
+				assert.Equal(t, tt.expectedLevel, cfg.ParsedLevel())
 			}
 		})
 	}
+}
+
+func TestConfig_WithOverride(t *testing.T) {
+	// Given: koanf with some config (should be ignored when override is provided)
+	k := koanf.New(".")
+	k.Load(confmap.Provider(map[string]any{
+		"logger.level": "error",
+	}, "."), nil)
+
+	// When: loading config with override
+	override := &Config{Level: "debug", Development: true}
+	cfg, err := config.Load[Config](k, "logger", override)
+
+	// Then: override values should be used
+	require.NoError(t, err)
+	assert.Equal(t, zapcore.DebugLevel, cfg.ParsedLevel())
+	assert.True(t, cfg.Development)
 }

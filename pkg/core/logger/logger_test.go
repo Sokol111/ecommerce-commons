@@ -8,12 +8,17 @@ import (
 	"go.uber.org/zap/zapcore"
 )
 
+// validConfig creates a Config with defaults and validation applied.
+func validConfig(level string, development bool) Config {
+	cfg := Config{Level: level, Development: development}
+	cfg.ApplyDefaults()
+	_ = cfg.Validate()
+	return cfg
+}
+
 func TestNewLogger_DevelopmentMode(t *testing.T) {
 	// Given: development configuration
-	cfg := Config{
-		Level:       zapcore.DebugLevel,
-		Development: true,
-	}
+	cfg := validConfig("debug", true)
 
 	// When: creating logger
 	logger, atomicLevel, err := newLogger(cfg)
@@ -29,10 +34,7 @@ func TestNewLogger_DevelopmentMode(t *testing.T) {
 
 func TestNewLogger_ProductionMode(t *testing.T) {
 	// Given: production configuration
-	cfg := Config{
-		Level:       zapcore.InfoLevel,
-		Development: false,
-	}
+	cfg := validConfig("info", false)
 
 	// When: creating logger
 	logger, atomicLevel, err := newLogger(cfg)
@@ -47,23 +49,23 @@ func TestNewLogger_ProductionMode(t *testing.T) {
 }
 
 func TestNewLogger_DifferentLevels(t *testing.T) {
-	levels := []zapcore.Level{
-		zapcore.DebugLevel,
-		zapcore.InfoLevel,
-		zapcore.WarnLevel,
-		zapcore.ErrorLevel,
-		zapcore.DPanicLevel,
-		zapcore.PanicLevel,
-		zapcore.FatalLevel,
+	levels := []struct {
+		str    string
+		parsed zapcore.Level
+	}{
+		{"debug", zapcore.DebugLevel},
+		{"info", zapcore.InfoLevel},
+		{"warn", zapcore.WarnLevel},
+		{"error", zapcore.ErrorLevel},
+		{"dpanic", zapcore.DPanicLevel},
+		{"panic", zapcore.PanicLevel},
+		{"fatal", zapcore.FatalLevel},
 	}
 
 	for _, level := range levels {
-		t.Run(level.String(), func(t *testing.T) {
+		t.Run(level.str, func(t *testing.T) {
 			// Given: configuration with specific level
-			cfg := Config{
-				Level:       level,
-				Development: false,
-			}
+			cfg := validConfig(level.str, false)
 
 			// When: creating logger
 			logger, atomicLevel, err := newLogger(cfg)
@@ -71,7 +73,7 @@ func TestNewLogger_DifferentLevels(t *testing.T) {
 			// Then: logger should be created with correct level
 			require.NoError(t, err)
 			require.NotNil(t, logger)
-			assert.Equal(t, level, atomicLevel.Level())
+			assert.Equal(t, level.parsed, atomicLevel.Level())
 
 			// Cleanup
 			_ = logger.Sync()
@@ -81,10 +83,7 @@ func TestNewLogger_DifferentLevels(t *testing.T) {
 
 func TestNewLogger_SetsDefaultLogger(t *testing.T) {
 	// Given: configuration
-	cfg := Config{
-		Level:       zapcore.InfoLevel,
-		Development: false,
-	}
+	cfg := validConfig("info", false)
 
 	// Save original default logger
 	originalDefault := defaultLogger
@@ -104,10 +103,7 @@ func TestNewLogger_SetsDefaultLogger(t *testing.T) {
 
 func TestNewLogger_InitializationLog(t *testing.T) {
 	// Given: configuration
-	cfg := Config{
-		Level:       zapcore.DebugLevel,
-		Development: true,
-	}
+	cfg := validConfig("debug", true)
 
 	// Save original default logger
 	originalDefault := defaultLogger
@@ -148,10 +144,7 @@ func TestNewLogger_DevelopmentVsProduction(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			// Given: configuration with development mode
-			cfg := Config{
-				Level:       zapcore.InfoLevel,
-				Development: tt.development,
-			}
+			cfg := validConfig("info", tt.development)
 
 			// When: creating logger
 			logger, _, err := newLogger(cfg)
@@ -168,10 +161,7 @@ func TestNewLogger_DevelopmentVsProduction(t *testing.T) {
 
 func TestNewLogger_AtomicLevel(t *testing.T) {
 	// Given: configuration
-	cfg := Config{
-		Level:       zapcore.WarnLevel,
-		Development: false,
-	}
+	cfg := validConfig("warn", false)
 
 	// When: creating logger
 	logger, atomicLevel, err := newLogger(cfg)
@@ -190,10 +180,7 @@ func TestNewLogger_AtomicLevel(t *testing.T) {
 
 func TestNewLogger_CallerEnabled(t *testing.T) {
 	// Given: configuration
-	cfg := Config{
-		Level:       zapcore.InfoLevel,
-		Development: false,
-	}
+	cfg := validConfig("info", false)
 
 	// When: creating logger with caller enabled
 	logger, _, err := newLogger(cfg)

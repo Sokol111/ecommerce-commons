@@ -17,8 +17,8 @@ func newLogger(conf Config) (*zap.Logger, zap.AtomicLevel, error) {
 		cfg = zap.NewProductionConfig()
 	}
 
-	// After Validate(), Level is guaranteed to be valid
-	atomicLevel := zap.NewAtomicLevelAt(conf.Level)
+	// After Validate(), parsedLevel is guaranteed to be valid
+	atomicLevel := zap.NewAtomicLevelAt(conf.ParsedLevel())
 	cfg.Level = atomicLevel
 
 	// Disable automatic stack traces — they clutter structured logs.
@@ -42,7 +42,7 @@ func newLogger(conf Config) (*zap.Logger, zap.AtomicLevel, error) {
 	defaultLogger = logger
 
 	logger.Info("logger initialized",
-		zap.String("level", conf.Level.String()),
+		zap.String("level", conf.ParsedLevel().String()),
 		zap.Bool("development", conf.Development),
 		zap.Bool("caller_enabled", true),
 		zap.String("encoding", map[bool]string{true: "console", false: "json"}[conf.Development]),

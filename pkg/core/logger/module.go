@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/Sokol111/ecommerce-commons/pkg/core/config"
 	"github.com/knadh/koanf/v2"
 	"go.uber.org/fx"
 	"go.uber.org/fx/fxevent"
@@ -36,16 +37,12 @@ func NewZapLoggingModule(opts ...Option) fx.Option {
 	}
 
 	return fx.Options(
-		fx.Provide(func(k *koanf.Koanf) (Config, error) {
-			if cfg.config != nil {
-				return *cfg.config, nil
-			}
-			return newConfig(k)
-		}),
+		fx.Supply(cfg),
+		fx.Provide(provideConfig),
 		fx.Provide(provideLogger),
 		fx.Invoke(func(log *zap.Logger, conf Config) {
 			log.Info("Logger initialized",
-				zap.String("level", conf.Level.String()),
+				zap.String("level", conf.ParsedLevel().String()),
 				zap.Bool("development", conf.Development),
 			)
 		}),
@@ -56,6 +53,10 @@ func NewZapLoggingModule(opts ...Option) fx.Option {
 			return zapLogger
 		}),
 	)
+}
+
+func provideConfig(opts *loggerOptions, k *koanf.Koanf) (Config, error) {
+	return config.Load[Config](k, "logger", opts.config)
 }
 
 func provideLogger(lc fx.Lifecycle, conf Config) (*zap.Logger, zap.AtomicLevel, error) {

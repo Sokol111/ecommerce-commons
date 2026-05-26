@@ -3,52 +3,41 @@ package logger
 import (
 	"fmt"
 
-	"github.com/knadh/koanf/v2"
 	"go.uber.org/zap/zapcore"
 )
 
 // Config holds the configuration for the logger.
 type Config struct {
-	// Level specifies the minimum logging level.
-	// Use zapcore constants: DebugLevel, InfoLevel, WarnLevel, ErrorLevel, DPanicLevel, PanicLevel, FatalLevel
-	Level zapcore.Level
+	// Level is the log level string: "debug", "info", "warn", "error", "dpanic", "panic", "fatal".
+	Level string `koanf:"level"`
 
 	// Development enables development mode with console encoding and human-readable timestamps.
 	// In production mode (false), JSON encoding is used.
-	Development bool
+	Development bool `koanf:"development"`
+
+	// parsedLevel is the parsed zapcore.Level, populated during Validate().
+	parsedLevel zapcore.Level
 }
 
-func newConfig(k *koanf.Koanf) (Config, error) {
-	if !k.Exists("logger") {
-		return Config{
-			Level: zapcore.InfoLevel,
-		}, nil
-	}
+// ParsedLevel returns the parsed zapcore.Level.
+// Must be called after Validate().
+func (c *Config) ParsedLevel() zapcore.Level {
+	return c.parsedLevel
+}
 
-	// Parse level from string first
-	var rawCfg struct {
-		Level       string `koanf:"level"`
-		Development bool   `koanf:"development"`
+// ApplyDefaults sets default values for unset configuration fields.
+func (c *Config) ApplyDefaults() {
+	if c.Level == "" {
+		c.Level = "info"
 	}
+}
 
-	if err := k.Unmarshal("logger", &rawCfg); err != nil {
-		return Config{}, fmt.Errorf("failed to load logger config: %w", err)
+// Validate validates the configuration and parses Level string.
+func (c *Config) Validate() error {
+	parsed, err := zapcore.ParseLevel(c.Level)
+	if err != nil {
+		return fmt.Errorf("invalid log level '%s': %w", c.Level, err)
 	}
-
-	// Parse level string to zapcore.Level
-	level := zapcore.InfoLevel // default
-	if rawCfg.Level != "" {
-		parsedLevel, err := zapcore.ParseLevel(rawCfg.Level)
-		if err != nil {
-			return Config{}, fmt.Errorf("invalid log level '%s': %w", rawCfg.Level, err)
-		}
-		level = parsedLevel
-	}
-
-	cfg := Config{
-		Level:       level,
-		Development: rawCfg.Development,
-	}
-
-	return cfg, nil
+	c.parsedLevel = parsed
+	return nil
 }

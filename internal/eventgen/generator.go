@@ -51,6 +51,11 @@ func Generate(cfg *Config) error {
 		return err
 	}
 
+	// Generate handlers.gen.go (per-event handler interfaces)
+	if err := GenerateHandlers(cfg, payloads); err != nil {
+		return err
+	}
+
 	fmt.Println("✓ Code generation complete!")
 	return nil
 }

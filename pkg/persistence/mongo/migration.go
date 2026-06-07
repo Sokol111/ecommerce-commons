@@ -10,13 +10,8 @@ import (
 	"go.uber.org/zap"
 )
 
-// runMigrations applies database migrations if enabled in config.
+// runMigrations applies database migrations.
 func runMigrations(cfg Config, log *zap.Logger) error {
-	if cfg.Migrations.Disabled {
-		log.Info("Database migrations disabled")
-		return nil
-	}
-
 	return MigrateDatabase(cfg.BuildURI(), cfg.Migrations.Path, log)
 }
 

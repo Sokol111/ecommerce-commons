@@ -2,14 +2,13 @@ package persistence
 
 import (
 	"github.com/Sokol111/ecommerce-commons/pkg/persistence/mongo"
-	mongodriver "go.mongodb.org/mongo-driver/v2/mongo"
 	"go.uber.org/fx"
 )
 
 // persistenceOptions holds internal configuration for the persistence module.
 type persistenceOptions struct {
-	mongoConfig       *mongo.Config
-	disableMigrations bool
+	mongoConfig      *mongo.Config
+	enableMigrations bool
 }
 
 // Option is a functional option for configuring the persistence module.
@@ -23,11 +22,10 @@ func WithMongoConfig(cfg mongo.Config) Option {
 	}
 }
 
-// WithoutMigrations disables automatic migrations on startup.
-// Use when migrations are managed externally (e.g. by tenant.NewModule()).
-func WithoutMigrations() Option {
+// WithMigrations enables automatic database migrations on startup.
+func WithMigrations() Option {
 	return func(opts *persistenceOptions) {
-		opts.disableMigrations = true
+		opts.enableMigrations = true
 	}
 }
 
@@ -35,15 +33,15 @@ func WithoutMigrations() Option {
 //
 // Options:
 //   - WithMongoConfig: provide static Mongo Config (useful for tests)
-//   - WithoutMigrations: skip automatic migrations (use with tenant.NewModule())
+//   - WithMigrations: enable automatic migrations on startup
 //
 // Example usage:
 //
-//	// Production - loads config from koanf, runs migrations
+//	// Multi-tenant - migrations managed by tenant.NewModule()
 //	persistence.NewPersistenceModule()
 //
-//	// Multi-tenant - migrations managed by tenant.NewModule()
-//	persistence.NewPersistenceModule(persistence.WithoutMigrations())
+//	// Single-tenant - runs migrations on startup
+//	persistence.NewPersistenceModule(persistence.WithMigrations())
 //
 //	// Testing - with static config
 //	persistence.NewPersistenceModule(
@@ -59,10 +57,6 @@ func NewPersistenceModule(opts ...Option) fx.Option {
 		mongoModule(cfg),
 	}
 
-	if cfg.disableMigrations {
-		modules = append(modules, fx.Provide(provideAdminDatabase))
-	}
-
 	return fx.Options(modules...)
 }
 
@@ -71,12 +65,8 @@ func mongoModule(cfg *persistenceOptions) fx.Option {
 	if cfg.mongoConfig != nil {
 		mongoOpts = append(mongoOpts, mongo.WithMongoConfig(*cfg.mongoConfig))
 	}
-	if cfg.disableMigrations {
-		mongoOpts = append(mongoOpts, mongo.WithoutMigrations())
+	if cfg.enableMigrations {
+		mongoOpts = append(mongoOpts, mongo.WithMigrations())
 	}
 	return mongo.NewMongoModule(mongoOpts...)
-}
-
-func provideAdminDatabase(admin mongo.Admin) *mongodriver.Database {
-	return admin.GetDatabase()
 }

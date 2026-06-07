@@ -10,12 +10,12 @@ import (
 const cleanupWorkerInterval = 1 * time.Minute
 
 type cleanupWorker struct {
-	repo     Repository
+	repo     repository
 	cleaners []Cleaner
 	log      *zap.Logger
 }
 
-func newCleanupWorker(repo Repository, cleaners []Cleaner, log *zap.Logger) *cleanupWorker {
+func newCleanupWorker(repo repository, cleaners []Cleaner, log *zap.Logger) *cleanupWorker {
 	return &cleanupWorker{repo: repo, cleaners: cleaners, log: log}
 }
 

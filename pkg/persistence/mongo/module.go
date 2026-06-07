@@ -14,8 +14,8 @@ import (
 
 // mongoOptions holds internal configuration for the Mongo module.
 type mongoOptions struct {
-	config            *Config
-	disableMigrations bool
+	config           *Config
+	enableMigrations bool
 }
 
 // Option is a functional option for configuring the Mongo module.
@@ -28,18 +28,14 @@ func WithMongoConfig(cfg Config) Option {
 	}
 }
 
-// WithoutMigrations disables automatic migrations on startup.
-// Use when migrations are managed externally (e.g. by tenant.NewModule()).
-func WithoutMigrations() Option {
+// WithMigrations enables automatic migrations on startup.
+func WithMigrations() Option {
 	return func(opts *mongoOptions) {
-		opts.disableMigrations = true
+		opts.enableMigrations = true
 	}
 }
 
-// NewMongoModule provides MongoDB components for dependency injection.
-// By default, configuration is loaded from koanf and migrations run on startup.
-// Use WithMongoConfig for static config (useful for tests).
-// Use WithoutMigrations when migrations are managed externally.
+// NewMongoModule provides MongoDB components for dependency injection.\n// By default, configuration is loaded from koanf.\n// Use WithMongoConfig for static config (useful for tests).\n// Use WithMigrations to enable automatic migrations on startup.
 func NewMongoModule(opts ...Option) fx.Option {
 	cfg := &mongoOptions{}
 	for _, opt := range opts {
@@ -58,7 +54,7 @@ func NewMongoModule(opts ...Option) fx.Option {
 		fx.Provide(providers...),
 	}
 
-	if !cfg.disableMigrations {
+	if cfg.enableMigrations {
 		modules = append(modules, fx.Invoke(registerMigrations))
 	}
 

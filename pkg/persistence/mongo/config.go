@@ -66,8 +66,6 @@ type ReadPreferenceConfig struct {
 
 // MigrationConfig holds migration-specific configuration.
 type MigrationConfig struct {
-	// Disabled controls whether migrations are skipped on startup
-	Disabled bool `koanf:"disabled"`
 	// Path to migrations directory
 	Path string `koanf:"path"`
 }

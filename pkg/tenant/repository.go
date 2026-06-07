@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/Sokol111/ecommerce-commons/pkg/persistence/mongo"
 	"go.mongodb.org/mongo-driver/bson"
 	mongodriver "go.mongodb.org/mongo-driver/v2/mongo"
 	"go.mongodb.org/mongo-driver/v2/mongo/options"
@@ -27,11 +28,11 @@ type Record struct {
 	ModifiedAt  time.Time  `bson:"modified_at"`
 }
 
-// Repository provides access to the local tenant registry stored in the shared (admin) database.
+// repository provides access to the local tenant registry stored in the shared (admin) database.
 // Used for:
 //   - Fallback tenant list when tenant-service API is unavailable
 //   - Deferred cleanup: marking tenants for deletion and querying pending deletions
-type Repository interface {
+type repository interface {
 	// Upsert creates or updates a tenant record with status=active.
 	Upsert(ctx context.Context, slug string) error
 
@@ -52,10 +53,10 @@ type mongoRepository struct {
 	coll *mongodriver.Collection
 }
 
-// newMongoRepository creates a Registry backed by MongoDB.
-func newMongoRepository(db *mongodriver.Database) Repository {
+// newMongoRepository creates a repository backed by MongoDB.
+func newMongoRepository(admin mongo.Admin) repository {
 	return &mongoRepository{
-		coll: db.Collection("tenants"),
+		coll: admin.GetDatabase().Collection("tenants"),
 	}
 }
 

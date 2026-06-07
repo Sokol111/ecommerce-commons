@@ -14,11 +14,11 @@ const deletionDelay = 5 * time.Minute
 // tenantSyncer fetches tenant slugs and reconciles them with the local registry.
 type tenantSyncer struct {
 	provider SlugsProvider
-	repo     Repository
+	repo     repository
 	log      *zap.Logger
 }
 
-func newTenantSyncer(provider SlugsProvider, repo Repository, log *zap.Logger) *tenantSyncer {
+func newTenantSyncer(provider SlugsProvider, repo repository, log *zap.Logger) *tenantSyncer {
 	return &tenantSyncer{provider: provider, repo: repo, log: log}
 }
 

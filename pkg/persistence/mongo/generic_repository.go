@@ -89,13 +89,15 @@ func NewGenericRepository[Domain any, Entity any](
 	return newRepository(newStaticCollectionProvider(db.GetCollection(collectionName)), mapper)
 }
 
-// NewTenantRepository creates a new generic repository with tenant-aware collection resolution.
+// NewTenantRepository creates a new generic repository with dynamic collection resolution.
 // Used for multi-tenant services where the collection is resolved per-request
-// based on the tenant slug in the context (database-per-tenant strategy).
+// based on the context (database-per-tenant strategy).
+// The resolver function extracts the database suffix (e.g. tenant slug) from context.
 func NewTenantRepository[Domain any, Entity any](
 	admin Admin,
 	collectionName string,
 	mapper EntityMapper[Domain, Entity],
+	resolver DatabaseResolver,
 ) (*GenericRepository[Domain, Entity], error) {
 	if admin == nil {
 		return nil, fmt.Errorf("admin is required")
@@ -103,7 +105,10 @@ func NewTenantRepository[Domain any, Entity any](
 	if collectionName == "" {
 		return nil, fmt.Errorf("collection name is required")
 	}
-	return newRepository(newTenantCollectionProvider(admin, collectionName), mapper)
+	if resolver == nil {
+		return nil, fmt.Errorf("database resolver is required")
+	}
+	return newRepository(newDynamicCollectionProvider(admin, collectionName, resolver), mapper)
 }
 
 func newRepository[Domain any, Entity any](

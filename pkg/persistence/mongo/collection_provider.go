@@ -4,9 +4,12 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/Sokol111/ecommerce-commons/pkg/tenant"
 	mongodriver "go.mongodb.org/mongo-driver/v2/mongo"
 )
+
+// DatabaseResolver resolves a database name suffix from the request context.
+// Used by multi-tenant collection providers to determine the target database.
+type DatabaseResolver func(ctx context.Context) string
 
 // collectionProvider resolves a MongoDB collection from context.
 // Used by GenericRepository to support both fixed and tenant-aware collections.
@@ -27,26 +30,28 @@ func (s *staticCollectionProvider) GetCollection(_ context.Context) *mongodriver
 	return s.coll
 }
 
-// tenantCollectionProvider resolves a collection in the tenant-specific database
-// using the database-per-tenant strategy. Each tenant gets its own database
-// named "{baseDatabaseName}_{tenantSlug}".
-type tenantCollectionProvider struct {
+// dynamicCollectionProvider resolves a collection in the context-specific database
+// using the database-per-context strategy. Each context gets its own database
+// named "{baseDatabaseName}_{suffix}" where suffix is resolved by DatabaseResolver.
+type dynamicCollectionProvider struct {
 	client           *mongodriver.Client
 	baseDatabaseName string
 	collectionName   string
+	resolver         DatabaseResolver
 }
 
-func newTenantCollectionProvider(admin Admin, collectionName string) collectionProvider {
+func newDynamicCollectionProvider(admin Admin, collectionName string, resolver DatabaseResolver) collectionProvider {
 	db := admin.GetDatabase()
-	return &tenantCollectionProvider{
+	return &dynamicCollectionProvider{
 		client:           db.Client(),
 		baseDatabaseName: db.Name(),
 		collectionName:   collectionName,
+		resolver:         resolver,
 	}
 }
 
-// GetCollection resolves the collection for the tenant in the current context.
-func (t *tenantCollectionProvider) GetCollection(ctx context.Context) *mongodriver.Collection {
-	slug := tenant.MustSlugFromContext(ctx)
-	return t.client.Database(fmt.Sprintf("%s_%s", t.baseDatabaseName, slug)).Collection(t.collectionName)
+// GetCollection resolves the collection for the current context.
+func (d *dynamicCollectionProvider) GetCollection(ctx context.Context) *mongodriver.Collection {
+	suffix := d.resolver(ctx)
+	return d.client.Database(fmt.Sprintf("%s_%s", d.baseDatabaseName, suffix)).Collection(d.collectionName)
 }

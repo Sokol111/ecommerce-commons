@@ -4,10 +4,8 @@ import (
 	"errors"
 
 	"github.com/Sokol111/ecommerce-commons/pkg/core/logger"
-	httpmw "github.com/Sokol111/ecommerce-commons/pkg/http/middleware"
 	"github.com/Sokol111/ecommerce-commons/pkg/security/validation"
 	"github.com/ogen-go/ogen/middleware"
-	"go.uber.org/fx"
 	"go.uber.org/zap"
 )
 
@@ -44,20 +42,4 @@ func Middleware(log *zap.Logger) middleware.Middleware {
 
 		return next(req)
 	}
-}
-
-// MiddlewareModule provides tenant resolution as an ogen middleware.
-// Priority 25: after Recovery(10) and Logger(20), before Timeout(30).
-func MiddlewareModule() fx.Option {
-	return fx.Provide(
-		fx.Annotate(
-			func(log *zap.Logger) httpmw.Middleware {
-				return httpmw.Middleware{
-					Priority: 25,
-					Handler:  Middleware(log),
-				}
-			},
-			fx.ResultTags(`group:"ogen_mw"`),
-		),
-	)
 }

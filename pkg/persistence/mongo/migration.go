@@ -1,7 +1,6 @@
 package mongo
 
 import (
-	"context"
 	"errors"
 	"fmt"
 
@@ -11,41 +10,6 @@ import (
 	"go.uber.org/zap"
 )
 
-// TenantSlugsProvider fetches the list of active tenant slugs at startup.
-// Implementations typically call tenant-service API.
-type TenantSlugsProvider interface {
-	GetSlugs(ctx context.Context) ([]string, error)
-}
-
-// TenantMigrationRunner runs migrations for a single tenant database on demand.
-// Used by Kafka consumer handlers when a new tenant is created.
-type TenantMigrationRunner interface {
-	MigrateTenant(ctx context.Context, slug string) error
-}
-
-type tenantMigrationRunner struct {
-	cfg Config
-	log *zap.Logger
-}
-
-func newTenantMigrationRunner(cfg Config, log *zap.Logger) TenantMigrationRunner {
-	return &tenantMigrationRunner{cfg: cfg, log: log}
-}
-
-func (r *tenantMigrationRunner) MigrateTenant(_ context.Context, slug string) error {
-	if r.cfg.Migrations.Disabled {
-		r.log.Info("Database migrations disabled, skipping tenant migration", zap.String("tenant", slug))
-		return nil
-	}
-
-	tenantCfg := r.cfg
-	tenantCfg.Database = fmt.Sprintf("%s_%s", r.cfg.Database, slug)
-
-	r.log.Info("Running migration for tenant", zap.String("tenant", slug), zap.String("database", tenantCfg.Database))
-
-	return migrateDatabase(tenantCfg.BuildURI(), r.cfg.Migrations.Path, r.log)
-}
-
 // runMigrations applies database migrations if enabled in config.
 func runMigrations(cfg Config, log *zap.Logger) error {
 	if cfg.Migrations.Disabled {
@@ -53,38 +17,11 @@ func runMigrations(cfg Config, log *zap.Logger) error {
 		return nil
 	}
 
-	return migrateDatabase(cfg.BuildURI(), cfg.Migrations.Path, log)
+	return MigrateDatabase(cfg.BuildURI(), cfg.Migrations.Path, log)
 }
 
-// runTenantMigrations fetches tenant slugs and runs migrations for each tenant database.
-func runTenantMigrations(ctx context.Context, cfg Config, provider TenantSlugsProvider, log *zap.Logger) error {
-	if cfg.Migrations.Disabled {
-		log.Info("Database migrations disabled")
-		return nil
-	}
-
-	slugs, err := provider.GetSlugs(ctx)
-	if err != nil {
-		return fmt.Errorf("failed to get tenant slugs: %w", err)
-	}
-
-	log.Info("Running tenant migrations", zap.Int("tenants", len(slugs)))
-
-	for _, slug := range slugs {
-		tenantCfg := cfg
-		tenantCfg.Database = fmt.Sprintf("%s_%s", cfg.Database, slug)
-
-		log.Info("Migrating tenant database", zap.String("tenant", slug), zap.String("database", tenantCfg.Database))
-
-		if err := migrateDatabase(tenantCfg.BuildURI(), cfg.Migrations.Path, log); err != nil {
-			return fmt.Errorf("migration failed for tenant %q: %w", slug, err)
-		}
-	}
-
-	return nil
-}
-
-func migrateDatabase(dbURL, migrationsPath string, log *zap.Logger) error {
+// MigrateDatabase applies file-based migrations to the given MongoDB database URI.
+func MigrateDatabase(dbURL, migrationsPath string, log *zap.Logger) error {
 	sourcePath := "file://" + migrationsPath
 
 	m, err := migrate.New(sourcePath, dbURL)

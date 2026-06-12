@@ -6,7 +6,7 @@ import (
 	"time"
 
 	"github.com/Sokol111/ecommerce-commons/pkg/persistence/mongo"
-	"go.mongodb.org/mongo-driver/bson"
+	"go.mongodb.org/mongo-driver/v2/bson"
 	mongodriver "go.mongodb.org/mongo-driver/v2/mongo"
 	"go.mongodb.org/mongo-driver/v2/mongo/options"
 )

@@ -28,7 +28,7 @@ func NewRouter(log *zap.Logger) *Router {
 func Register[E any](r *Router, fn func(context.Context, *E) error) {
 	eventType := reflect.TypeOf((*E)(nil))
 	r.handlers[eventType] = func(ctx context.Context, event any) error {
-		return fn(ctx, event.(*E))
+		return fn(ctx, event.(*E)) //nolint:errcheck // type guaranteed by reflect lookup in Process
 	}
 }
 

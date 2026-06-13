@@ -15,7 +15,9 @@ import (
 type Status string
 
 const (
-	StatusActive          Status = "active"
+	// StatusActive indicates a tenant is active and operational.
+	StatusActive Status = "active"
+	// StatusPendingDeletion indicates a tenant is marked for future deletion.
 	StatusPendingDeletion Status = "pending_deletion"
 )
 
@@ -112,7 +114,7 @@ func (r *mongoRepository) FindPendingDeletion(ctx context.Context) ([]Record, er
 	if err != nil {
 		return nil, fmt.Errorf("failed to find pending deletion tenants: %w", err)
 	}
-	defer func() { _ = cursor.Close(ctx) }()
+	defer func() { _ = cursor.Close(ctx) }() //nolint:errcheck // Best effort cleanup
 
 	var records []Record
 	if err := cursor.All(ctx, &records); err != nil {
@@ -128,7 +130,7 @@ func (r *mongoRepository) FindActive(ctx context.Context) ([]Record, error) {
 	if err != nil {
 		return nil, fmt.Errorf("failed to find active tenants: %w", err)
 	}
-	defer func() { _ = cursor.Close(ctx) }()
+	defer func() { _ = cursor.Close(ctx) }() //nolint:errcheck // Best effort cleanup
 
 	var records []Record
 	if err := cursor.All(ctx, &records); err != nil {

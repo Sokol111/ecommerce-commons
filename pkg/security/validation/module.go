@@ -58,28 +58,27 @@ func NewModule(opts ...Option) fx.Option {
 		opt(cfg)
 	}
 
+	var modules []fx.Option
+
 	if cfg.useTestValidator {
-		return fx.Provide(
-			newTestValidator,
-			newSecurityHandler,
+		modules = append(modules, fx.Provide(newTestValidator))
+	} else if cfg.disable {
+		modules = append(modules, fx.Provide(newNoopValidator))
+	} else {
+		modules = append(modules,
+			fx.Supply(cfg),
+			fx.Provide(
+				provideConfig,
+				newTokenValidator,
+			),
 		)
 	}
 
-	if cfg.disable {
-		return fx.Provide(
-			newNoopValidator,
-			newSecurityHandler,
-		)
-	}
+	// Auth interceptor is an integral part of validation.
+	// Requires ProcedurePermissions to be provided by the service module.
+	modules = append(modules, newAuthInterceptorModule())
 
-	return fx.Options(
-		fx.Supply(cfg),
-		fx.Provide(
-			provideConfig,
-			newTokenValidator,
-			newSecurityHandler,
-		),
-	)
+	return fx.Options(modules...)
 }
 
 func provideConfig(opts *options, k *koanf.Koanf) (Config, error) {

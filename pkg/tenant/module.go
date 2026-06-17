@@ -5,11 +5,18 @@ import (
 
 	"github.com/Sokol111/ecommerce-commons/pkg/core/health"
 	"github.com/Sokol111/ecommerce-commons/pkg/core/worker"
-	httpmw "github.com/Sokol111/ecommerce-commons/pkg/http/middleware"
+	"github.com/Sokol111/ecommerce-commons/pkg/http/connect/interceptor"
 	"github.com/Sokol111/ecommerce-commons/pkg/persistence/mongo"
 	"go.uber.org/fx"
-	"go.uber.org/zap"
 )
+
+// ResolverInterceptorPriority puts tenant resolution before logger (18) so
+// the tenant field is available in all subsequent logs.
+const ResolverInterceptorPriority = 18
+
+// ValidatorInterceptorPriority puts tenant claim validation after logger (26)
+// so auth failures are logged with the resolved tenant field.
+const ValidatorInterceptorPriority = 26
 
 // moduleOptions holds internal configuration for the tenant module.
 type moduleOptions struct {
@@ -26,11 +33,8 @@ func WithMigrations() Option {
 	}
 }
 
-// NewModule provides tenant lifecycle management for dependency injection.
-// It expects the following to be provided in the fx container:
-//   - tenant.SlugsProvider (e.g. from tenantapi.NewTenantSlugsModule())
-//   - mongo.Admin (from persistence/mongo module)
-//   - mongo.Config (from persistence/mongo module)
+// NewModule provides tenant lifecycle management and Connect-RPC interceptors
+// for dependency injection.
 func NewModule(opts ...Option) fx.Option {
 	cfg := &moduleOptions{}
 	for _, opt := range opts {
@@ -54,13 +58,22 @@ func NewModule(opts ...Option) fx.Option {
 				fx.ParamTags(``, `group:"tenant_cleaners"`, ``),
 			),
 			fx.Annotate(
-				func(log *zap.Logger) httpmw.Middleware {
-					return httpmw.Middleware{
-						Priority: 25,
-						Handler:  Middleware(log),
+				func() interceptor.Interceptor {
+					return interceptor.Interceptor{
+						Priority: ResolverInterceptorPriority,
+						Handler:  NewResolverInterceptor(),
 					}
 				},
-				fx.ResultTags(`group:"ogen_mw"`),
+				fx.ResultTags(`group:"connect_interceptor"`),
+			),
+			fx.Annotate(
+				func() interceptor.Interceptor {
+					return interceptor.Interceptor{
+						Priority: ValidatorInterceptorPriority,
+						Handler:  NewValidatorInterceptor(),
+					}
+				},
+				fx.ResultTags(`group:"connect_interceptor"`),
 			),
 		),
 		fx.Invoke(worker.RunWorker[*cleanupWorker]("tenant-cleanup", worker.WithReady())),

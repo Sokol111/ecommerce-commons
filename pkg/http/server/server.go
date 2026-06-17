@@ -33,6 +33,11 @@ func newServer(log *zap.Logger, conf Config, handler http.Handler) Server {
 		IdleTimeout:       conf.Connection.IdleTimeout,
 		MaxHeaderBytes:    conf.Connection.MaxHeaderBytes,
 	}
+	if conf.H2C {
+		srv.Protocols = &http.Protocols{}
+		srv.Protocols.SetHTTP1(true)
+		srv.Protocols.SetUnencryptedHTTP2(true)
+	}
 	return &server{
 		httpSrv: srv,
 		log:     log,

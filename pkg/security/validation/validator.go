@@ -1,6 +1,7 @@
 package validation
 
 import (
+	"errors"
 	"strings"
 
 	"github.com/MicahParks/keyfunc/v3"
@@ -44,7 +45,7 @@ var oidcScopes = map[string]bool{
 func newTokenValidator(config Config) (Validator, error) {
 	jwks, err := keyfunc.NewDefault([]string{config.JwksURL})
 	if err != nil {
-		return nil, ErrInvalidPublicKey
+		return nil, errors.New("invalid public key")
 	}
 
 	return &jwtValidator{
@@ -64,12 +65,12 @@ func (v *jwtValidator) ValidateToken(tokenString string) (*Claims, error) {
 
 	token, err := jwt.ParseWithClaims(tokenString, &jwtClaims{}, v.jwks.Keyfunc, parserOpts...)
 	if err != nil || !token.Valid {
-		return nil, ErrInvalidToken
+		return nil, errors.New("invalid token")
 	}
 
 	c, ok := token.Claims.(*jwtClaims)
 	if !ok || c.Subject == "" {
-		return nil, ErrInvalidToken
+		return nil, errors.New("invalid token claims")
 	}
 
 	return &Claims{

@@ -7,8 +7,8 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/knadh/koanf/v2"
 	"github.com/samber/lo"
+	"golang.org/x/oauth2"
 )
 
 // Default values for HTTP client configuration.
@@ -41,7 +41,7 @@ type Config struct {
 	MaxConnLifetime     *time.Duration `koanf:"max-conn-lifetime"`
 }
 
-func newHTTPClient(cfg Config) *http.Client {
+func newHTTPClient(cfg Config, tokenSource oauth2.TokenSource) *http.Client {
 	dialer := &net.Dialer{
 		Timeout: 5 * time.Second,
 	}
@@ -82,47 +82,21 @@ func newHTTPClient(cfg Config) *http.Client {
 		maxRetries: min(maxIdleConnsPerHost, MaxRetriesCap),
 	}
 
+	// Build transport chain: tenant (propagation) < auth (injection, optional) < retry < base
+	chain := http.RoundTripper(retryTransport)
+	chain = &tenantTransport{base: chain}
+
+	if tokenSource != nil {
+		chain = &authTransport{base: chain, token: tokenSource}
+	}
+
 	return &http.Client{
 		Timeout:   timeout,
-		Transport: &tenantTransport{base: retryTransport},
+		Transport: chain,
 	}
 }
 
-// New creates an HTTP client from config, validating it and applying defaults.
-func New(cfg Config) (*http.Client, error) {
-	normalizedCfg, err := normalizeConfig(cfg)
-	if err != nil {
-		return nil, err
-	}
-
-	return newHTTPClient(normalizedCfg), nil
-}
-
-// LoadConfig loads an HTTP client config from the given koanf path.
-func LoadConfig(k *koanf.Koanf, path string) (Config, error) {
-	var clientCfg Config
-	if err := k.Unmarshal(path, &clientCfg); err != nil {
-		return Config{}, fmt.Errorf("failed to unmarshal client config %q: %w", path, err)
-	}
-
-	normalizedCfg, err := normalizeConfig(clientCfg)
-	if err != nil {
-		return Config{}, fmt.Errorf("invalid client config %q: %w", path, err)
-	}
-
-	return normalizedCfg, nil
-}
-
-func normalizeConfig(cfg Config) (Config, error) {
-	if err := cfg.validate(); err != nil {
-		return Config{}, err
-	}
-
-	cfg.applyDefaults()
-	return cfg, nil
-}
-
-func (c *Config) applyDefaults() {
+func (c *Config) ApplyDefaults() {
 	if c.Timeout == nil {
 		c.Timeout = lo.ToPtr(DefaultTimeout)
 	}
@@ -137,7 +111,7 @@ func (c *Config) applyDefaults() {
 	}
 }
 
-func (c Config) validate() error {
+func (c Config) Validate() error {
 	if c.BaseURL == "" {
 		return fmt.Errorf("base-url is required")
 	}

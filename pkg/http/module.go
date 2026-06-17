@@ -1,9 +1,8 @@
 package modules
 
 import (
+	"github.com/Sokol111/ecommerce-commons/pkg/http/connect/interceptor"
 	"github.com/Sokol111/ecommerce-commons/pkg/http/health"
-	"github.com/Sokol111/ecommerce-commons/pkg/http/middleware"
-	"github.com/Sokol111/ecommerce-commons/pkg/http/problems"
 	"github.com/Sokol111/ecommerce-commons/pkg/http/server"
 	"go.uber.org/fx"
 )
@@ -21,6 +20,16 @@ type HTTPOption func(*httpOptions)
 func WithServerConfig(cfg server.Config) HTTPOption {
 	return func(opts *httpOptions) {
 		opts.serverConfig = &cfg
+	}
+}
+
+// WithH2C enables HTTP/2 without TLS (required for native gRPC support).
+func WithH2C() HTTPOption {
+	return func(opts *httpOptions) {
+		if opts.serverConfig == nil {
+			opts.serverConfig = &server.Config{}
+		}
+		opts.serverConfig.H2C = true
 	}
 }
 
@@ -47,9 +56,8 @@ func NewHTTPModule(opts ...HTTPOption) fx.Option {
 
 	return fx.Options(
 		serverModule(cfg),
-		problems.NewErrorHandlerModule(),
 		health.NewHealthRoutesModule(),
-		middleware.NewMiddlewareModule(),
+		interceptor.NewModule(),
 	)
 }
 

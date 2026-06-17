@@ -27,9 +27,8 @@ type providerParams struct {
 }
 
 // NewMetricsModule returns fx.Option for metrics.
-//
-// Note: HTTP request metrics are handled by ogen-generated servers automatically.
-// This module only provides the MeterProvider and runtime metrics.
+// Provides the MeterProvider and runtime metrics.
+// HTTP request metrics will be handled by Connect interceptors (see pkg/connect/interceptor/).
 func NewMetricsModule() fx.Option {
 	return fx.Options(
 		fx.Provide(

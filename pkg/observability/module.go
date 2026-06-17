@@ -104,6 +104,7 @@ func NewObservabilityModule(opts ...Option) fx.Option {
 	return fx.Options(
 		configModule(cfg),
 		tracing.NewTracingModule(),
+		tracing.NewConnectInterceptorModule(),
 		metrics.NewMetricsModule(),
 		profiling.NewProfilingModule(),
 	)

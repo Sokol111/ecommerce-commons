@@ -23,7 +23,7 @@ func TestNewRegistry_DiscoverClients(t *testing.T) {
 		"clients.catalog-service.base-url": "http://catalog:8080",
 	})
 
-	r, err := NewRegistry(k)
+	r, err := newRegistry(registryParams{K: k})
 	require.NoError(t, err)
 
 	client, err := r.Client("tenant-service")
@@ -48,7 +48,7 @@ func TestNewRegistry_EmptyClients(t *testing.T) {
 		"mongo.host": "localhost",
 	})
 
-	r, err := NewRegistry(k)
+	r, err := newRegistry(registryParams{K: k})
 	require.NoError(t, err)
 	assert.Empty(t, r.clients)
 }
@@ -58,7 +58,7 @@ func TestRegistry_ClientNotFound(t *testing.T) {
 		"clients.tenant-service.base-url": "http://tenant:8080",
 	})
 
-	r, err := NewRegistry(k)
+	r, err := newRegistry(registryParams{K: k})
 	require.NoError(t, err)
 
 	_, err = r.Client("nonexistent")
@@ -71,7 +71,7 @@ func TestRegistry_ConfigNotFound(t *testing.T) {
 		"clients.tenant-service.base-url": "http://tenant:8080",
 	})
 
-	r, err := NewRegistry(k)
+	r, err := newRegistry(registryParams{K: k})
 	require.NoError(t, err)
 
 	_, err = r.Config("nonexistent")
@@ -84,7 +84,7 @@ func TestNewRegistry_InvalidConfig(t *testing.T) {
 		"clients.bad-service.timeout": "10s", // missing base-url
 	})
 
-	_, err := NewRegistry(k)
+	_, err := newRegistry(registryParams{K: k})
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "bad-service")
 }

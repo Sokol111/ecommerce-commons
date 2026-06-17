@@ -13,8 +13,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/knadh/koanf/providers/confmap"
-	"github.com/knadh/koanf/v2"
 	"github.com/samber/lo"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -92,7 +90,7 @@ func TestConfig_applyDefaults(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			cfg := tt.initial
-			cfg.applyDefaults()
+			cfg.ApplyDefaults()
 			assert.Equal(t, tt.expected, cfg)
 		})
 	}
@@ -125,7 +123,7 @@ func TestConfig_validate(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			err := tt.cfg.validate()
+			err := tt.cfg.Validate()
 			if tt.wantErr {
 				require.Error(t, err)
 				assert.Contains(t, err.Error(), tt.errMsg)
@@ -150,7 +148,7 @@ func TestNewHTTPClient(t *testing.T) {
 			MaxConnLifetime:     lo.ToPtr(DefaultMaxConnLifetime),
 		}
 
-		client := newHTTPClient(cfg)
+		client := newHTTPClient(cfg, nil)
 
 		require.NotNil(t, client)
 		assert.Equal(t, DefaultTimeout, client.Timeout)
@@ -166,7 +164,7 @@ func TestNewHTTPClient(t *testing.T) {
 			MaxConnLifetime:     lo.ToPtr(time.Duration(0)),
 		}
 
-		client := newHTTPClient(cfg)
+		client := newHTTPClient(cfg, nil)
 
 		require.NotNil(t, client)
 		assert.Equal(t, 5*time.Second, client.Timeout)
@@ -181,7 +179,7 @@ func TestNewHTTPClient(t *testing.T) {
 			MaxConnLifetime:     lo.ToPtr(DefaultMaxConnLifetime),
 		}
 
-		client := newHTTPClient(cfg)
+		client := newHTTPClient(cfg, nil)
 		tt, ok := client.Transport.(*tenantTransport)
 		require.True(t, ok)
 		rt, ok := tt.base.(*retryTransport)
@@ -198,57 +196,12 @@ func TestNewHTTPClient(t *testing.T) {
 			MaxConnLifetime:     lo.ToPtr(DefaultMaxConnLifetime),
 		}
 
-		client := newHTTPClient(cfg)
+		client := newHTTPClient(cfg, nil)
 		tt, ok := client.Transport.(*tenantTransport)
 		require.True(t, ok)
 		rt, ok := tt.base.(*retryTransport)
 		require.True(t, ok)
 		assert.Equal(t, MaxRetriesCap, rt.maxRetries)
-	})
-}
-
-// ============================================================================
-// LoadConfig Tests
-// ============================================================================
-
-func TestLoadConfig(t *testing.T) {
-	t.Run("loads config from arbitrary path", func(t *testing.T) {
-		k := koanf.New(".")
-		k.Load(confmap.Provider(map[string]any{
-			"clients.attribute-client.base-url": "http://catalog-service:8080",
-			"clients.attribute-client.timeout":  "7s",
-		}, "."), nil)
-
-		cfg, err := LoadConfig(k, "clients.attribute-client")
-
-		require.NoError(t, err)
-		assert.Equal(t, "http://catalog-service:8080", cfg.BaseURL)
-		assert.Equal(t, 7*time.Second, *cfg.Timeout)
-		assert.Equal(t, DefaultMaxIdleConnsPerHost, *cfg.MaxIdleConnsPerHost)
-	})
-}
-
-func TestNew(t *testing.T) {
-	t.Run("validates config and applies defaults", func(t *testing.T) {
-		client, err := New(Config{BaseURL: "http://example.com"})
-
-		require.NoError(t, err)
-		require.NotNil(t, client)
-		assert.Equal(t, DefaultTimeout, client.Timeout)
-		tt, ok := client.Transport.(*tenantTransport)
-		require.True(t, ok)
-		rt, ok := tt.base.(*retryTransport)
-		require.True(t, ok)
-		assert.Equal(t, DefaultMaxIdleConnsPerHost, rt.transport.MaxIdleConnsPerHost)
-		assert.Equal(t, DefaultIdleConnTimeout, rt.transport.IdleConnTimeout)
-	})
-
-	t.Run("returns validation error for invalid config", func(t *testing.T) {
-		client, err := New(Config{})
-
-		require.Error(t, err)
-		assert.Nil(t, client)
-		assert.Contains(t, err.Error(), "base-url is required")
 	})
 }
 
@@ -641,7 +594,7 @@ func TestHTTPClient_Integration(t *testing.T) {
 			MaxConnLifetime:     lo.ToPtr(time.Duration(0)), // Disable for test simplicity
 		}
 
-		client := newHTTPClient(cfg)
+		client := newHTTPClient(cfg, nil)
 
 		req, _ := http.NewRequest(http.MethodGet, server.URL+"/test", nil)
 		resp, err := client.Do(req)
@@ -669,7 +622,7 @@ func TestHTTPClient_Integration(t *testing.T) {
 			MaxConnLifetime:     lo.ToPtr(time.Duration(0)),
 		}
 
-		client := newHTTPClient(cfg)
+		client := newHTTPClient(cfg, nil)
 
 		req, _ := http.NewRequest(http.MethodGet, server.URL+"/error", nil)
 		resp, err := client.Do(req)
@@ -695,7 +648,7 @@ func TestHTTPClient_Integration(t *testing.T) {
 			MaxConnLifetime:     lo.ToPtr(time.Duration(0)),
 		}
 
-		client := newHTTPClient(cfg)
+		client := newHTTPClient(cfg, nil)
 
 		req, _ := http.NewRequest(http.MethodGet, server.URL+"/slow", nil)
 		_, err := client.Do(req)

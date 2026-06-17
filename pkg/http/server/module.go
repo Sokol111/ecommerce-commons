@@ -7,6 +7,8 @@ import (
 	"github.com/Sokol111/ecommerce-commons/pkg/core/config"
 	"github.com/Sokol111/ecommerce-commons/pkg/core/health"
 	"github.com/knadh/koanf/v2"
+	"go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp"
+	"go.opentelemetry.io/otel/sdk/trace"
 	"go.uber.org/fx"
 	"go.uber.org/zap"
 )
@@ -38,7 +40,13 @@ func NewHTTPServerModule(opts ...Option) fx.Option {
 	return fx.Module("http-server",
 		fx.Supply(cfg),
 		fx.Provide(provideConfig),
-		fx.Provide(newServeMux),
+		fx.Provide(func(opts *serverOptions) (*http.ServeMux, http.Handler) {
+			mux := http.NewServeMux()
+			return mux, mux
+		}),
+		fx.Decorate(func(handler http.Handler, tp trace.TracerProvider) http.Handler {
+			return otelhttp.NewHandler(handler, "http-server")
+		}),
 		fx.Invoke(startHTTPServer),
 	)
 }
@@ -51,11 +59,6 @@ func provideConfig(opts *serverOptions, k *koanf.Koanf, logger *zap.Logger) (Con
 
 	logger.Info("server config loaded", zap.Any("config", cfg))
 	return cfg, nil
-}
-
-func newServeMux() (*http.ServeMux, http.Handler) {
-	mux := http.NewServeMux()
-	return mux, mux
 }
 
 func startHTTPServer(lc fx.Lifecycle, log *zap.Logger, conf Config, handler http.Handler, readiness health.ComponentManager, shutdowner fx.Shutdowner) {

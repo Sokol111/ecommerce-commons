@@ -27,6 +27,8 @@ const (
 // Config holds the HTTP server configuration.
 type Config struct {
 	Port int `koanf:"port"`
+	// H2C enables HTTP/2 without TLS (required for native gRPC support).
+	H2C bool `koanf:"h2c"`
 
 	// Server connection settings
 	Connection ConnectionConfig `koanf:"connection"`

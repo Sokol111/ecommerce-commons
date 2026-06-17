@@ -5,8 +5,10 @@ import (
 	"net/http"
 	"strings"
 
+	"github.com/Sokol111/ecommerce-commons/pkg/core/config"
 	"github.com/knadh/koanf/v2"
 	"go.uber.org/fx"
+	"golang.org/x/oauth2"
 )
 
 type registryEntry struct {
@@ -20,12 +22,21 @@ type Registry struct {
 	clients map[string]registryEntry
 }
 
-// NewRegistry creates a Registry by scanning all keys under "clients.*" in koanf,
+// registryParams holds the optional dependencies for creating a Registry.
+type registryParams struct {
+	fx.In
+	K           *koanf.Koanf
+	TokenSource oauth2.TokenSource `optional:"true"`
+}
+
+// newRegistry creates a Registry by scanning all keys under "clients.*" in koanf,
 // loading each config and creating an HTTP client for it.
-func NewRegistry(k *koanf.Koanf) (*Registry, error) {
+// When tokenSource is provided, all clients are wrapped with OAuth2 Bearer token
+// injection for M2M service calls.
+func newRegistry(p registryParams) (*Registry, error) {
 	r := &Registry{clients: make(map[string]registryEntry)}
 
-	clientsKoanf := k.Cut("clients")
+	clientsKoanf := p.K.Cut("clients")
 	seen := make(map[string]bool)
 
 	for _, key := range clientsKoanf.Keys() {
@@ -35,15 +46,12 @@ func NewRegistry(k *koanf.Koanf) (*Registry, error) {
 		}
 		seen[name] = true
 
-		cfg, err := LoadConfig(k, "clients."+name)
+		cfg, err := config.Load[Config](p.K, "clients."+name, nil)
 		if err != nil {
 			return nil, fmt.Errorf("http client %q: %w", name, err)
 		}
 
-		client, err := New(cfg)
-		if err != nil {
-			return nil, fmt.Errorf("http client %q: %w", name, err)
-		}
+		client := newHTTPClient(cfg, p.TokenSource)
 
 		r.clients[name] = registryEntry{client: client, config: cfg}
 	}
@@ -71,5 +79,5 @@ func (r *Registry) Config(name string) (Config, error) {
 
 // RegistryModule provides the Registry via fx dependency injection.
 func RegistryModule() fx.Option {
-	return fx.Provide(NewRegistry)
+	return fx.Provide(newRegistry)
 }

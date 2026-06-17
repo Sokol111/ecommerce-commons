@@ -8,7 +8,6 @@ import (
 	"github.com/Sokol111/ecommerce-commons/pkg/core/health"
 	"github.com/knadh/koanf/v2"
 	"go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp"
-	"go.opentelemetry.io/otel/sdk/trace"
 	"go.uber.org/fx"
 	"go.uber.org/zap"
 )
@@ -44,7 +43,7 @@ func NewHTTPServerModule(opts ...Option) fx.Option {
 			mux := http.NewServeMux()
 			return mux, mux
 		}),
-		fx.Decorate(func(handler http.Handler, tp trace.TracerProvider) http.Handler {
+		fx.Decorate(func(handler http.Handler) http.Handler {
 			return otelhttp.NewHandler(handler, "http-server")
 		}),
 		fx.Invoke(startHTTPServer),

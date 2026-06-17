@@ -7,7 +7,6 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/samber/lo"
 	"golang.org/x/oauth2"
 )
 
@@ -96,21 +95,23 @@ func newHTTPClient(cfg Config, tokenSource oauth2.TokenSource) *http.Client {
 	}
 }
 
+// ApplyDefaults fills in zero-value fields with the package-level defaults.
 func (c *Config) ApplyDefaults() {
 	if c.Timeout == nil {
-		c.Timeout = lo.ToPtr(DefaultTimeout)
+		c.Timeout = new(DefaultTimeout)
 	}
 	if c.MaxIdleConnsPerHost == nil {
-		c.MaxIdleConnsPerHost = lo.ToPtr(DefaultMaxIdleConnsPerHost)
+		c.MaxIdleConnsPerHost = new(DefaultMaxIdleConnsPerHost)
 	}
 	if c.IdleConnTimeout == nil {
-		c.IdleConnTimeout = lo.ToPtr(DefaultIdleConnTimeout)
+		c.IdleConnTimeout = new(DefaultIdleConnTimeout)
 	}
 	if c.MaxConnLifetime == nil {
-		c.MaxConnLifetime = lo.ToPtr(DefaultMaxConnLifetime)
+		c.MaxConnLifetime = new(DefaultMaxConnLifetime)
 	}
 }
 
+// Validate returns an error if the Config is missing required fields.
 func (c Config) Validate() error {
 	if c.BaseURL == "" {
 		return fmt.Errorf("base-url is required")

@@ -45,6 +45,11 @@ func newAuthInterceptorModule() fx.Option {
 // tokens, stores claims in context, and enforces required permissions per
 // procedure. The procedurePermissions map maps procedure names (e.g.
 // "/tenant.v1.TenantService/CreateTenant") to required permission strings.
+//
+// Permission semantics:
+//   - nil  → public endpoint, authentication is skipped entirely
+//   - []string{} → authenticated, no specific permissions required
+//   - []string{"perm"} → authenticated and must have at least one of the listed permissions
 func NewAuthInterceptor(
 	validator Validator,
 	procedurePermissions ProcedurePermissions,
@@ -52,6 +57,14 @@ func NewAuthInterceptor(
 ) connect.UnaryInterceptorFunc {
 	return func(next connect.UnaryFunc) connect.UnaryFunc {
 		return func(ctx context.Context, req connect.AnyRequest) (connect.AnyResponse, error) {
+			perms, registered := procedurePermissions[req.Spec().Procedure]
+			if !registered {
+				return nil, connect.NewError(connect.CodePermissionDenied, fmt.Errorf("procedure not registered: %s", req.Spec().Procedure))
+			}
+			if perms == nil {
+				return next(ctx, req)
+			}
+
 			auth := req.Header().Get("Authorization")
 			token := strings.TrimPrefix(auth, "Bearer ")
 
@@ -68,8 +81,7 @@ func NewAuthInterceptor(
 				return nil, connect.NewError(connect.CodeUnauthenticated, fmt.Errorf("invalid token: %w", err))
 			}
 
-			perms := procedurePermissions[req.Spec().Procedure]
-			if len(perms) > 0 && !claims.HasAnyPermission(perms) {
+			if !claims.HasAnyPermission(perms) {
 				log.Warn("Permission denied",
 					zap.String("procedure", req.Spec().Procedure),
 					zap.Strings("required", perms),

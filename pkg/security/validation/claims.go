@@ -20,8 +20,12 @@ type Claims struct {
 const WildcardPermission = "*"
 
 // HasAnyPermission checks if the user has at least one of the required permissions.
-// Returns true if the user has any of the specified permissions or the wildcard permission.
+// Returns true if permissions is empty (no specific permission required),
+// if the user holds the wildcard permission, or if the user has any of the listed permissions.
 func (c *Claims) HasAnyPermission(permissions []string) bool {
+	if len(permissions) == 0 {
+		return true
+	}
 	// Wildcard grants all permissions
 	if slices.Contains(c.Permissions, WildcardPermission) {
 		return true

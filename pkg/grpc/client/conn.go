@@ -20,9 +20,9 @@ type ConnParams struct {
 	TokenSource oauth2.TokenSource `optional:"true"`
 }
 
-// NewConn creates a *grpc.ClientConn with h2c support, optional Bearer auth,
+// NewConn creates a grpc.ClientConnInterface with h2c support, optional Bearer auth,
 // and lifecycle-managed shutdown. It is intended for internal M2M calls.
-func NewConn(cfg Config, p ConnParams, lc fx.Lifecycle) (*grpc.ClientConn, error) {
+func NewConn(cfg Config, p ConnParams, lc fx.Lifecycle) (grpc.ClientConnInterface, error) {
 	opts := []grpc.DialOption{
 		grpc.WithTransportCredentials(insecure.NewCredentials()),
 		grpc.WithStatsHandler(otelgrpc.NewClientHandler()),

@@ -10,9 +10,6 @@ func (cfg *Config) Validate() error {
 	if err := validateBrokers(cfg); err != nil {
 		return err
 	}
-	if err := validateSchemaRegistry(&cfg.SchemaRegistry); err != nil {
-		return err
-	}
 	if err := validateGlobalConsumerConfig(&cfg.ConsumersConfig); err != nil {
 		return err
 	}
@@ -29,18 +26,6 @@ func (cfg *Config) Validate() error {
 func validateBrokers(cfg *Config) error {
 	if strings.TrimSpace(cfg.Brokers) == "" {
 		return fmt.Errorf("kafka brokers cannot be empty")
-	}
-	return nil
-}
-
-// validateSchemaRegistry validates Schema Registry configuration.
-func validateSchemaRegistry(cfg *SchemaRegistryConfig) error {
-	if strings.TrimSpace(cfg.URL) == "" {
-		return fmt.Errorf("schema registry URL cannot be empty")
-	}
-	if cfg.CacheCapacity > 0 && (cfg.CacheCapacity < minSchemaCacheCapacity || cfg.CacheCapacity > maxSchemaCacheCapacity) {
-		return fmt.Errorf("schema registry cache capacity must be between %d and %d, got: %d",
-			minSchemaCacheCapacity, maxSchemaCacheCapacity, cfg.CacheCapacity)
 	}
 	return nil
 }

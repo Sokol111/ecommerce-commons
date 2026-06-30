@@ -13,39 +13,16 @@ func uintPtr(v uint) *uint {
 }
 
 func TestApplyDefaults_SchemaRegistry(t *testing.T) {
-	cfg := &Config{
-		Brokers: "localhost:9092",
-		SchemaRegistry: SchemaRegistryConfig{
-			URL: "http://localhost:8081",
-		},
-	}
-
-	cfg.ApplyDefaults()
-
-	assert.Equal(t, defaultSchemaRegistryCacheCapacity, cfg.SchemaRegistry.CacheCapacity)
+	_ = &Config{Brokers: "localhost:9092"} // SR removed
 }
 
 func TestApplyDefaults_SchemaRegistryCustomValue(t *testing.T) {
-	customCapacity := 5000
-	cfg := &Config{
-		Brokers: "localhost:9092",
-		SchemaRegistry: SchemaRegistryConfig{
-			URL:           "http://localhost:8081",
-			CacheCapacity: customCapacity,
-		},
-	}
-
-	cfg.ApplyDefaults()
-
-	assert.Equal(t, customCapacity, cfg.SchemaRegistry.CacheCapacity, "should not override custom value")
+	_ = &Config{Brokers: "localhost:9092"} // SR removed
 }
 
 func TestApplyDefaults_GlobalConsumerConfig(t *testing.T) {
 	cfg := &Config{
-		Brokers: "localhost:9092",
-		SchemaRegistry: SchemaRegistryConfig{
-			URL: "http://localhost:8081",
-		},
+		Brokers:         "localhost:9092",
 		ConsumersConfig: ConsumersConfig{},
 	}
 
@@ -65,9 +42,6 @@ func TestApplyDefaults_GlobalConsumerConfigCustomValues(t *testing.T) {
 
 	cfg := &Config{
 		Brokers: "localhost:9092",
-		SchemaRegistry: SchemaRegistryConfig{
-			URL: "http://localhost:8081",
-		},
 		ConsumersConfig: ConsumersConfig{
 			DefaultMaxRetries:        customRetries,
 			DefaultInitialBackoff:    customInitialBackoff,
@@ -86,10 +60,7 @@ func TestApplyDefaults_GlobalConsumerConfigCustomValues(t *testing.T) {
 
 func TestApplyDefaults_ProducerConfig(t *testing.T) {
 	cfg := &Config{
-		Brokers: "localhost:9092",
-		SchemaRegistry: SchemaRegistryConfig{
-			URL: "http://localhost:8081",
-		},
+		Brokers:        "localhost:9092",
 		ProducerConfig: ProducerConfig{},
 	}
 
@@ -102,9 +73,6 @@ func TestApplyDefaults_ProducerConfigCustomValue(t *testing.T) {
 	customTimeout := 120
 	cfg := &Config{
 		Brokers: "localhost:9092",
-		SchemaRegistry: SchemaRegistryConfig{
-			URL: "http://localhost:8081",
-		},
 		ProducerConfig: ProducerConfig{
 			ReadinessTimeoutSeconds: customTimeout,
 		},
@@ -225,9 +193,6 @@ func TestApplyConsumerDefaults_DLQTopicNaming(t *testing.T) {
 func TestApplyDefaults_MultipleConsumers(t *testing.T) {
 	cfg := &Config{
 		Brokers: "localhost:9092",
-		SchemaRegistry: SchemaRegistryConfig{
-			URL: "http://localhost:8081",
-		},
 		ConsumersConfig: ConsumersConfig{
 			DefaultGroupID:           "default-group",
 			DefaultAutoOffsetReset:   "earliest",
@@ -276,9 +241,6 @@ func TestApplyDefaults_MultipleConsumers(t *testing.T) {
 func TestApplyDefaults_CompleteConfig(t *testing.T) {
 	cfg := &Config{
 		Brokers: "localhost:9092",
-		SchemaRegistry: SchemaRegistryConfig{
-			URL: "http://localhost:8081",
-		},
 		ConsumersConfig: ConsumersConfig{
 			ConsumerConfig: []ConsumerConfig{
 				{Name: "consumer1", Topic: "topic1"},
@@ -290,7 +252,6 @@ func TestApplyDefaults_CompleteConfig(t *testing.T) {
 	cfg.ApplyDefaults()
 
 	// Verify all defaults are applied
-	assert.Equal(t, defaultSchemaRegistryCacheCapacity, cfg.SchemaRegistry.CacheCapacity)
 	assert.Equal(t, defaultMaxRetries, *cfg.ConsumersConfig.DefaultMaxRetries)
 	assert.Equal(t, defaultInitialBackoff, cfg.ConsumersConfig.DefaultInitialBackoff)
 	assert.Equal(t, defaultMaxBackoff, cfg.ConsumersConfig.DefaultMaxBackoff)

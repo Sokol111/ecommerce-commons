@@ -1,25 +1,19 @@
 // Package serde provides format-agnostic interfaces for message serialization.
-// Implementations for specific formats (Avro, JSON, Protobuf) are in separate packages.
+// The proto package provides the Protobuf implementation.
 package serde
 
-import "github.com/Sokol111/ecommerce-commons/pkg/messaging/kafka/events"
+import "google.golang.org/protobuf/proto"
 
-// Serializer serializes events to bytes.
-// Implementations may use different formats (Avro, JSON, Protobuf, etc.)
+// Serializer serializes proto messages to bytes.
 type Serializer interface {
-	// Serialize serializes an event to bytes.
-	// The event is self-describing: it knows its topic, schema name, and schema bytes.
-	//
-	// Returns the serialized bytes in implementation-specific format.
-	// For Avro with Confluent Schema Registry: [0x00][schema_id (4 bytes)][avro_data]
-	Serialize(event events.Event) ([]byte, error)
+	// Serialize serializes a proto message to bytes.
+	Serialize(msg proto.Message) ([]byte, error)
 }
 
-// Deserializer deserializes bytes to events.
-// Implementations may use different formats (Avro, JSON, Protobuf, etc.)
+// Deserializer deserializes bytes to proto messages.
+// The event_type header is used to determine the concrete message type.
 type Deserializer interface {
-	// Deserialize deserializes bytes to an event.
-	//
-	// Returns a concrete Go type implementing events.Event.
-	Deserialize(data []byte) (events.Event, error)
+	// Deserialize deserializes bytes to a proto message.
+	// headers must contain the "event_type" key with the proto full name.
+	Deserialize(data []byte, headers map[string][]byte) (proto.Message, error)
 }

@@ -6,56 +6,37 @@ import (
 	"testing"
 
 	"github.com/Sokol111/ecommerce-commons/pkg/core/logger"
-	"github.com/Sokol111/ecommerce-commons/pkg/messaging/kafka/events"
+	"github.com/Sokol111/ecommerce-commons/pkg/messaging/kafka/kafkaproto"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/twmb/franz-go/pkg/kgo"
 	"go.opentelemetry.io/otel/trace"
 	"go.uber.org/zap"
+	"google.golang.org/protobuf/proto"
+	"google.golang.org/protobuf/types/known/emptypb"
 )
 
-// mockEvent is a mock implementation of events.Event for testing
-type mockEvent struct {
-	metadata events.EventMetadata
+// mockHeaderPopulator is a mock implementation of events.HeaderPopulator
+type mockHeaderPopulator struct {
+	populateFunc func(ctx context.Context, event proto.Message, headers map[string]string) string
 }
 
-func (m *mockEvent) GetMetadata() *events.EventMetadata {
-	return &m.metadata
-}
-
-func (m *mockEvent) GetTopic() string {
-	return "mock.topic"
-}
-
-func (m *mockEvent) GetSchemaName() string {
-	return "com.test.MockEvent"
-}
-
-func (m *mockEvent) GetSchema() []byte {
-	return []byte(`{"type": "record", "name": "MockEvent", "fields": []}`)
-}
-
-// mockMetadataPopulator is a mock implementation of events.MetadataPopulator
-type mockMetadataPopulator struct {
-	populateFunc func(ctx context.Context, event events.Event) string
-}
-
-func (m *mockMetadataPopulator) PopulateMetadata(ctx context.Context, event events.Event) string {
+func (m *mockHeaderPopulator) PopulateHeaders(ctx context.Context, event proto.Message, headers map[string]string) string {
 	if m.populateFunc != nil {
-		return m.populateFunc(ctx, event)
+		return m.populateFunc(ctx, event, headers)
 	}
-	event.GetMetadata().EventID = "generated-event-id"
-	event.GetMetadata().EventType = "MockEvent"
-	event.GetMetadata().Source = "test-service"
+	headers["event_id"] = "generated-event-id"
+	headers["event_type"] = string(event.ProtoReflect().Descriptor().FullName())
+	headers["source"] = "test-service"
 	return "generated-event-id"
 }
 
 // mockSerializer is a mock implementation of serde.Serializer
 type mockSerializer struct {
-	serializeFunc func(event events.Event) ([]byte, error)
+	serializeFunc func(event proto.Message) ([]byte, error)
 }
 
-func (m *mockSerializer) Serialize(event events.Event) ([]byte, error) {
+func (m *mockSerializer) Serialize(event proto.Message) ([]byte, error) {
 	if m.serializeFunc != nil {
 		return m.serializeFunc(event)
 	}
@@ -89,22 +70,27 @@ type noopTestSpan struct {
 
 func (n noopTestSpan) End(options ...trace.SpanEndOption) {}
 
+func newTestMessage() Message {
+	return Message{
+		Event:   &emptypb.Empty{},
+		Topic:   "mock.topic",
+		Key:     "partition-key",
+		Headers: map[string]string{"custom": "header"},
+	}
+}
+
 func TestOutbox_Create(t *testing.T) {
 	t.Run("successfully creates outbox message", func(t *testing.T) {
 		repo := newMockRepository()
 		entitiesChan := make(chan *outboxEntity, 10)
 		serializer := &mockSerializer{}
 		propagator := &mockTracePropagator{}
-		metadataPopulator := &mockMetadataPopulator{}
+		headerPopulator := &mockHeaderPopulator{}
 		log := zap.NewNop()
 
-		o := newOutbox(log, repo, entitiesChan, serializer, propagator, metadataPopulator)
+		o := newOutbox(log, repo, entitiesChan, serializer, propagator, headerPopulator)
 
-		msg := Message{
-			Event:   &mockEvent{},
-			Key:     "partition-key",
-			Headers: map[string]string{"custom": "header"},
-		}
+		msg := newTestMessage()
 
 		ctx := logger.With(context.Background(), log)
 		sendFunc, err := o.Create(ctx, msg)
@@ -121,18 +107,19 @@ func TestOutbox_Create(t *testing.T) {
 		repo := newMockRepository()
 		entitiesChan := make(chan *outboxEntity, 10)
 		serializer := &mockSerializer{
-			serializeFunc: func(event events.Event) ([]byte, error) {
+			serializeFunc: func(event proto.Message) ([]byte, error) {
 				return nil, errors.New("serialization failed")
 			},
 		}
 		propagator := &mockTracePropagator{}
-		metadataPopulator := &mockMetadataPopulator{}
+		headerPopulator := &mockHeaderPopulator{}
 		log := zap.NewNop()
 
-		o := newOutbox(log, repo, entitiesChan, serializer, propagator, metadataPopulator)
+		o := newOutbox(log, repo, entitiesChan, serializer, propagator, headerPopulator)
 
 		msg := Message{
-			Event: &mockEvent{},
+			Event: &emptypb.Empty{},
+			Topic: "mock.topic",
 		}
 
 		ctx := logger.With(context.Background(), log)
@@ -149,13 +136,14 @@ func TestOutbox_Create(t *testing.T) {
 		entitiesChan := make(chan *outboxEntity, 10)
 		serializer := &mockSerializer{}
 		propagator := &mockTracePropagator{}
-		metadataPopulator := &mockMetadataPopulator{}
+		headerPopulator := &mockHeaderPopulator{}
 		log := zap.NewNop()
 
-		o := newOutbox(log, repo, entitiesChan, serializer, propagator, metadataPopulator)
+		o := newOutbox(log, repo, entitiesChan, serializer, propagator, headerPopulator)
 
 		msg := Message{
-			Event: &mockEvent{},
+			Event: &emptypb.Empty{},
+			Topic: "mock.topic",
 		}
 
 		ctx := logger.With(context.Background(), log)
@@ -179,13 +167,14 @@ func TestOutbox_Create(t *testing.T) {
 				return headers
 			},
 		}
-		metadataPopulator := &mockMetadataPopulator{}
+		headerPopulator := &mockHeaderPopulator{}
 		log := zap.NewNop()
 
-		o := newOutbox(log, repo, entitiesChan, serializer, propagator, metadataPopulator)
+		o := newOutbox(log, repo, entitiesChan, serializer, propagator, headerPopulator)
 
 		msg := Message{
-			Event:   &mockEvent{},
+			Event:   &emptypb.Empty{},
+			Topic:   "mock.topic",
 			Headers: map[string]string{"existing": "header"},
 		}
 
@@ -205,13 +194,14 @@ func TestOutbox_SendFunc(t *testing.T) {
 		entitiesChan := make(chan *outboxEntity, 10)
 		serializer := &mockSerializer{}
 		propagator := &mockTracePropagator{}
-		metadataPopulator := &mockMetadataPopulator{}
+		headerPopulator := &mockHeaderPopulator{}
 		log := zap.NewNop()
 
-		o := newOutbox(log, repo, entitiesChan, serializer, propagator, metadataPopulator)
+		o := newOutbox(log, repo, entitiesChan, serializer, propagator, headerPopulator)
 
 		msg := Message{
-			Event: &mockEvent{},
+			Event: &emptypb.Empty{},
+			Topic: "mock.topic",
 		}
 
 		ctx := logger.With(context.Background(), log)
@@ -234,13 +224,14 @@ func TestOutbox_SendFunc(t *testing.T) {
 		entitiesChan := make(chan *outboxEntity) // unbuffered channel
 		serializer := &mockSerializer{}
 		propagator := &mockTracePropagator{}
-		metadataPopulator := &mockMetadataPopulator{}
+		headerPopulator := &mockHeaderPopulator{}
 		log := zap.NewNop()
 
-		o := newOutbox(log, repo, entitiesChan, serializer, propagator, metadataPopulator)
+		o := newOutbox(log, repo, entitiesChan, serializer, propagator, headerPopulator)
 
 		msg := Message{
-			Event: &mockEvent{},
+			Event: &emptypb.Empty{},
+			Topic: "mock.topic",
 		}
 
 		ctx := logger.With(context.Background(), log)
@@ -260,13 +251,14 @@ func TestOutbox_SendFunc(t *testing.T) {
 		entitiesChan := make(chan *outboxEntity) // unbuffered, no receiver
 		serializer := &mockSerializer{}
 		propagator := &mockTracePropagator{}
-		metadataPopulator := &mockMetadataPopulator{}
+		headerPopulator := &mockHeaderPopulator{}
 		log := zap.NewNop()
 
-		o := newOutbox(log, repo, entitiesChan, serializer, propagator, metadataPopulator)
+		o := newOutbox(log, repo, entitiesChan, serializer, propagator, headerPopulator)
 
 		msg := Message{
-			Event: &mockEvent{},
+			Event: &emptypb.Empty{},
+			Topic: "mock.topic",
 		}
 
 		ctx := logger.With(context.Background(), log)
@@ -286,13 +278,14 @@ func TestOutbox_NilHeaders(t *testing.T) {
 		entitiesChan := make(chan *outboxEntity, 10)
 		serializer := &mockSerializer{}
 		propagator := &mockTracePropagator{}
-		metadataPopulator := &mockMetadataPopulator{}
+		headerPopulator := &mockHeaderPopulator{}
 		log := zap.NewNop()
 
-		o := newOutbox(log, repo, entitiesChan, serializer, propagator, metadataPopulator)
+		o := newOutbox(log, repo, entitiesChan, serializer, propagator, headerPopulator)
 
 		msg := Message{
-			Event:   &mockEvent{},
+			Event:   &emptypb.Empty{},
+			Topic:   "mock.topic",
 			Headers: nil,
 		}
 
@@ -304,3 +297,5 @@ func TestOutbox_NilHeaders(t *testing.T) {
 		assert.NotNil(t, repo.created[0].Headers)
 	})
 }
+
+var _ kafkaproto.HeaderPopulator = (*mockHeaderPopulator)(nil)

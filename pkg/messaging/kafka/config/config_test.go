@@ -30,10 +30,6 @@ func TestNewConfig_ValidYAML(t *testing.T) {
 	yamlConfig := `
 kafka:
   brokers: "localhost:9092,localhost:9093"
-  schema-registry:
-    url: "http://schema-registry:8081"
-    cache-capacity: 2000
-    auto-register-schemas: true
   consumers-config:
     default-group-id: "test-group"
     default-auto-offset-reset: "earliest"
@@ -64,9 +60,6 @@ kafka:
 
 	require.NoError(t, err)
 	assert.Equal(t, "localhost:9092,localhost:9093", cfg.Brokers)
-	assert.Equal(t, "http://schema-registry:8081", cfg.SchemaRegistry.URL)
-	assert.Equal(t, 2000, cfg.SchemaRegistry.CacheCapacity)
-	assert.True(t, cfg.SchemaRegistry.AutoRegisterSchemas)
 
 	// Global consumer config
 	assert.Equal(t, "test-group", cfg.ConsumersConfig.DefaultGroupID)
@@ -100,8 +93,6 @@ func TestNewConfig_MinimalYAML(t *testing.T) {
 	yamlConfig := `
 kafka:
   brokers: "localhost:9092"
-  schema-registry:
-    url: "http://schema-registry:8081"
 `
 
 	k := loadKoanfFromYAML(t, yamlConfig)
@@ -112,10 +103,8 @@ kafka:
 
 	// Required fields
 	assert.Equal(t, "localhost:9092", cfg.Brokers)
-	assert.Equal(t, "http://schema-registry:8081", cfg.SchemaRegistry.URL)
 
 	// Defaults should be applied
-	assert.Equal(t, defaultSchemaRegistryCacheCapacity, cfg.SchemaRegistry.CacheCapacity)
 	assert.Equal(t, defaultMaxRetries, *cfg.ConsumersConfig.DefaultMaxRetries)
 	assert.Equal(t, defaultInitialBackoff, cfg.ConsumersConfig.DefaultInitialBackoff)
 	assert.Equal(t, defaultMaxBackoff, cfg.ConsumersConfig.DefaultMaxBackoff)
@@ -126,8 +115,8 @@ kafka:
 func TestNewConfig_InvalidYAML_MissingBrokers(t *testing.T) {
 	yamlConfig := `
 kafka:
-  schema-registry:
-    url: "http://schema-registry:8081"
+  consumers-config:
+    default-group-id: "test"
 `
 
 	k := loadKoanfFromYAML(t, yamlConfig)
@@ -138,28 +127,10 @@ kafka:
 	assert.Contains(t, err.Error(), "brokers cannot be empty")
 }
 
-func TestNewConfig_InvalidYAML_MissingSchemaRegistryURL(t *testing.T) {
-	yamlConfig := `
-kafka:
-  brokers: "localhost:9092"
-  schema-registry:
-    cache-capacity: 1000
-`
-
-	k := loadKoanfFromYAML(t, yamlConfig)
-
-	_, err := loadAndValidateConfig(k)
-
-	require.Error(t, err)
-	assert.Contains(t, err.Error(), "schema registry URL cannot be empty")
-}
-
 func TestNewConfig_ConsumerWithDefaults(t *testing.T) {
 	yamlConfig := `
 kafka:
   brokers: "localhost:9092"
-  schema-registry:
-    url: "http://schema-registry:8081"
   consumers-config:
     default-group-id: "default-group"
     default-auto-offset-reset: "earliest"
@@ -194,8 +165,6 @@ func TestNewConfig_InvalidConsumerConfig(t *testing.T) {
 	yamlConfig := `
 kafka:
   brokers: "localhost:9092"
-  schema-registry:
-    url: "http://schema-registry:8081"
   consumers-config:
     consumers:
       - name: ""
@@ -210,29 +179,10 @@ kafka:
 	assert.Contains(t, err.Error(), "name cannot be empty")
 }
 
-func TestNewConfig_InvalidSchemaCapacity(t *testing.T) {
-	yamlConfig := `
-kafka:
-  brokers: "localhost:9092"
-  schema-registry:
-    url: "http://schema-registry:8081"
-    cache-capacity: 50
-`
-
-	k := loadKoanfFromYAML(t, yamlConfig)
-
-	_, err := loadAndValidateConfig(k)
-
-	require.Error(t, err)
-	assert.Contains(t, err.Error(), "cache capacity must be between")
-}
-
 func TestNewConfig_InvalidBackoffRelationship(t *testing.T) {
 	yamlConfig := `
 kafka:
   brokers: "localhost:9092"
-  schema-registry:
-    url: "http://schema-registry:8081"
   consumers-config:
     default-initial-backoff: 10s
     default-max-backoff: 5s
@@ -251,8 +201,6 @@ func TestNewConfig_MultipleConsumers(t *testing.T) {
 	yamlConfig := `
 kafka:
   brokers: "localhost:9092"
-  schema-registry:
-    url: "http://schema-registry:8081"
   consumers-config:
     default-group-id: "default-group"
     consumers:
@@ -288,8 +236,6 @@ func TestNewConfig_InvalidAutoOffsetReset(t *testing.T) {
 	yamlConfig := `
 kafka:
   brokers: "localhost:9092"
-  schema-registry:
-    url: "http://schema-registry:8081"
   consumers-config:
     consumers:
       - name: "consumer1"

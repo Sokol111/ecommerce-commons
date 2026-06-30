@@ -6,7 +6,7 @@ import (
 	coreconfig "github.com/Sokol111/ecommerce-commons/pkg/core/config"
 	"github.com/Sokol111/ecommerce-commons/pkg/core/health"
 	"github.com/Sokol111/ecommerce-commons/pkg/core/worker"
-	"github.com/Sokol111/ecommerce-commons/pkg/messaging/kafka/events"
+	"github.com/Sokol111/ecommerce-commons/pkg/messaging/kafka/kafkaproto"
 	"github.com/Sokol111/ecommerce-commons/pkg/persistence/mongo"
 	"github.com/knadh/koanf/v2"
 	"go.uber.org/fx"
@@ -29,7 +29,7 @@ func NewOutboxModule() fx.Option {
 			newConfirmer,
 			newOutbox,
 			newTracePropagator,
-			newMetadataPopulator,
+			newHeaderPopulator,
 			provideEntitiesChannel,
 			provideConfirmChannel,
 		),
@@ -46,8 +46,8 @@ func provideConfig(k *koanf.Koanf) (Config, error) {
 	return coreconfig.Load[Config](k, "outbox", nil)
 }
 
-func newMetadataPopulator(appCfg coreconfig.AppConfig) events.MetadataPopulator {
-	return events.NewMetadataPopulator(appCfg.ServiceName)
+func newHeaderPopulator(appCfg coreconfig.AppConfig) kafkaproto.HeaderPopulator {
+	return kafkaproto.NewHeaderPopulator(appCfg.ServiceName)
 }
 
 func ensureSchema(lc fx.Lifecycle, log *zap.Logger, m mongo.Mongo, readiness health.ComponentManager) {

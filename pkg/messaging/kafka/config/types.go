@@ -4,10 +4,9 @@ import "time"
 
 // Config represents the main Kafka configuration.
 type Config struct {
-	Brokers         string               `koanf:"brokers"`          // Comma-separated list of Kafka broker addresses (e.g., "localhost:9092,localhost:9093")
-	SchemaRegistry  SchemaRegistryConfig `koanf:"schema-registry"`  // Schema Registry configuration for Avro serialization/deserialization
-	ConsumersConfig ConsumersConfig      `koanf:"consumers-config"` // Global and individual consumer configurations
-	ProducerConfig  ProducerConfig       `koanf:"producer-config"`  // Producer-specific configuration
+	Brokers         string          `koanf:"brokers"`          // Comma-separated list of Kafka broker addresses (e.g., "localhost:9092,localhost:9093")
+	ConsumersConfig ConsumersConfig `koanf:"consumers-config"` // Global and individual consumer configurations
+	ProducerConfig  ProducerConfig  `koanf:"producer-config"`  // Producer-specific configuration
 }
 
 // ConsumersConfig holds global default settings and individual consumer configurations.
@@ -49,11 +48,4 @@ type ProducerConfig struct {
 	Compression             string        `koanf:"compression"`               // Compression codec: "none", "snappy", "lz4", "zstd" (default "snappy")
 	DeliveryTimeout         time.Duration `koanf:"delivery-timeout"`          // Max time a record can sit in buffer before timing out (1s-5m, default 30s)
 	MaxBufferedRecords      int           `koanf:"max-buffered-records"`      // Max records buffered in memory before blocking (100-1000000, default 10000)
-}
-
-// SchemaRegistryConfig represents Confluent Schema Registry configuration.
-type SchemaRegistryConfig struct {
-	URL                 string `koanf:"url"`                   // Schema Registry URL (required, e.g., "http://schema-registry:8081")
-	CacheCapacity       int    `koanf:"cache-capacity"`        // Schema cache capacity (100-100000, default 1000)
-	AutoRegisterSchemas bool   `koanf:"auto-register-schemas"` // Automatically register schemas on startup
 }

@@ -1,8 +1,8 @@
 package messaging
 
 import (
-	"github.com/Sokol111/ecommerce-commons/pkg/messaging/kafka/avro"
 	"github.com/Sokol111/ecommerce-commons/pkg/messaging/kafka/config"
+	"github.com/Sokol111/ecommerce-commons/pkg/messaging/kafka/kafkaproto"
 	"github.com/Sokol111/ecommerce-commons/pkg/messaging/kafka/producer"
 	"github.com/Sokol111/ecommerce-commons/pkg/messaging/patterns/outbox"
 	"go.uber.org/fx"
@@ -47,7 +47,7 @@ func NewMessagingModule(opts ...Option) fx.Option {
 	return fx.Options(
 		kafkaConfigModule(cfg),
 		producer.NewProducerModule(),
-		avro.NewAvroModule(),
+		kafkaproto.NewProtoModule(),
 		outbox.NewOutboxModule(),
 	)
 }

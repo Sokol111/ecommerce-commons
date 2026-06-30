@@ -55,7 +55,12 @@ func (d *messageDeserializer) Run(ctx context.Context) error {
 }
 
 func (d *messageDeserializer) deserializeAndSend(ctx context.Context, record *kgo.Record) {
-	event, err := d.deserializer.Deserialize(record.Value)
+	headers := make(map[string][]byte, len(record.Headers))
+	for _, h := range record.Headers {
+		headers[h.Key] = h.Value
+	}
+
+	event, err := d.deserializer.Deserialize(record.Value, headers)
 	if err != nil {
 		// Deserialization error is permanent - send to DLQ
 		d.log.Error("failed to deserialize message - sending to DLQ",

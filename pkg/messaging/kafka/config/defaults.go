@@ -7,11 +7,6 @@ func ptrUint(v uint) *uint {
 
 // ApplyDefaults applies default values to the configuration.
 func (cfg *Config) ApplyDefaults() {
-	// Apply defaults for schema registry
-	if cfg.SchemaRegistry.CacheCapacity == 0 {
-		cfg.SchemaRegistry.CacheCapacity = defaultSchemaRegistryCacheCapacity
-	}
-
 	// Apply defaults for global consumer config
 	if cfg.ConsumersConfig.DefaultMaxRetries == nil {
 		cfg.ConsumersConfig.DefaultMaxRetries = ptrUint(defaultMaxRetries)

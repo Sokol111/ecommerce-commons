@@ -6,15 +6,17 @@ import (
 	"time"
 
 	"github.com/Sokol111/ecommerce-commons/pkg/core/logger"
-	"github.com/Sokol111/ecommerce-commons/pkg/messaging/kafka/events"
+	"github.com/Sokol111/ecommerce-commons/pkg/messaging/kafka/kafkaproto"
 	"github.com/Sokol111/ecommerce-commons/pkg/messaging/kafka/serde"
 	"github.com/Sokol111/ecommerce-commons/pkg/tenant"
 	"go.uber.org/zap"
+	"google.golang.org/protobuf/proto"
 )
 
 // Message represents a message to be sent via the outbox pattern.
 type Message struct {
-	Event   events.Event      // Event payload - must implement events.Event interface
+	Event   proto.Message     // Proto event payload
+	Topic   string            // Kafka topic to publish to
 	Key     string            // Kafka partition key for ordering guarantees
 	Headers map[string]string // Kafka headers for trace propagation, etc.
 }
@@ -25,22 +27,22 @@ type Outbox interface {
 }
 
 type outbox struct {
-	outboxRepository  repository
-	logger            *zap.Logger
-	entitiesChan      chan<- *outboxEntity
-	serializer        serde.Serializer
-	tracePropagator   tracePropagator
-	metadataPopulator events.MetadataPopulator
+	outboxRepository repository
+	logger           *zap.Logger
+	entitiesChan     chan<- *outboxEntity
+	serializer       serde.Serializer
+	tracePropagator  tracePropagator
+	headerPopulator  kafkaproto.HeaderPopulator
 }
 
-func newOutbox(logger *zap.Logger, outboxRepository repository, entitiesChan chan *outboxEntity, serializer serde.Serializer, tracePropagator tracePropagator, metadataPopulator events.MetadataPopulator) Outbox {
+func newOutbox(logger *zap.Logger, outboxRepository repository, entitiesChan chan *outboxEntity, serializer serde.Serializer, tracePropagator tracePropagator, headerPopulator kafkaproto.HeaderPopulator) Outbox {
 	return &outbox{
-		outboxRepository:  outboxRepository,
-		logger:            logger,
-		entitiesChan:      entitiesChan,
-		serializer:        serializer,
-		tracePropagator:   tracePropagator,
-		metadataPopulator: metadataPopulator,
+		outboxRepository: outboxRepository,
+		logger:           logger,
+		entitiesChan:     entitiesChan,
+		serializer:       serializer,
+		tracePropagator:  tracePropagator,
+		headerPopulator:  headerPopulator,
 	}
 }
 
@@ -48,8 +50,12 @@ func newOutbox(logger *zap.Logger, outboxRepository repository, entitiesChan cha
 type SendFunc func(ctx context.Context) error
 
 func (o *outbox) Create(ctx context.Context, msg Message) (SendFunc, error) {
-	// Populate event metadata automatically (EventID, EventType, Source, Timestamp, TraceID)
-	eventID := o.metadataPopulator.PopulateMetadata(ctx, msg.Event)
+	if msg.Headers == nil {
+		msg.Headers = make(map[string]string)
+	}
+
+	// Populate event metadata into headers (event_id, event_type, source, timestamp, trace_id)
+	eventID := o.headerPopulator.PopulateHeaders(ctx, msg.Event, msg.Headers)
 
 	// Save trace context into headers for storage in outbox
 	msg.Headers = o.tracePropagator.SaveTraceContext(ctx, msg.Headers)
@@ -57,16 +63,13 @@ func (o *outbox) Create(ctx context.Context, msg Message) (SendFunc, error) {
 	// Save tenant context into headers for cross-service propagation
 	msg.Headers = tenant.SaveToHeaders(ctx, msg.Headers)
 
-	// Serialize the event - topic is obtained from event.GetTopic()
+	// Serialize the event
 	serializedMsg, err := o.serializer.Serialize(msg.Event)
 	if err != nil {
 		return nil, fmt.Errorf("failed to serialize outbox message: %w", err)
 	}
 
-	// Get topic from the event itself (self-describing)
-	topic := msg.Event.GetTopic()
-
-	entity, err := o.outboxRepository.Create(ctx, serializedMsg, eventID, msg.Key, topic, msg.Headers)
+	entity, err := o.outboxRepository.Create(ctx, serializedMsg, eventID, msg.Key, msg.Topic, msg.Headers)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create outbox message: %w", err)
 	}

@@ -11,10 +11,6 @@ import (
 func TestValidateConfig_Success(t *testing.T) {
 	cfg := &Config{
 		Brokers: "localhost:9092",
-		SchemaRegistry: SchemaRegistryConfig{
-			URL:           "http://schema-registry:8081",
-			CacheCapacity: 1000,
-		},
 		ConsumersConfig: ConsumersConfig{
 			DefaultGroupID:           "test-group",
 			DefaultAutoOffsetReset:   "earliest",
@@ -59,70 +55,15 @@ func TestValidateBrokers_Success(t *testing.T) {
 }
 
 func TestValidateSchemaRegistry_EmptyURL(t *testing.T) {
-	tests := []struct {
-		name string
-		url  string
-	}{
-		{"empty string", ""},
-		{"whitespace only", "   "},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			cfg := &SchemaRegistryConfig{
-				URL:           tt.url,
-				CacheCapacity: 1000,
-			}
-			err := validateSchemaRegistry(cfg)
-			assert.Error(t, err)
-			assert.Contains(t, err.Error(), "schema registry URL cannot be empty")
-		})
-	}
+	// SR removed — test kept as no-op
 }
 
 func TestValidateSchemaRegistry_InvalidCacheCapacity(t *testing.T) {
-	tests := []struct {
-		name     string
-		capacity int
-	}{
-		{"below minimum", 50},
-		{"at minimum - 1", minSchemaCacheCapacity - 1},
-		{"above maximum", maxSchemaCacheCapacity + 1},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			cfg := &SchemaRegistryConfig{
-				URL:           "http://localhost:8081",
-				CacheCapacity: tt.capacity,
-			}
-			err := validateSchemaRegistry(cfg)
-			assert.Error(t, err)
-			assert.Contains(t, err.Error(), "cache capacity must be between")
-		})
-	}
+	// SR removed — test kept as no-op
 }
 
 func TestValidateSchemaRegistry_ValidCacheCapacity(t *testing.T) {
-	tests := []struct {
-		name     string
-		capacity int
-	}{
-		{"minimum", minSchemaCacheCapacity},
-		{"middle", 5000},
-		{"maximum", maxSchemaCacheCapacity},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			cfg := &SchemaRegistryConfig{
-				URL:           "http://localhost:8081",
-				CacheCapacity: tt.capacity,
-			}
-			err := validateSchemaRegistry(cfg)
-			assert.NoError(t, err)
-		})
-	}
+	// SR removed — test kept as no-op
 }
 
 func TestValidateGlobalConsumerConfig_MaxRetries(t *testing.T) {
@@ -416,10 +357,6 @@ func TestValidateProducerConfig_ReadinessTimeout(t *testing.T) {
 func TestValidateConfig_CompleteInvalidConfig(t *testing.T) {
 	cfg := &Config{
 		Brokers: "",
-		SchemaRegistry: SchemaRegistryConfig{
-			URL:           "",
-			CacheCapacity: 50,
-		},
 	}
 
 	err := cfg.Validate()
@@ -431,10 +368,6 @@ func TestValidateConfig_CompleteInvalidConfig(t *testing.T) {
 func TestValidateConfig_CompleteValidConfig(t *testing.T) {
 	cfg := &Config{
 		Brokers: "localhost:9092,localhost:9093",
-		SchemaRegistry: SchemaRegistryConfig{
-			URL:           "http://schema-registry:8081",
-			CacheCapacity: 2000,
-		},
 		ConsumersConfig: ConsumersConfig{
 			DefaultGroupID:           "test-group",
 			DefaultAutoOffsetReset:   "latest",

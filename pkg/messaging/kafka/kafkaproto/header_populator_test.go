@@ -1,7 +1,6 @@
 package kafkaproto
 
 import (
-	"context"
 	"strconv"
 	"testing"
 	"time"
@@ -23,7 +22,7 @@ func TestHeaderPopulator_PopulateHeaders(t *testing.T) {
 		headers := make(map[string]string)
 
 		beforeMs := time.Now().UTC().UnixMilli()
-		eventID := populator.PopulateHeaders(context.Background(), testProtoEvent(), headers)
+		eventID := populator.PopulateHeaders(testProtoEvent(), headers)
 		afterMs := time.Now().UTC().UnixMilli()
 
 		assert.NotEmpty(t, eventID)
@@ -41,7 +40,7 @@ func TestHeaderPopulator_PopulateHeaders(t *testing.T) {
 		populator := NewHeaderPopulator("test-service")
 		headers := make(map[string]string)
 
-		eventID := populator.PopulateHeaders(context.Background(), testProtoEvent(), headers)
+		eventID := populator.PopulateHeaders(testProtoEvent(), headers)
 
 		require.NotEmpty(t, eventID)
 		assert.Equal(t, eventID, headers["event_id"])
@@ -51,7 +50,7 @@ func TestHeaderPopulator_PopulateHeaders(t *testing.T) {
 		populator := NewHeaderPopulator("svc")
 		headers := make(map[string]string)
 
-		populator.PopulateHeaders(context.Background(), testProtoEvent(), headers)
+		populator.PopulateHeaders(testProtoEvent(), headers)
 
 		assert.Equal(t, "google.protobuf.Empty", headers["event_type"])
 	})

@@ -18,12 +18,12 @@ import (
 
 // mockHeaderPopulator is a mock implementation of events.HeaderPopulator
 type mockHeaderPopulator struct {
-	populateFunc func(ctx context.Context, event proto.Message, headers map[string]string) string
+	populateFunc func(event proto.Message, headers map[string]string) string
 }
 
-func (m *mockHeaderPopulator) PopulateHeaders(ctx context.Context, event proto.Message, headers map[string]string) string {
+func (m *mockHeaderPopulator) PopulateHeaders(event proto.Message, headers map[string]string) string {
 	if m.populateFunc != nil {
-		return m.populateFunc(ctx, event, headers)
+		return m.populateFunc(event, headers)
 	}
 	headers["event_id"] = "generated-event-id"
 	headers["event_type"] = string(event.ProtoReflect().Descriptor().FullName())

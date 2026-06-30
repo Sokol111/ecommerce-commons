@@ -55,7 +55,7 @@ func (o *outbox) Create(ctx context.Context, msg Message) (SendFunc, error) {
 	}
 
 	// Populate event metadata into headers (event_id, event_type, source, timestamp, trace_id)
-	eventID := o.headerPopulator.PopulateHeaders(ctx, msg.Event, msg.Headers)
+	eventID := o.headerPopulator.PopulateHeaders(msg.Event, msg.Headers)
 
 	// Save trace context into headers for storage in outbox
 	msg.Headers = o.tracePropagator.SaveTraceContext(ctx, msg.Headers)

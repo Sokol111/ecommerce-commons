@@ -12,14 +12,6 @@ func uintPtr(v uint) *uint {
 	return &v
 }
 
-func TestApplyDefaults_SchemaRegistry(t *testing.T) {
-	_ = &Config{Brokers: "localhost:9092"} // SR removed
-}
-
-func TestApplyDefaults_SchemaRegistryCustomValue(t *testing.T) {
-	_ = &Config{Brokers: "localhost:9092"} // SR removed
-}
-
 func TestApplyDefaults_GlobalConsumerConfig(t *testing.T) {
 	cfg := &Config{
 		Brokers:         "localhost:9092",

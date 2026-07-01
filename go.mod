@@ -3,6 +3,7 @@ module github.com/Sokol111/ecommerce-commons
 go 1.26.4
 
 require (
+	buf.build/go/protovalidate v1.2.0
 	connectrpc.com/connect v1.20.0
 	github.com/MicahParks/keyfunc/v3 v3.8.0
 	github.com/cenkalti/backoff/v4 v4.3.0
@@ -43,7 +44,6 @@ require (
 
 require (
 	buf.build/gen/go/bufbuild/protovalidate/protocolbuffers/go v1.36.11-20260415201107-50325440f8f2.1 // indirect
-	buf.build/go/protovalidate v1.2.0 // indirect
 	cel.dev/expr v0.25.1 // indirect
 	dario.cat/mergo v1.0.2 // indirect
 	github.com/Azure/go-ansiterm v0.0.0-20250102033503-faa5f7b0171c // indirect

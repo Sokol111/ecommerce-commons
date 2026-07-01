@@ -20,6 +20,7 @@ type Interceptor struct {
 //
 //	10 - Recovery         - catches panics (must be first)
 //	20 - Logger           - logs all RPCs
+//	25 - Validation       - rejects invalid proto messages early
 //	30 - Timeout          - kills hanging requests
 //	40 - RateLimit        - limits requests/second
 //	50 - Bulkhead         - limits concurrent requests
@@ -27,6 +28,7 @@ func NewModule() fx.Option {
 	return fx.Options(
 		RecoveryModule(10),
 		LoggerModule(20),
+		ValidationModule(25),
 		TimeoutModule(30),
 		RateLimitModule(40),
 		BulkheadModule(50),

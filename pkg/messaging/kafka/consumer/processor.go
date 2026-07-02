@@ -11,6 +11,7 @@ import (
 	"github.com/Sokol111/ecommerce-commons/pkg/tenant"
 	"github.com/cenkalti/backoff/v4"
 	"go.uber.org/zap"
+	"google.golang.org/protobuf/proto"
 )
 
 // PanicError represents an error that occurred due to panic.
@@ -88,7 +89,7 @@ func (p *processor) processMessage(ctx context.Context, envelope *MessageEnvelop
 }
 
 // executeWithRetry executes the handler with exponential backoff retry logic.
-func (p *processor) executeWithRetry(ctx context.Context, event any) error {
+func (p *processor) executeWithRetry(ctx context.Context, event proto.Message) error {
 	expBackoff := backoff.NewExponentialBackOff(
 		backoff.WithInitialInterval(p.initialBackoff),
 		backoff.WithMaxInterval(p.maxBackoff),
@@ -132,7 +133,7 @@ func (p *processor) executeWithRetry(ctx context.Context, event any) error {
 }
 
 // process executes the handler with panic recovery.
-func (p *processor) process(ctx context.Context, event any) (err error) {
+func (p *processor) process(ctx context.Context, event proto.Message) (err error) {
 	// Apply processing timeout to prevent hanging
 	ctx, cancel := context.WithTimeout(ctx, p.processingTimeout)
 	defer cancel()

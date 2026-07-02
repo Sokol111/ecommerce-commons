@@ -50,10 +50,10 @@ type EntityMapper[Domain any, Entity any] interface {
 	GetID(entity *Entity) string
 
 	// GetVersion extracts version from entity (for optimistic locking)
-	GetVersion(entity *Entity) int
+	GetVersion(entity *Entity) int64
 
 	// SetVersion sets version on entity (for optimistic locking)
-	SetVersion(entity *Entity, version int)
+	SetVersion(entity *Entity, version int64)
 }
 
 // GenericRepository provides common CRUD operations for MongoDB.

@@ -7,11 +7,12 @@ import (
 	"github.com/Sokol111/ecommerce-commons/pkg/messaging/kafka/serde"
 	"github.com/twmb/franz-go/pkg/kgo"
 	"go.uber.org/zap"
+	"google.golang.org/protobuf/proto"
 )
 
 // MessageEnvelope contains deserialized event with original Kafka record metadata.
 type MessageEnvelope struct {
-	Event  any
+	Event  proto.Message
 	Record *kgo.Record
 }
 

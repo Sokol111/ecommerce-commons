@@ -3,6 +3,8 @@ package consumer
 import (
 	"context"
 	"errors"
+
+	"google.golang.org/protobuf/proto"
 )
 
 // Sentinel errors for message processing control flow.
@@ -27,5 +29,5 @@ var ErrPermanent = errors.New("permanent error")
 
 // Handler defines the interface for processing Kafka messages.
 type Handler interface {
-	Process(ctx context.Context, event any) error
+	Process(ctx context.Context, event proto.Message) error
 }

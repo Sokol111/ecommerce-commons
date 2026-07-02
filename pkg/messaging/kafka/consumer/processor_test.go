@@ -14,15 +14,17 @@ import (
 	"go.opentelemetry.io/otel/trace"
 	"go.opentelemetry.io/otel/trace/noop"
 	"go.uber.org/zap"
+	"google.golang.org/protobuf/proto"
+	"google.golang.org/protobuf/types/known/emptypb"
 )
 
 // mockHandler is a test implementation of Handler
 type mockHandler struct {
-	processFunc func(ctx context.Context, event any) error
+	processFunc func(ctx context.Context, event proto.Message) error
 	callCount   atomic.Int32
 }
 
-func (m *mockHandler) Process(ctx context.Context, event any) error {
+func (m *mockHandler) Process(ctx context.Context, event proto.Message) error {
 	m.callCount.Add(1)
 	if m.processFunc != nil {
 		return m.processFunc(ctx, event)
@@ -152,7 +154,7 @@ func TestProcessor_Run(t *testing.T) {
 func TestProcessor_ExecuteWithRetry(t *testing.T) {
 	t.Run("succeeds on first attempt", func(t *testing.T) {
 		handler := &mockHandler{
-			processFunc: func(ctx context.Context, event any) error {
+			processFunc: func(ctx context.Context, event proto.Message) error {
 				return nil
 			},
 		}
@@ -164,7 +166,7 @@ func TestProcessor_ExecuteWithRetry(t *testing.T) {
 
 		p := newProcessor(make(chan *MessageEnvelope), handler, log, resultHandler, tracer, conf)
 
-		err := p.executeWithRetry(context.Background(), "test-event")
+		err := p.executeWithRetry(context.Background(), &emptypb.Empty{})
 
 		assert.NoError(t, err)
 		assert.Equal(t, int32(1), handler.callCount.Load())
@@ -173,7 +175,7 @@ func TestProcessor_ExecuteWithRetry(t *testing.T) {
 	t.Run("retries on transient error and succeeds", func(t *testing.T) {
 		attempts := atomic.Int32{}
 		handler := &mockHandler{
-			processFunc: func(ctx context.Context, event any) error {
+			processFunc: func(ctx context.Context, event proto.Message) error {
 				if attempts.Add(1) < 3 {
 					return errors.New("transient error")
 				}
@@ -189,7 +191,7 @@ func TestProcessor_ExecuteWithRetry(t *testing.T) {
 
 		p := newProcessor(make(chan *MessageEnvelope), handler, log, resultHandler, tracer, conf)
 
-		err := p.executeWithRetry(context.Background(), "test-event")
+		err := p.executeWithRetry(context.Background(), &emptypb.Empty{})
 
 		assert.NoError(t, err)
 		assert.Equal(t, int32(3), attempts.Load())
@@ -197,7 +199,7 @@ func TestProcessor_ExecuteWithRetry(t *testing.T) {
 
 	t.Run("returns error after max retries exhausted", func(t *testing.T) {
 		handler := &mockHandler{
-			processFunc: func(ctx context.Context, event any) error {
+			processFunc: func(ctx context.Context, event proto.Message) error {
 				return errors.New("persistent error")
 			},
 		}
@@ -210,7 +212,7 @@ func TestProcessor_ExecuteWithRetry(t *testing.T) {
 
 		p := newProcessor(make(chan *MessageEnvelope), handler, log, resultHandler, tracer, conf)
 
-		err := p.executeWithRetry(context.Background(), "test-event")
+		err := p.executeWithRetry(context.Background(), &emptypb.Empty{})
 
 		assert.Error(t, err)
 		assert.Equal(t, int32(3), handler.callCount.Load()) // 1 attempt + 2 retries = 3 total
@@ -218,7 +220,7 @@ func TestProcessor_ExecuteWithRetry(t *testing.T) {
 
 	t.Run("does not retry ErrSkipMessage", func(t *testing.T) {
 		handler := &mockHandler{
-			processFunc: func(ctx context.Context, event any) error {
+			processFunc: func(ctx context.Context, event proto.Message) error {
 				return ErrSkipMessage
 			},
 		}
@@ -230,7 +232,7 @@ func TestProcessor_ExecuteWithRetry(t *testing.T) {
 
 		p := newProcessor(make(chan *MessageEnvelope), handler, log, resultHandler, tracer, conf)
 
-		err := p.executeWithRetry(context.Background(), "test-event")
+		err := p.executeWithRetry(context.Background(), &emptypb.Empty{})
 
 		assert.ErrorIs(t, err, ErrSkipMessage)
 		assert.Equal(t, int32(1), handler.callCount.Load())
@@ -238,7 +240,7 @@ func TestProcessor_ExecuteWithRetry(t *testing.T) {
 
 	t.Run("does not retry ErrPermanent", func(t *testing.T) {
 		handler := &mockHandler{
-			processFunc: func(ctx context.Context, event any) error {
+			processFunc: func(ctx context.Context, event proto.Message) error {
 				return ErrPermanent
 			},
 		}
@@ -250,7 +252,7 @@ func TestProcessor_ExecuteWithRetry(t *testing.T) {
 
 		p := newProcessor(make(chan *MessageEnvelope), handler, log, resultHandler, tracer, conf)
 
-		err := p.executeWithRetry(context.Background(), "test-event")
+		err := p.executeWithRetry(context.Background(), &emptypb.Empty{})
 
 		assert.ErrorIs(t, err, ErrPermanent)
 		assert.Equal(t, int32(1), handler.callCount.Load())
@@ -258,7 +260,7 @@ func TestProcessor_ExecuteWithRetry(t *testing.T) {
 
 	t.Run("respects context cancellation", func(t *testing.T) {
 		handler := &mockHandler{
-			processFunc: func(ctx context.Context, event any) error {
+			processFunc: func(ctx context.Context, event proto.Message) error {
 				return errors.New("error")
 			},
 		}
@@ -274,7 +276,7 @@ func TestProcessor_ExecuteWithRetry(t *testing.T) {
 		ctx, cancel := context.WithCancel(context.Background())
 		cancel() // Cancel immediately
 
-		err := p.executeWithRetry(ctx, "test-event")
+		err := p.executeWithRetry(ctx, &emptypb.Empty{})
 
 		// Should return quickly with context error
 		assert.Error(t, err)
@@ -284,7 +286,7 @@ func TestProcessor_ExecuteWithRetry(t *testing.T) {
 func TestProcessor_Process(t *testing.T) {
 	t.Run("successfully processes event", func(t *testing.T) {
 		handler := &mockHandler{
-			processFunc: func(ctx context.Context, event any) error {
+			processFunc: func(ctx context.Context, event proto.Message) error {
 				return nil
 			},
 		}
@@ -296,7 +298,7 @@ func TestProcessor_Process(t *testing.T) {
 
 		p := newProcessor(make(chan *MessageEnvelope), handler, log, resultHandler, tracer, conf)
 
-		err := p.process(context.Background(), "test-event")
+		err := p.process(context.Background(), &emptypb.Empty{})
 
 		assert.NoError(t, err)
 	})
@@ -304,7 +306,7 @@ func TestProcessor_Process(t *testing.T) {
 	t.Run("returns error from handler", func(t *testing.T) {
 		expectedErr := errors.New("handler error")
 		handler := &mockHandler{
-			processFunc: func(ctx context.Context, event any) error {
+			processFunc: func(ctx context.Context, event proto.Message) error {
 				return expectedErr
 			},
 		}
@@ -316,14 +318,14 @@ func TestProcessor_Process(t *testing.T) {
 
 		p := newProcessor(make(chan *MessageEnvelope), handler, log, resultHandler, tracer, conf)
 
-		err := p.process(context.Background(), "test-event")
+		err := p.process(context.Background(), &emptypb.Empty{})
 
 		assert.ErrorIs(t, err, expectedErr)
 	})
 
 	t.Run("recovers from panic", func(t *testing.T) {
 		handler := &mockHandler{
-			processFunc: func(ctx context.Context, event any) error {
+			processFunc: func(ctx context.Context, event proto.Message) error {
 				panic("test panic")
 			},
 		}
@@ -335,7 +337,7 @@ func TestProcessor_Process(t *testing.T) {
 
 		p := newProcessor(make(chan *MessageEnvelope), handler, log, resultHandler, tracer, conf)
 
-		err := p.process(context.Background(), "test-event")
+		err := p.process(context.Background(), &emptypb.Empty{})
 
 		require.Error(t, err)
 		assert.ErrorIs(t, err, ErrPermanent)
@@ -344,7 +346,7 @@ func TestProcessor_Process(t *testing.T) {
 
 	t.Run("respects processing timeout", func(t *testing.T) {
 		handler := &mockHandler{
-			processFunc: func(ctx context.Context, event any) error {
+			processFunc: func(ctx context.Context, event proto.Message) error {
 				<-ctx.Done()
 				return ctx.Err()
 			},
@@ -359,7 +361,7 @@ func TestProcessor_Process(t *testing.T) {
 		p := newProcessor(make(chan *MessageEnvelope), handler, log, resultHandler, tracer, conf)
 
 		start := time.Now()
-		err := p.process(context.Background(), "test-event")
+		err := p.process(context.Background(), &emptypb.Empty{})
 		elapsed := time.Since(start)
 
 		assert.Error(t, err)
@@ -391,7 +393,7 @@ func TestProcessor_ProcessMessage(t *testing.T) {
 	t.Run("calls handler on process", func(t *testing.T) {
 		handlerCalled := atomic.Bool{}
 		handler := &mockHandler{
-			processFunc: func(ctx context.Context, event any) error {
+			processFunc: func(ctx context.Context, event proto.Message) error {
 				handlerCalled.Store(true)
 				return nil
 			},
@@ -407,7 +409,7 @@ func TestProcessor_ProcessMessage(t *testing.T) {
 		p := newProcessor(envelopeChan, handler, log, rh, tracer, conf)
 
 		// Just test handler was called via executeWithRetry
-		err := p.executeWithRetry(context.Background(), "test-event")
+		err := p.executeWithRetry(context.Background(), &emptypb.Empty{})
 
 		assert.True(t, handlerCalled.Load())
 		assert.NoError(t, err)
@@ -415,7 +417,7 @@ func TestProcessor_ProcessMessage(t *testing.T) {
 
 	t.Run("sends permanent error to result handler", func(t *testing.T) {
 		handler := &mockHandler{
-			processFunc: func(ctx context.Context, event any) error {
+			processFunc: func(ctx context.Context, event proto.Message) error {
 				return ErrPermanent
 			},
 		}
@@ -427,7 +429,7 @@ func TestProcessor_ProcessMessage(t *testing.T) {
 		rh := &resultHandler{log: log}
 		p := newProcessor(make(chan *MessageEnvelope), handler, log, rh, tracer, conf)
 
-		err := p.executeWithRetry(context.Background(), "test-event")
+		err := p.executeWithRetry(context.Background(), &emptypb.Empty{})
 
 		assert.ErrorIs(t, err, ErrPermanent)
 	})

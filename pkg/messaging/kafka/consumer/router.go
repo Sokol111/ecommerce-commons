@@ -6,6 +6,7 @@ import (
 	"reflect"
 
 	"go.uber.org/zap"
+	"google.golang.org/protobuf/proto"
 )
 
 // Router dispatches events to registered typed handler functions.
@@ -34,7 +35,7 @@ func Register[E any](r *Router, fn func(context.Context, *E) error) {
 
 // Process implements Handler. It dispatches the event to the registered handler
 // based on its type. Returns ErrSkipMessage if no handler is registered.
-func (r *Router) Process(ctx context.Context, event any) error {
+func (r *Router) Process(ctx context.Context, event proto.Message) error {
 	eventType := reflect.TypeOf(event)
 	handler, ok := r.handlers[eventType]
 	if !ok {

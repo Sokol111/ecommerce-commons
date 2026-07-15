@@ -7,7 +7,7 @@ workspace (catalog, product-query, category-query, image, tenant). It has **no `
 `main`** — it ships reusable building blocks, each exposed as an `fx` module that services
 compose in their own `cmd/main.go`. There is nothing to "run"; you build, test, and lint it,
 and consumers pick up changes locally through the root `go.work` (no tag/release needed for
-local dev — see the workspace root `CLAUDE.md`).
+local dev — see the workspace root `AGENTS.md`).
 
 ## Commands
 

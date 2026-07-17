@@ -21,6 +21,3 @@
 go.work
 .idea
 gosec-report.json
-
-# Generated test files
-internal/eventgen/testdata/gen/

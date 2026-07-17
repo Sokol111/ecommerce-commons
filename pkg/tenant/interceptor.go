@@ -39,14 +39,17 @@ func NewResolverInterceptor() connect.UnaryInterceptorFunc {
 
 // NewValidatorInterceptor creates a Connect-RPC interceptor that validates
 // tenant-scoped tokens have a tenant claim matching the request tenant.
-// Service accounts and platform admins are not tenant-scoped and can access any tenant.
+// Only explicitly trusted service accounts can access any tenant.
 func NewValidatorInterceptor() connect.UnaryInterceptorFunc {
 	return func(next connect.UnaryFunc) connect.UnaryFunc {
 		return func(ctx context.Context, req connect.AnyRequest) (connect.AnyResponse, error) {
-			if claims := validation.ClaimsFromContext(ctx); claims != nil && claims.IsTenantScoped() {
+			if claims := validation.ClaimsFromContext(ctx); claims != nil {
 				slug := MustSlugFromContext(ctx)
-				if claims.Tenant != slug {
+				if claims.IsTenantScoped() && claims.Tenant != slug {
 					return nil, connect.NewError(connect.CodePermissionDenied, fmt.Errorf("token tenant %q does not match request tenant %q", claims.Tenant, slug))
+				}
+				if !claims.IsTenantScoped() && !claims.CanAccessAnyTenant() {
+					return nil, connect.NewError(connect.CodePermissionDenied, errors.New("token is not authorized for cross-tenant access"))
 				}
 			}
 

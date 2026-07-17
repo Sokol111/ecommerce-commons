@@ -8,6 +8,10 @@ type Config struct {
 	// Example: "http://logto:3001/oidc/jwks"
 	JwksURL string `koanf:"jwks-url"`
 
+	// Issuer is the expected issuer (iss) claim in JWT tokens.
+	// Example: "https://auth.sokolshop.com/oidc"
+	Issuer string `koanf:"issuer"`
+
 	// Audience is the expected audience (aud) claim in JWT tokens.
 	// This should match the API resource indicator registered in the OIDC provider.
 	// Example: "https://api.sokolshop.com"
@@ -21,6 +25,12 @@ func (c *Config) ApplyDefaults() {}
 func (c *Config) Validate() error {
 	if c.JwksURL == "" {
 		return fmt.Errorf("security.jwks.jwks-url is required")
+	}
+	if c.Issuer == "" {
+		return fmt.Errorf("security.jwks.issuer is required")
+	}
+	if c.Audience == "" {
+		return fmt.Errorf("security.jwks.audience is required")
 	}
 	return nil
 }

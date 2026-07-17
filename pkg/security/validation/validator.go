@@ -19,6 +19,7 @@ type Validator interface {
 // issued by an OIDC provider (e.g. Logto).
 type jwtValidator struct {
 	jwks     keyfunc.Keyfunc
+	issuer   string
 	audience string
 }
 
@@ -50,6 +51,7 @@ func newTokenValidator(config Config) (Validator, error) {
 
 	return &jwtValidator{
 		jwks:     jwks,
+		issuer:   config.Issuer,
 		audience: config.Audience,
 	}, nil
 }
@@ -58,9 +60,9 @@ func newTokenValidator(config Config) (Validator, error) {
 func (v *jwtValidator) ValidateToken(tokenString string) (*Claims, error) {
 	parserOpts := []jwt.ParserOption{
 		jwt.WithValidMethods([]string{"RS256", "ES256", "ES384"}),
-	}
-	if v.audience != "" {
-		parserOpts = append(parserOpts, jwt.WithAudience(v.audience))
+		jwt.WithExpirationRequired(),
+		jwt.WithIssuer(v.issuer),
+		jwt.WithAudience(v.audience),
 	}
 
 	token, err := jwt.ParseWithClaims(tokenString, &jwtClaims{}, v.jwks.Keyfunc, parserOpts...)

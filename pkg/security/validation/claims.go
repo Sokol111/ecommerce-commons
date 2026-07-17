@@ -19,6 +19,10 @@ type Claims struct {
 // WildcardPermission grants access to all permissions.
 const WildcardPermission = "*"
 
+// CrossTenantServiceRole is the only role allowed to select a tenant without
+// carrying a tenant claim.
+const CrossTenantServiceRole = "service_account"
+
 // HasAnyPermission checks if the user has at least one of the required permissions.
 // Returns true if permissions is empty (no specific permission required),
 // if the user holds the wildcard permission, or if the user has any of the listed permissions.
@@ -42,4 +46,9 @@ func (c *Claims) HasAnyPermission(permissions []string) bool {
 // Returns false for service accounts and platform admins (they operate cross-tenant).
 func (c *Claims) IsTenantScoped() bool {
 	return c.Tenant != ""
+}
+
+// CanAccessAnyTenant reports whether the token belongs to a trusted M2M role.
+func (c *Claims) CanAccessAnyTenant() bool {
+	return c.Tenant == "" && c.Role == CrossTenantServiceRole
 }

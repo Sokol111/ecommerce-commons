@@ -21,7 +21,7 @@ func TestNewLogger_DevelopmentMode(t *testing.T) {
 	cfg := validConfig("debug", true)
 
 	// When: creating logger
-	logger, atomicLevel, err := newLogger(cfg)
+	logger, atomicLevel, err := NewLogger(cfg)
 
 	// Then: logger should be created successfully
 	require.NoError(t, err)
@@ -37,7 +37,7 @@ func TestNewLogger_ProductionMode(t *testing.T) {
 	cfg := validConfig("info", false)
 
 	// When: creating logger
-	logger, atomicLevel, err := newLogger(cfg)
+	logger, atomicLevel, err := NewLogger(cfg)
 
 	// Then: logger should be created successfully
 	require.NoError(t, err)
@@ -68,7 +68,7 @@ func TestNewLogger_DifferentLevels(t *testing.T) {
 			cfg := validConfig(level.str, false)
 
 			// When: creating logger
-			logger, atomicLevel, err := newLogger(cfg)
+			logger, atomicLevel, err := NewLogger(cfg)
 
 			// Then: logger should be created with correct level
 			require.NoError(t, err)
@@ -89,7 +89,7 @@ func TestNewLogger_SetsDefaultLogger(t *testing.T) {
 	originalDefault := defaultLogger
 
 	// When: creating logger
-	logger, _, err := newLogger(cfg)
+	logger, _, err := NewLogger(cfg)
 
 	// Then: default logger should be set
 	require.NoError(t, err)
@@ -109,7 +109,7 @@ func TestNewLogger_InitializationLog(t *testing.T) {
 	originalDefault := defaultLogger
 
 	// When: creating logger
-	logger, _, err := newLogger(cfg)
+	logger, _, err := NewLogger(cfg)
 	require.NoError(t, err)
 
 	// Then: logger should be created successfully
@@ -147,7 +147,7 @@ func TestNewLogger_DevelopmentVsProduction(t *testing.T) {
 			cfg := validConfig("info", tt.development)
 
 			// When: creating logger
-			logger, _, err := newLogger(cfg)
+			logger, _, err := NewLogger(cfg)
 
 			// Then: logger should be created successfully
 			require.NoError(t, err)
@@ -164,7 +164,7 @@ func TestNewLogger_AtomicLevel(t *testing.T) {
 	cfg := validConfig("warn", false)
 
 	// When: creating logger
-	logger, atomicLevel, err := newLogger(cfg)
+	logger, atomicLevel, err := NewLogger(cfg)
 	require.NoError(t, err)
 
 	// Then: atomic level should be modifiable
@@ -183,7 +183,7 @@ func TestNewLogger_CallerEnabled(t *testing.T) {
 	cfg := validConfig("info", false)
 
 	// When: creating logger with caller enabled
-	logger, _, err := newLogger(cfg)
+	logger, _, err := NewLogger(cfg)
 
 	// Then: logger should include caller information
 	require.NoError(t, err)

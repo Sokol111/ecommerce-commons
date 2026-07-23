@@ -22,39 +22,39 @@ type configOptions struct {
 	appConfig    *config.AppConfig
 }
 
-// ConfigOption is a functional option for configuring the config module.
-type ConfigOption func(*configOptions)
+// Option is a functional option for configuring the config module.
+type Option func(*configOptions)
 
 // WithDotEnvPath sets a custom path to the .env file.
-func WithDotEnvPath(path string) ConfigOption {
+func WithDotEnvPath(path string) Option {
 	return func(cfg *configOptions) {
 		cfg.dotenvPath = path
 	}
 }
 
 // WithoutDotEnv disables loading of a .env file.
-func WithoutDotEnv() ConfigOption {
+func WithoutDotEnv() Option {
 	return func(cfg *configOptions) {
 		cfg.skipDotEnv = true
 	}
 }
 
 // WithConfigPath sets a direct path to the configuration file.
-func WithConfigPath(path string) ConfigOption {
+func WithConfigPath(path string) Option {
 	return func(cfg *configOptions) {
 		cfg.configPath = &path
 	}
 }
 
 // WithoutConfigFile disables loading of any config file.
-func WithoutConfigFile() ConfigOption {
+func WithoutConfigFile() Option {
 	return func(cfg *configOptions) {
 		cfg.noConfigFile = true
 	}
 }
 
 // WithAppConfig provides a static AppConfig (useful for tests).
-func WithAppConfig(cfg config.AppConfig) ConfigOption {
+func WithAppConfig(cfg config.AppConfig) Option {
 	return func(opts *configOptions) {
 		opts.appConfig = &cfg
 	}
@@ -77,7 +77,7 @@ type dotenvLoaded bool
 //	OBSERVABILITY__OTEL_COLLECTOR_ENDPOINT → observability.otel-collector-endpoint
 //	MONGO__MAX_POOL_SIZE                   → mongo.max-pool-size
 //	LOGGER__LEVEL                          → logger.level
-func NewConfigModule(opts ...ConfigOption) fx.Option {
+func NewConfigModule(opts ...Option) fx.Option {
 	cfg := &configOptions{dotenvPath: ".env"}
 	for _, opt := range opts {
 		opt(cfg)
@@ -134,12 +134,8 @@ func loadDotEnv(cfg *configOptions) (dotenvLoaded, error) {
 }
 
 // loadAppConfig returns static AppConfig or loads from environment variables.
-func loadAppConfig(cfg *configOptions) (config.AppConfig, error) {
-	if cfg.appConfig != nil {
-		return *cfg.appConfig, nil
-	}
-
-	return config.LoadAppConfigFromEnv()
+func loadAppConfig(loader *config.Loader, cfg *configOptions) (config.AppConfig, error) {
+	return config.Load[config.AppConfig](loader, "", cfg.appConfig)
 }
 
 type configPath string

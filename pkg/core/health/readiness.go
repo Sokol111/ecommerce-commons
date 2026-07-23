@@ -16,7 +16,7 @@ type component struct {
 	readyAt   time.Time
 }
 
-type readiness struct {
+type Readiness struct {
 	mu                   sync.RWMutex
 	components           map[string]*component
 	readyChan            chan struct{}
@@ -28,8 +28,8 @@ type readiness struct {
 	logger               *zap.Logger
 }
 
-func newReadiness(logger *zap.Logger, isKubernetes bool) *readiness {
-	r := &readiness{
+func NewReadiness(logger *zap.Logger, isKubernetes bool) *Readiness {
+	r := &Readiness{
 		components:          make(map[string]*component),
 		readyChan:           make(chan struct{}),
 		kubernetesReadyChan: make(chan struct{}),
@@ -45,7 +45,7 @@ func newReadiness(logger *zap.Logger, isKubernetes bool) *readiness {
 	return r
 }
 
-func (r *readiness) AddComponent(name string) func() {
+func (r *Readiness) AddComponent(name string) func() {
 	if name == "" {
 		panic("readiness: component name cannot be empty")
 	}
@@ -111,7 +111,7 @@ func (r *readiness) AddComponent(name string) func() {
 	}
 }
 
-func (r *readiness) IsReady() bool {
+func (r *Readiness) IsReady() bool {
 	select {
 	case <-r.readyChan:
 		return true
@@ -120,7 +120,7 @@ func (r *readiness) IsReady() bool {
 	}
 }
 
-func (r *readiness) GetStatus() ReadinessStatus {
+func (r *Readiness) GetStatus() ReadinessStatus {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
 
@@ -159,7 +159,7 @@ func (r *readiness) GetStatus() ReadinessStatus {
 }
 
 // WaitReady blocks until all components are ready or context is cancelled.
-func (r *readiness) WaitReady(ctx context.Context) error {
+func (r *Readiness) WaitReady(ctx context.Context) error {
 	select {
 	case <-r.readyChan:
 		return nil
@@ -168,7 +168,7 @@ func (r *readiness) WaitReady(ctx context.Context) error {
 	}
 }
 
-func (r *readiness) WaitForTrafficReady(ctx context.Context) error {
+func (r *Readiness) WaitForTrafficReady(ctx context.Context) error {
 	// First wait for all components to be ready
 	if err := r.WaitReady(ctx); err != nil {
 		return err
@@ -190,7 +190,7 @@ func (r *readiness) WaitForTrafficReady(ctx context.Context) error {
 	}
 }
 
-func (r *readiness) MarkTrafficReady() {
+func (r *Readiness) MarkTrafficReady() {
 	// Check if all components are ready first
 	if !r.IsReady() {
 		r.logger.Warn("Attempted to mark traffic ready before all components are ready - ignoring")

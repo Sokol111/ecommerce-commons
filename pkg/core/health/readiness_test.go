@@ -13,7 +13,7 @@ import (
 
 func TestNewReadiness(t *testing.T) {
 	logger := zap.NewNop()
-	r := newReadiness(logger, false)
+	r := NewReadiness(logger, false)
 
 	assert.NotNil(t, r)
 	assert.False(t, r.IsReady())
@@ -22,7 +22,7 @@ func TestNewReadiness(t *testing.T) {
 func TestAddComponent(t *testing.T) {
 	t.Run("successfully adds component", func(t *testing.T) {
 		logger := zap.NewNop()
-		r := newReadiness(logger, false)
+		r := NewReadiness(logger, false)
 
 		markReady := r.AddComponent("database")
 
@@ -34,7 +34,7 @@ func TestAddComponent(t *testing.T) {
 
 	t.Run("panics on empty component name", func(t *testing.T) {
 		logger := zap.NewNop()
-		r := newReadiness(logger, false)
+		r := NewReadiness(logger, false)
 
 		assert.Panics(t, func() {
 			r.AddComponent("")
@@ -43,7 +43,7 @@ func TestAddComponent(t *testing.T) {
 
 	t.Run("logs warning when adding duplicate component", func(t *testing.T) {
 		logger := zap.NewNop()
-		r := newReadiness(logger, false)
+		r := NewReadiness(logger, false)
 
 		r.AddComponent("database")
 		markReady := r.AddComponent("database") // Should log warning but not panic
@@ -54,7 +54,7 @@ func TestAddComponent(t *testing.T) {
 
 	t.Run("returned function marks component as ready", func(t *testing.T) {
 		logger := zap.NewNop()
-		r := newReadiness(logger, false)
+		r := NewReadiness(logger, false)
 
 		markReady := r.AddComponent("database")
 		markReady()
@@ -65,7 +65,7 @@ func TestAddComponent(t *testing.T) {
 
 	t.Run("returned function handles multiple calls", func(t *testing.T) {
 		logger := zap.NewNop()
-		r := newReadiness(logger, false)
+		r := NewReadiness(logger, false)
 
 		markReady := r.AddComponent("database")
 		markReady()
@@ -80,14 +80,14 @@ func TestAddComponent(t *testing.T) {
 func TestIsReady(t *testing.T) {
 	t.Run("not ready when no components", func(t *testing.T) {
 		logger := zap.NewNop()
-		r := newReadiness(logger, false)
+		r := NewReadiness(logger, false)
 
 		assert.False(t, r.IsReady())
 	})
 
 	t.Run("not ready when components exist but not marked ready", func(t *testing.T) {
 		logger := zap.NewNop()
-		r := newReadiness(logger, false)
+		r := NewReadiness(logger, false)
 
 		r.AddComponent("database")
 		r.AddComponent("cache")
@@ -97,7 +97,7 @@ func TestIsReady(t *testing.T) {
 
 	t.Run("not ready when only some components are ready", func(t *testing.T) {
 		logger := zap.NewNop()
-		r := newReadiness(logger, false)
+		r := NewReadiness(logger, false)
 
 		markDBReady := r.AddComponent("database")
 		r.AddComponent("cache")
@@ -108,7 +108,7 @@ func TestIsReady(t *testing.T) {
 
 	t.Run("ready when all components are ready", func(t *testing.T) {
 		logger := zap.NewNop()
-		r := newReadiness(logger, false)
+		r := NewReadiness(logger, false)
 
 		markDBReady := r.AddComponent("database")
 		markCacheReady := r.AddComponent("cache")
@@ -120,7 +120,7 @@ func TestIsReady(t *testing.T) {
 
 	t.Run("ready when single component is ready", func(t *testing.T) {
 		logger := zap.NewNop()
-		r := newReadiness(logger, false)
+		r := NewReadiness(logger, false)
 
 		markReady := r.AddComponent("database")
 		markReady()
@@ -132,7 +132,7 @@ func TestIsReady(t *testing.T) {
 func TestGetStatus(t *testing.T) {
 	t.Run("returns empty status when no components", func(t *testing.T) {
 		logger := zap.NewNop()
-		r := newReadiness(logger, false)
+		r := NewReadiness(logger, false)
 
 		status := r.GetStatus()
 
@@ -144,7 +144,7 @@ func TestGetStatus(t *testing.T) {
 
 	t.Run("returns components in sorted order", func(t *testing.T) {
 		logger := zap.NewNop()
-		r := newReadiness(logger, false)
+		r := NewReadiness(logger, false)
 
 		r.AddComponent("zookeeper")
 		r.AddComponent("database")
@@ -160,7 +160,7 @@ func TestGetStatus(t *testing.T) {
 
 	t.Run("returns correct ready status", func(t *testing.T) {
 		logger := zap.NewNop()
-		r := newReadiness(logger, false)
+		r := NewReadiness(logger, false)
 
 		markDBReady := r.AddComponent("database")
 		markCacheReady := r.AddComponent("cache")
@@ -180,7 +180,7 @@ func TestGetStatus(t *testing.T) {
 
 	t.Run("readyAt is the latest component readyAt", func(t *testing.T) {
 		logger := zap.NewNop()
-		r := newReadiness(logger, false)
+		r := NewReadiness(logger, false)
 
 		markDBReady := r.AddComponent("database")
 		markDBReady()
@@ -207,7 +207,7 @@ func TestGetStatus(t *testing.T) {
 func TestWaitReady(t *testing.T) {
 	t.Run("blocks until ready", func(t *testing.T) {
 		logger := zap.NewNop()
-		r := newReadiness(logger, false)
+		r := NewReadiness(logger, false)
 
 		markReady := r.AddComponent("database")
 
@@ -240,7 +240,7 @@ func TestWaitReady(t *testing.T) {
 
 	t.Run("returns immediately when already ready", func(t *testing.T) {
 		logger := zap.NewNop()
-		r := newReadiness(logger, false)
+		r := NewReadiness(logger, false)
 
 		markReady := r.AddComponent("database")
 		markReady()
@@ -253,7 +253,7 @@ func TestWaitReady(t *testing.T) {
 
 	t.Run("returns error when context cancelled", func(t *testing.T) {
 		logger := zap.NewNop()
-		r := newReadiness(logger, false)
+		r := NewReadiness(logger, false)
 
 		r.AddComponent("database")
 
@@ -276,7 +276,7 @@ func TestWaitReady(t *testing.T) {
 
 	t.Run("returns error when context times out", func(t *testing.T) {
 		logger := zap.NewNop()
-		r := newReadiness(logger, false)
+		r := NewReadiness(logger, false)
 
 		r.AddComponent("database")
 
@@ -292,7 +292,7 @@ func TestWaitReady(t *testing.T) {
 func TestMarkTrafficReady(t *testing.T) {
 	t.Run("marks traffic ready in local mode", func(t *testing.T) {
 		logger := zap.NewNop()
-		r := newReadiness(logger, false)
+		r := NewReadiness(logger, false)
 
 		markReady := r.AddComponent("database")
 		markReady()
@@ -305,7 +305,7 @@ func TestMarkTrafficReady(t *testing.T) {
 
 	t.Run("marks traffic ready in kubernetes mode", func(t *testing.T) {
 		logger := zap.NewNop()
-		r := newReadiness(logger, true)
+		r := NewReadiness(logger, true)
 
 		markReady := r.AddComponent("database")
 		markReady()
@@ -318,7 +318,7 @@ func TestMarkTrafficReady(t *testing.T) {
 
 	t.Run("marks traffic ready only once", func(t *testing.T) {
 		logger := zap.NewNop()
-		r := newReadiness(logger, false)
+		r := NewReadiness(logger, false)
 
 		markReady := r.AddComponent("database")
 		markReady()
@@ -335,7 +335,7 @@ func TestMarkTrafficReady(t *testing.T) {
 
 	t.Run("ignores MarkTrafficReady when components not ready", func(t *testing.T) {
 		logger := zap.NewNop()
-		r := newReadiness(logger, false)
+		r := NewReadiness(logger, false)
 
 		markDBReady := r.AddComponent("database")
 		markCacheReady := r.AddComponent("cache")
@@ -357,7 +357,7 @@ func TestMarkTrafficReady(t *testing.T) {
 
 	t.Run("ignores MarkTrafficReady when no components", func(t *testing.T) {
 		logger := zap.NewNop()
-		r := newReadiness(logger, false)
+		r := NewReadiness(logger, false)
 
 		// Try to mark traffic ready with no components
 		r.MarkTrafficReady()
@@ -370,7 +370,7 @@ func TestMarkTrafficReady(t *testing.T) {
 func TestWaitForTrafficReady(t *testing.T) {
 	t.Run("waits in local mode", func(t *testing.T) {
 		logger := zap.NewNop()
-		r := newReadiness(logger, false)
+		r := NewReadiness(logger, false)
 
 		markReady := r.AddComponent("database")
 
@@ -403,7 +403,7 @@ func TestWaitForTrafficReady(t *testing.T) {
 
 	t.Run("waits for traffic ready in kubernetes mode", func(t *testing.T) {
 		logger := zap.NewNop()
-		r := newReadiness(logger, true)
+		r := NewReadiness(logger, true)
 
 		markReady := r.AddComponent("database")
 
@@ -446,7 +446,7 @@ func TestWaitForTrafficReady(t *testing.T) {
 
 	t.Run("returns immediately when already ready in local mode", func(t *testing.T) {
 		logger := zap.NewNop()
-		r := newReadiness(logger, false)
+		r := NewReadiness(logger, false)
 
 		markReady := r.AddComponent("database")
 		markReady()
@@ -459,7 +459,7 @@ func TestWaitForTrafficReady(t *testing.T) {
 
 	t.Run("returns immediately when already ready in kubernetes mode", func(t *testing.T) {
 		logger := zap.NewNop()
-		r := newReadiness(logger, true)
+		r := NewReadiness(logger, true)
 
 		markReady := r.AddComponent("database")
 		markReady()
@@ -473,7 +473,7 @@ func TestWaitForTrafficReady(t *testing.T) {
 
 	t.Run("returns error when context cancelled before ready", func(t *testing.T) {
 		logger := zap.NewNop()
-		r := newReadiness(logger, false)
+		r := NewReadiness(logger, false)
 
 		r.AddComponent("database")
 
@@ -487,7 +487,7 @@ func TestWaitForTrafficReady(t *testing.T) {
 
 	t.Run("returns error when context cancelled before traffic ready in kubernetes mode", func(t *testing.T) {
 		logger := zap.NewNop()
-		r := newReadiness(logger, true)
+		r := NewReadiness(logger, true)
 
 		markReady := r.AddComponent("database")
 		markReady()
@@ -502,7 +502,7 @@ func TestWaitForTrafficReady(t *testing.T) {
 
 	t.Run("premature MarkTrafficReady does not affect WaitForTrafficReady in kubernetes mode", func(t *testing.T) {
 		logger := zap.NewNop()
-		r := newReadiness(logger, true)
+		r := NewReadiness(logger, true)
 
 		markReady := r.AddComponent("database")
 
@@ -552,7 +552,7 @@ func TestWaitForTrafficReady(t *testing.T) {
 func TestWaitKubernetesReady(t *testing.T) {
 	t.Run("blocks until kubernetes notified", func(t *testing.T) {
 		logger := zap.NewNop()
-		r := newReadiness(logger, false)
+		r := NewReadiness(logger, false)
 
 		markReady := r.AddComponent("database")
 		markReady()
@@ -576,7 +576,7 @@ func TestWaitKubernetesReady(t *testing.T) {
 
 	t.Run("returns immediately when already notified", func(t *testing.T) {
 		logger := zap.NewNop()
-		r := newReadiness(logger, true)
+		r := NewReadiness(logger, true)
 
 		markReady := r.AddComponent("database")
 		markReady()
@@ -590,7 +590,7 @@ func TestWaitKubernetesReady(t *testing.T) {
 
 	t.Run("returns error when context cancelled", func(t *testing.T) {
 		logger := zap.NewNop()
-		r := newReadiness(logger, true)
+		r := NewReadiness(logger, true)
 
 		markReady := r.AddComponent("database")
 		markReady()
@@ -616,7 +616,7 @@ func TestWaitKubernetesReady(t *testing.T) {
 func TestEdgeCases(t *testing.T) {
 	t.Run("component lifecycle timing", func(t *testing.T) {
 		logger := zap.NewNop()
-		r := newReadiness(logger, false)
+		r := NewReadiness(logger, false)
 
 		startTime := time.Now()
 		markReady := r.AddComponent("database")
@@ -636,7 +636,7 @@ func TestEdgeCases(t *testing.T) {
 
 	t.Run("multiple WaitReady calls", func(t *testing.T) {
 		logger := zap.NewNop()
-		r := newReadiness(logger, false)
+		r := NewReadiness(logger, false)
 
 		markReady := r.AddComponent("database")
 
@@ -667,7 +667,7 @@ func TestEdgeCases(t *testing.T) {
 
 	t.Run("GetStatus with zero-value times", func(t *testing.T) {
 		logger := zap.NewNop()
-		r := newReadiness(logger, false)
+		r := NewReadiness(logger, false)
 
 		r.AddComponent("database")
 
@@ -681,7 +681,7 @@ func TestEdgeCases(t *testing.T) {
 
 	t.Run("concurrent component operations", func(t *testing.T) {
 		logger := zap.NewNop()
-		r := newReadiness(logger, false)
+		r := NewReadiness(logger, false)
 
 		var wg sync.WaitGroup
 		componentCount := 10
@@ -715,7 +715,7 @@ func TestEdgeCases(t *testing.T) {
 func TestConcurrency(t *testing.T) {
 	t.Run("concurrent AddComponent and markReady", func(t *testing.T) {
 		logger := zap.NewNop()
-		r := newReadiness(logger, false)
+		r := NewReadiness(logger, false)
 
 		componentCount := 100
 		var wg sync.WaitGroup
@@ -745,7 +745,7 @@ func TestConcurrency(t *testing.T) {
 
 	t.Run("concurrent GetStatus calls", func(t *testing.T) {
 		logger := zap.NewNop()
-		r := newReadiness(logger, false)
+		r := NewReadiness(logger, false)
 
 		r.AddComponent("database")
 		r.AddComponent("cache")

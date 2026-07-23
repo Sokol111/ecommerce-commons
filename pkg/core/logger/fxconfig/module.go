@@ -1,10 +1,11 @@
-package logger
+package fxconfig
 
 import (
 	"context"
 	"fmt"
 
 	"github.com/Sokol111/ecommerce-commons/pkg/core/config"
+	"github.com/Sokol111/ecommerce-commons/pkg/core/logger"
 	"go.uber.org/fx"
 	"go.uber.org/fx/fxevent"
 	"go.uber.org/zap"
@@ -12,14 +13,14 @@ import (
 
 // loggerOptions holds internal configuration for the logger module.
 type loggerOptions struct {
-	config *Config
+	config *logger.Config
 }
 
 // Option is a functional option for configuring the logger module.
 type Option func(*loggerOptions)
 
 // WithLoggerConfig provides a static Config (useful for tests).
-func WithLoggerConfig(cfg Config) Option {
+func WithLoggerConfig(cfg logger.Config) Option {
 	return func(opts *loggerOptions) {
 		opts.config = &cfg
 	}
@@ -39,7 +40,7 @@ func NewZapLoggingModule(opts ...Option) fx.Option {
 		fx.Supply(cfg),
 		fx.Provide(provideConfig),
 		fx.Provide(provideLogger),
-		fx.Invoke(func(log *zap.Logger, conf Config) {
+		fx.Invoke(func(log *zap.Logger, conf logger.Config) {
 			log.Info("Logger initialized",
 				zap.String("level", conf.ParsedLevel().String()),
 				zap.Bool("development", conf.Development),
@@ -54,12 +55,12 @@ func NewZapLoggingModule(opts ...Option) fx.Option {
 	)
 }
 
-func provideConfig(opts *loggerOptions, loader *config.Loader) (Config, error) {
-	return config.Load[Config](loader, "logger", opts.config)
+func provideConfig(opts *loggerOptions, loader *config.Loader) (logger.Config, error) {
+	return config.Load[logger.Config](loader, "logger", opts.config)
 }
 
-func provideLogger(lc fx.Lifecycle, conf Config) (*zap.Logger, zap.AtomicLevel, error) {
-	logger, atomicLevel, err := newLogger(conf)
+func provideLogger(lc fx.Lifecycle, conf logger.Config) (*zap.Logger, zap.AtomicLevel, error) {
+	logger, atomicLevel, err := logger.NewLogger(conf)
 
 	if err != nil {
 		return nil, zap.AtomicLevel{}, fmt.Errorf("failed to create logger: %w", err)

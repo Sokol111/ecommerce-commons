@@ -8,7 +8,7 @@ import (
 // defaultLogger holds the default logger instance created during initialization.
 var defaultLogger *zap.Logger
 
-func newLogger(conf Config) (*zap.Logger, zap.AtomicLevel, error) {
+func NewLogger(conf Config) (*zap.Logger, zap.AtomicLevel, error) {
 	var cfg zap.Config
 
 	if conf.Development {

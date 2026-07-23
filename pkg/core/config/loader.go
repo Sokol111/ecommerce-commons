@@ -49,7 +49,7 @@ func Load[T any, PT interface {
 
 	if override != nil {
 		cfg = *override
-	} else if l.k.Exists(key) {
+	} else if key == "" || l.k.Exists(key) {
 		if err := l.k.Unmarshal(key, &cfg); err != nil {
 			return cfg, fmt.Errorf("failed to load %s config: %w", key, err)
 		}

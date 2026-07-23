@@ -1,48 +1,36 @@
 package config
 
 import (
-	"fmt"
-	"os"
-)
-
-// Environment variable names.
-const (
-	envAppEnv                = "APP_ENV"
-	envAppServiceName        = "APP_SERVICE_NAME"
-	envAppServiceVersion     = "APP_SERVICE_VERSION"
-	envKubernetesServiceHost = "KUBERNETES_SERVICE_HOST"
+	"errors"
 )
 
 // AppConfig represents the core application metadata.
 type AppConfig struct {
-	ServiceName    string
-	ServiceVersion string
-	// Environment is the deployment environment (e.g., "local", "staging", "pro")
-	Environment  string
-	IsKubernetes bool
+	ServiceName           string `koanf:"app-service-name"`
+	ServiceVersion        string `koanf:"app-service-version"`
+	Environment           string `koanf:"app-env"`
+	kubernetesServiceHost string `koanf:"kubernetes-service-host"`
+	IsKubernetes          bool
 }
 
-// LoadAppConfigFromEnv creates AppConfig from environment variables.
-func LoadAppConfigFromEnv() (AppConfig, error) {
-	env := os.Getenv(envAppEnv)
-	if env == "" {
-		return AppConfig{}, fmt.Errorf("%s is required", envAppEnv)
+// ApplyDefaults sets default values for AppConfig fields based on environment variables.
+func (c *AppConfig) ApplyDefaults() {
+	if c.kubernetesServiceHost != "" {
+		c.IsKubernetes = true
 	}
+}
 
-	serviceName := os.Getenv(envAppServiceName)
-	if serviceName == "" {
-		return AppConfig{}, fmt.Errorf("%s is required", envAppServiceName)
+// Validate checks that all required fields are present.
+func (c *AppConfig) Validate() error {
+	var errs []error
+	if c.ServiceName == "" {
+		errs = append(errs, errors.New("app-service-name is required"))
 	}
-
-	serviceVersion := os.Getenv(envAppServiceVersion)
-	if serviceVersion == "" {
-		return AppConfig{}, fmt.Errorf("%s is required", envAppServiceVersion)
+	if c.ServiceVersion == "" {
+		errs = append(errs, errors.New("app-service-version is required"))
 	}
-
-	return AppConfig{
-		ServiceName:    serviceName,
-		ServiceVersion: serviceVersion,
-		Environment:    env,
-		IsKubernetes:   os.Getenv(envKubernetesServiceHost) != "",
-	}, nil
+	if c.Environment == "" {
+		errs = append(errs, errors.New("app-env is required"))
+	}
+	return errors.Join(errs...)
 }

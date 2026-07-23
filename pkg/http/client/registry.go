@@ -25,6 +25,7 @@ type Registry struct {
 // registryParams holds the optional dependencies for creating a Registry.
 type registryParams struct {
 	fx.In
+	Loader      *config.Loader
 	K           *koanf.Koanf
 	TokenSource oauth2.TokenSource `optional:"true"`
 }
@@ -46,7 +47,7 @@ func newRegistry(p registryParams) (*Registry, error) {
 		}
 		seen[name] = true
 
-		cfg, err := config.Load[Config](p.K, "clients."+name, nil)
+		cfg, err := config.Load[Config](p.Loader, "clients."+name, nil)
 		if err != nil {
 			return nil, fmt.Errorf("http client %q: %w", name, err)
 		}

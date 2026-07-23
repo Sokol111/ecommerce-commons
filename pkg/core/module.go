@@ -4,6 +4,7 @@ import (
 	"time"
 
 	"github.com/Sokol111/ecommerce-commons/pkg/core/config"
+	"github.com/Sokol111/ecommerce-commons/pkg/core/config/fxconfig"
 	"github.com/Sokol111/ecommerce-commons/pkg/core/health"
 	"github.com/Sokol111/ecommerce-commons/pkg/core/logger"
 	"go.uber.org/fx"
@@ -77,37 +78,24 @@ func NewCoreModule(opts ...Option) fx.Option {
 		opt(cfg)
 	}
 
+	var configOpts []fxconfig.ConfigOption
+	if cfg.disableDotEnv {
+		configOpts = append(configOpts, fxconfig.WithoutDotEnv())
+	}
+	if cfg.disableConfigFile {
+		configOpts = append(configOpts, fxconfig.WithoutConfigFile())
+	}
+	if cfg.appConfig != nil {
+		configOpts = append(configOpts, fxconfig.WithAppConfig(*cfg.appConfig))
+	}
+
 	return fx.Options(
 		fx.StartTimeout(5*time.Minute),
 		fx.StopTimeout(5*time.Minute),
-
-		dotEnvModule(cfg),
-		koanfModule(cfg),
-		appConfigModule(cfg),
+		fxconfig.NewConfigModule(configOpts...),
 		loggerModule(cfg),
 		health.NewReadinessModule(),
 	)
-}
-
-func dotEnvModule(cfg *coreOptions) fx.Option {
-	if cfg.disableDotEnv {
-		return fx.Options()
-	}
-	return config.NewDotEnvModule()
-}
-
-func koanfModule(cfg *coreOptions) fx.Option {
-	if cfg.disableConfigFile {
-		return config.NewKoanfModule(config.WithoutKoanfConfigFile())
-	}
-	return config.NewKoanfModule()
-}
-
-func appConfigModule(cfg *coreOptions) fx.Option {
-	if cfg.appConfig != nil {
-		return config.NewAppConfigModule(config.WithAppConfig(*cfg.appConfig))
-	}
-	return config.NewAppConfigModule()
 }
 
 func loggerModule(cfg *coreOptions) fx.Option {

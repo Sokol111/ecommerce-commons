@@ -2,7 +2,6 @@ package config
 
 import (
 	coreconfig "github.com/Sokol111/ecommerce-commons/pkg/core/config"
-	"github.com/knadh/koanf/v2"
 	"go.uber.org/fx"
 	"go.uber.org/zap"
 )
@@ -37,8 +36,8 @@ func NewKafkaConfigModule(opts ...KafkaConfigOption) fx.Option {
 	)
 }
 
-func provideConfig(opts *kafkaConfigOptions, k *koanf.Koanf, logger *zap.Logger) (Config, error) {
-	cfg, err := coreconfig.Load[Config](k, "kafka", opts.config)
+func provideConfig(opts *kafkaConfigOptions, loader *coreconfig.Loader, logger *zap.Logger) (Config, error) {
+	cfg, err := coreconfig.Load[Config](loader, "kafka", opts.config)
 	if err != nil {
 		return Config{}, err
 	}

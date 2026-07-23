@@ -14,7 +14,7 @@ import (
 
 // loadAndValidateConfig is a test helper that loads, validates, and applies defaults to Config.
 func loadAndValidateConfig(k *koanf.Koanf) (Config, error) {
-	return coreconfig.Load[Config](k, "kafka", nil)
+	return coreconfig.Load[Config](coreconfig.NewLoader(k), "kafka", nil)
 }
 
 // loadKoanfFromYAML is a test helper that creates a koanf instance from YAML string.

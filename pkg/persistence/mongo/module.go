@@ -5,7 +5,6 @@ import (
 
 	"github.com/Sokol111/ecommerce-commons/pkg/core/config"
 	"github.com/Sokol111/ecommerce-commons/pkg/core/health"
-	"github.com/knadh/koanf/v2"
 	"go.opentelemetry.io/otel/metric"
 	"go.opentelemetry.io/otel/trace"
 	"go.uber.org/fx"
@@ -35,7 +34,10 @@ func WithMigrations() Option {
 	}
 }
 
-// NewMongoModule provides MongoDB components for dependency injection.\n// By default, configuration is loaded from koanf.\n// Use WithMongoConfig for static config (useful for tests).\n// Use WithMigrations to enable automatic migrations on startup.
+// NewMongoModule provides MongoDB components for dependency injection.
+// By default, configuration is loaded from koanf.
+// Use WithMongoConfig for static config (useful for tests).
+// Use WithMigrations to enable automatic migrations on startup.
 func NewMongoModule(opts ...Option) fx.Option {
 	cfg := &mongoOptions{}
 	for _, opt := range opts {
@@ -61,8 +63,8 @@ func NewMongoModule(opts ...Option) fx.Option {
 	return fx.Options(modules...)
 }
 
-func provideConfig(opts *mongoOptions, k *koanf.Koanf) (Config, error) {
-	return config.Load[Config](k, "mongo", opts.config)
+func provideConfig(opts *mongoOptions, loader *config.Loader) (Config, error) {
+	return config.Load[Config](loader, "mongo", opts.config)
 }
 
 type provideMongoParams struct {

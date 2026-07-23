@@ -2,43 +2,18 @@ package config
 
 import (
 	"fmt"
-	"os"
 	"strings"
 
 	"github.com/knadh/koanf/parsers/yaml"
 	envprovider "github.com/knadh/koanf/providers/env/v2"
 	"github.com/knadh/koanf/providers/file"
 	"github.com/knadh/koanf/v2"
-	"go.uber.org/fx"
 )
 
-// koanfOptions holds internal configuration options for the Koanf module.
-type koanfOptions struct {
-	configPath   *string
-	noConfigFile bool
-}
-
-// KoanfOption is a functional option for configuring the Koanf module.
-type KoanfOption func(*koanfOptions)
-
-// WithKoanfConfigPath sets a direct path to the configuration file.
-func WithKoanfConfigPath(path string) KoanfOption {
-	return func(cfg *koanfOptions) {
-		cfg.configPath = &path
-	}
-}
-
-// WithoutKoanfConfigFile disables loading of any config file.
-func WithoutKoanfConfigFile() KoanfOption {
-	return func(cfg *koanfOptions) {
-		cfg.noConfigFile = true
-	}
-}
-
-// NewKoanfModule creates an fx module for Koanf configuration.
+// NewKoanf creates a koanf instance loaded from the given config file and environment variables.
 //
 // Configuration is loaded in order (later overrides earlier):
-//  1. YAML config file (from CONFIG_FILE env or WithKoanfConfigPath)
+//  1. YAML config file (if configFile is non-empty)
 //  2. Environment variables
 //
 // Env convention: use __ (double underscore) as level delimiter, single _ as word separator.
@@ -46,33 +21,7 @@ func WithoutKoanfConfigFile() KoanfOption {
 //	OBSERVABILITY__OTEL_COLLECTOR_ENDPOINT → observability.otel-collector-endpoint
 //	MONGO__MAX_POOL_SIZE                   → mongo.max-pool-size
 //	LOGGER__LEVEL                          → logger.level
-func NewKoanfModule(opts ...KoanfOption) fx.Option {
-	cfg := &koanfOptions{}
-	for _, opt := range opts {
-		opt(cfg)
-	}
-
-	return fx.Module("koanf",
-		fx.Provide(func() (*koanf.Koanf, error) {
-			return newKoanf(resolveKoanfConfigPath(cfg))
-		}),
-	)
-}
-
-func resolveKoanfConfigPath(cfg *koanfOptions) string {
-	if cfg.noConfigFile {
-		return ""
-	}
-	if cfg.configPath != nil {
-		return *cfg.configPath
-	}
-	if configFile := os.Getenv("CONFIG_FILE"); configFile != "" {
-		return configFile
-	}
-	return ""
-}
-
-func newKoanf(configFile string) (*koanf.Koanf, error) {
+func NewKoanf(configFile string) (*koanf.Koanf, error) {
 	k := koanf.New(".")
 
 	// 1. Load config file (if provided).
@@ -80,9 +29,6 @@ func newKoanf(configFile string) (*koanf.Koanf, error) {
 		if err := k.Load(file.Provider(configFile), yaml.Parser()); err != nil {
 			return nil, fmt.Errorf("failed to read config file [%s]: %w", configFile, err)
 		}
-		fmt.Printf("[config] Configuration loaded from %s (keys: %d)\n", configFile, len(k.Keys()))
-	} else {
-		fmt.Println("[config] No config file specified, using environment variables only")
 	}
 
 	// 2. Load environment variables (overrides config file).

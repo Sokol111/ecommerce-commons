@@ -2,7 +2,6 @@ package config
 
 import (
 	coreconfig "github.com/Sokol111/ecommerce-commons/pkg/core/config"
-	"github.com/knadh/koanf/v2"
 	"go.uber.org/fx"
 	"go.uber.org/zap"
 )
@@ -61,8 +60,8 @@ func NewObservabilityConfigModule(opts ...Option) fx.Option {
 	)
 }
 
-func provideConfig(opts *configOptions, k *koanf.Koanf, logger *zap.Logger) (Config, error) {
-	cfg, err := coreconfig.Load[Config](k, "observability", opts.config)
+func provideConfig(opts *configOptions, loader *coreconfig.Loader, logger *zap.Logger) (Config, error) {
+	cfg, err := coreconfig.Load[Config](loader, "observability", opts.config)
 	if err != nil {
 		return cfg, err
 	}

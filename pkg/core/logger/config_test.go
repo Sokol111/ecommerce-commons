@@ -16,7 +16,7 @@ func TestConfig_DefaultValues(t *testing.T) {
 	k := koanf.New(".")
 
 	// When: loading config via generic loader
-	cfg, err := config.Load[Config](k, "logger", nil)
+	cfg, err := config.Load[Config](config.NewLoader(k), "logger", nil)
 
 	// Then: default values should be used
 	require.NoError(t, err)
@@ -79,7 +79,7 @@ func TestConfig_ValidConfiguration(t *testing.T) {
 			}, "."), nil)
 
 			// When: loading config via generic loader
-			cfg, err := config.Load[Config](k, "logger", nil)
+			cfg, err := config.Load[Config](config.NewLoader(k), "logger", nil)
 
 			// Then: configuration should match expected values
 			require.NoError(t, err)
@@ -116,7 +116,7 @@ func TestConfig_InvalidLevel(t *testing.T) {
 			}, "."), nil)
 
 			// When: loading config via generic loader
-			_, err := config.Load[Config](k, "logger", nil)
+			_, err := config.Load[Config](config.NewLoader(k), "logger", nil)
 
 			// Then: should return error
 			require.Error(t, err)
@@ -161,7 +161,7 @@ func TestConfig_PartialConfiguration(t *testing.T) {
 			tt.setupKoanf(k)
 
 			// When: loading config via generic loader
-			cfg, err := config.Load[Config](k, "logger", nil)
+			cfg, err := config.Load[Config](config.NewLoader(k), "logger", nil)
 
 			// Then: should use defaults for unspecified values
 			require.NoError(t, err)
@@ -179,7 +179,7 @@ func TestConfig_UnmarshalError(t *testing.T) {
 	}, "."), nil)
 
 	// When: loading config via generic loader
-	_, err := config.Load[Config](k, "logger", nil)
+	_, err := config.Load[Config](config.NewLoader(k), "logger", nil)
 
 	// Then: should return unmarshal error
 	require.Error(t, err)
@@ -222,7 +222,7 @@ func TestConfig_CaseSensitivity(t *testing.T) {
 			}, "."), nil)
 
 			// When: loading config via generic loader
-			cfg, err := config.Load[Config](k, "logger", nil)
+			cfg, err := config.Load[Config](config.NewLoader(k), "logger", nil)
 
 			// Then: should handle case-insensitive parsing
 			if tt.shouldError {
@@ -244,7 +244,7 @@ func TestConfig_WithOverride(t *testing.T) {
 
 	// When: loading config with override
 	override := &Config{Level: "debug", Development: true}
-	cfg, err := config.Load[Config](k, "logger", override)
+	cfg, err := config.Load[Config](config.NewLoader(k), "logger", override)
 
 	// Then: override values should be used
 	require.NoError(t, err)

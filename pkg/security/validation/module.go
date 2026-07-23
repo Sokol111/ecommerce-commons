@@ -2,7 +2,6 @@ package validation
 
 import (
 	coreconfig "github.com/Sokol111/ecommerce-commons/pkg/core/config"
-	"github.com/knadh/koanf/v2"
 	"go.uber.org/fx"
 )
 
@@ -58,7 +57,7 @@ func NewModule(opts ...Option) fx.Option {
 		opt(cfg)
 	}
 
-	var modules []fx.Option
+	modules := []fx.Option{}
 
 	if cfg.useTestValidator {
 		modules = append(modules, fx.Provide(newTestValidator))
@@ -81,6 +80,6 @@ func NewModule(opts ...Option) fx.Option {
 	return fx.Options(modules...)
 }
 
-func provideConfig(opts *options, k *koanf.Koanf) (Config, error) {
-	return coreconfig.Load[Config](k, "security.jwks", opts.config)
+func provideConfig(opts *options, loader *coreconfig.Loader) (Config, error) {
+	return coreconfig.Load[Config](loader, "security.jwks", opts.config)
 }

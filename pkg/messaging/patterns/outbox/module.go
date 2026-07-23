@@ -8,7 +8,6 @@ import (
 	"github.com/Sokol111/ecommerce-commons/pkg/core/worker"
 	"github.com/Sokol111/ecommerce-commons/pkg/messaging/kafka/kafkaproto"
 	"github.com/Sokol111/ecommerce-commons/pkg/persistence/mongo"
-	"github.com/knadh/koanf/v2"
 	"go.uber.org/fx"
 	"go.uber.org/zap"
 )
@@ -42,8 +41,8 @@ func NewOutboxModule() fx.Option {
 	)
 }
 
-func provideConfig(k *koanf.Koanf) (Config, error) {
-	return coreconfig.Load[Config](k, "outbox", nil)
+func provideConfig(loader *coreconfig.Loader) (Config, error) {
+	return coreconfig.Load[Config](loader, "outbox", nil)
 }
 
 func newHeaderPopulator(appCfg coreconfig.AppConfig) kafkaproto.HeaderPopulator {

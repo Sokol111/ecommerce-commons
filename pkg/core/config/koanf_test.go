@@ -46,7 +46,7 @@ observability:
 	tmpFile := filepath.Join(t.TempDir(), "config.yaml")
 	require.NoError(t, os.WriteFile(tmpFile, []byte(configContent), 0o600))
 
-	k, err := newKoanf(tmpFile)
+	k, err := NewKoanf(tmpFile)
 	require.NoError(t, err)
 
 	assert.Equal(t, "testdb", k.String("mongo.database"))
@@ -71,7 +71,7 @@ observability:
 	t.Setenv("OBSERVABILITY__OTEL_COLLECTOR_ENDPOINT", "localhost:4317")
 	t.Setenv("OBSERVABILITY__TRACING__ENABLED", "true")
 
-	k, err := newKoanf(tmpFile)
+	k, err := NewKoanf(tmpFile)
 	require.NoError(t, err)
 
 	assert.Equal(t, "from-env", k.String("mongo.database"))
@@ -82,20 +82,20 @@ observability:
 func TestNewKoanf_EnvOnlyWithoutPrefix(t *testing.T) {
 	t.Setenv("OBSERVABILITY__OTEL_COLLECTOR_ENDPOINT", "localhost:4317")
 
-	k, err := newKoanf("")
+	k, err := NewKoanf("")
 	require.NoError(t, err)
 
 	assert.Equal(t, "localhost:4317", k.String("observability.otel-collector-endpoint"))
 }
 
 func TestNewKoanf_NoConfigFile(t *testing.T) {
-	k, err := newKoanf("")
+	k, err := NewKoanf("")
 	require.NoError(t, err)
 	require.NotNil(t, k)
 }
 
 func TestNewKoanf_InvalidConfigFile(t *testing.T) {
-	_, err := newKoanf("/nonexistent/config.yaml")
+	_, err := NewKoanf("/nonexistent/config.yaml")
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "failed to read config file")
 }
@@ -114,7 +114,7 @@ observability:
 
 	t.Setenv("OBSERVABILITY__OTEL_COLLECTOR_ENDPOINT", "localhost:4317")
 
-	k, err := newKoanf(tmpFile)
+	k, err := NewKoanf(tmpFile)
 	require.NoError(t, err)
 
 	type TracingConfig struct {

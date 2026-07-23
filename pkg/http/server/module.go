@@ -6,7 +6,6 @@ import (
 
 	"github.com/Sokol111/ecommerce-commons/pkg/core/config"
 	"github.com/Sokol111/ecommerce-commons/pkg/core/health"
-	"github.com/knadh/koanf/v2"
 	"go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp"
 	"go.uber.org/fx"
 	"go.uber.org/zap"
@@ -50,8 +49,8 @@ func NewHTTPServerModule(opts ...Option) fx.Option {
 	)
 }
 
-func provideConfig(opts *serverOptions, k *koanf.Koanf, logger *zap.Logger) (Config, error) {
-	cfg, err := config.Load[Config](k, "server", opts.config)
+func provideConfig(opts *serverOptions, loader *config.Loader, logger *zap.Logger) (Config, error) {
+	cfg, err := config.Load[Config](loader, "server", opts.config)
 	if err != nil {
 		return Config{}, err
 	}

@@ -2,7 +2,6 @@ package token
 
 import (
 	coreconfig "github.com/Sokol111/ecommerce-commons/pkg/core/config"
-	"github.com/knadh/koanf/v2"
 	"go.uber.org/fx"
 	"golang.org/x/oauth2"
 )
@@ -38,8 +37,8 @@ func NewModule(opts ...Option) fx.Option {
 	)
 }
 
-func provideConfig(opts *tokenOptions, k *koanf.Koanf) (Config, error) {
-	return coreconfig.Load[Config](k, "security.client-credentials", opts.config)
+func provideConfig(opts *tokenOptions, loader *coreconfig.Loader) (Config, error) {
+	return coreconfig.Load[Config](loader, "security.client-credentials", opts.config)
 }
 
 func provideTokenSource(cfg Config) (oauth2.TokenSource, error) {

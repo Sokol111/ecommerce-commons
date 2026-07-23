@@ -3,9 +3,6 @@ package config
 import (
 	"fmt"
 	"os"
-
-	"go.uber.org/fx"
-	"go.uber.org/zap"
 )
 
 // Environment variable names.
@@ -25,50 +22,8 @@ type AppConfig struct {
 	IsKubernetes bool
 }
 
-// appConfigOptions holds internal configuration for the AppConfig module.
-type appConfigOptions struct {
-	config *AppConfig
-}
-
-// AppConfigOption is a functional option for configuring the AppConfig module.
-type AppConfigOption func(*appConfigOptions)
-
-// WithAppConfig provides a static AppConfig (useful for tests).
-func WithAppConfig(cfg AppConfig) AppConfigOption {
-	return func(opts *appConfigOptions) {
-		opts.config = &cfg
-	}
-}
-
-// NewAppConfigModule creates an fx module for application configuration.
-// By default, loads from environment variables (APP_ENV, APP_SERVICE_NAME, APP_SERVICE_VERSION).
-// Use WithAppConfig for static config (useful for tests).
-func NewAppConfigModule(opts ...AppConfigOption) fx.Option {
-	cfg := &appConfigOptions{}
-	for _, opt := range opts {
-		opt(cfg)
-	}
-
-	return fx.Module("appconfig",
-		fx.Provide(func() (AppConfig, error) {
-			if cfg.config != nil {
-				return *cfg.config, nil
-			}
-			return loadAppConfigFromEnv()
-		}),
-		fx.Invoke(func(logger *zap.Logger, conf AppConfig) {
-			logger.Info("Loaded application configuration",
-				zap.String("service", conf.ServiceName),
-				zap.String("version", conf.ServiceVersion),
-				zap.String("environment", conf.Environment),
-				zap.Bool("isKubernetes", conf.IsKubernetes),
-			)
-		}),
-	)
-}
-
-// loadAppConfigFromEnv creates AppConfig from environment variables.
-func loadAppConfigFromEnv() (AppConfig, error) {
+// LoadAppConfigFromEnv creates AppConfig from environment variables.
+func LoadAppConfigFromEnv() (AppConfig, error) {
 	env := os.Getenv(envAppEnv)
 	if env == "" {
 		return AppConfig{}, fmt.Errorf("%s is required", envAppEnv)

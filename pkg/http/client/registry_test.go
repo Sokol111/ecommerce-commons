@@ -3,6 +3,7 @@ package client
 import (
 	"testing"
 
+	"github.com/Sokol111/ecommerce-commons/pkg/core/config"
 	"github.com/knadh/koanf/providers/confmap"
 	"github.com/knadh/koanf/v2"
 	"github.com/stretchr/testify/assert"
@@ -17,13 +18,19 @@ func newTestKoanf(t *testing.T, data map[string]any) *koanf.Koanf {
 	return k
 }
 
+func newTestRegistryParams(t *testing.T, data map[string]any) registryParams {
+	t.Helper()
+	k := newTestKoanf(t, data)
+	return registryParams{K: k, Loader: config.NewLoader(k)}
+}
+
 func TestNewRegistry_DiscoverClients(t *testing.T) {
-	k := newTestKoanf(t, map[string]any{
+	p := newTestRegistryParams(t, map[string]any{
 		"clients.tenant-service.base-url":  "http://tenant:8080",
 		"clients.catalog-service.base-url": "http://catalog:8080",
 	})
 
-	r, err := newRegistry(registryParams{K: k})
+	r, err := newRegistry(p)
 	require.NoError(t, err)
 
 	client, err := r.Client("tenant-service")
@@ -44,21 +51,21 @@ func TestNewRegistry_DiscoverClients(t *testing.T) {
 }
 
 func TestNewRegistry_EmptyClients(t *testing.T) {
-	k := newTestKoanf(t, map[string]any{
+	p := newTestRegistryParams(t, map[string]any{
 		"mongo.host": "localhost",
 	})
 
-	r, err := newRegistry(registryParams{K: k})
+	r, err := newRegistry(p)
 	require.NoError(t, err)
 	assert.Empty(t, r.clients)
 }
 
 func TestRegistry_ClientNotFound(t *testing.T) {
-	k := newTestKoanf(t, map[string]any{
+	p := newTestRegistryParams(t, map[string]any{
 		"clients.tenant-service.base-url": "http://tenant:8080",
 	})
 
-	r, err := newRegistry(registryParams{K: k})
+	r, err := newRegistry(p)
 	require.NoError(t, err)
 
 	_, err = r.Client("nonexistent")
@@ -67,11 +74,11 @@ func TestRegistry_ClientNotFound(t *testing.T) {
 }
 
 func TestRegistry_ConfigNotFound(t *testing.T) {
-	k := newTestKoanf(t, map[string]any{
+	p := newTestRegistryParams(t, map[string]any{
 		"clients.tenant-service.base-url": "http://tenant:8080",
 	})
 
-	r, err := newRegistry(registryParams{K: k})
+	r, err := newRegistry(p)
 	require.NoError(t, err)
 
 	_, err = r.Config("nonexistent")
@@ -80,11 +87,11 @@ func TestRegistry_ConfigNotFound(t *testing.T) {
 }
 
 func TestNewRegistry_InvalidConfig(t *testing.T) {
-	k := newTestKoanf(t, map[string]any{
+	p := newTestRegistryParams(t, map[string]any{
 		"clients.bad-service.timeout": "10s", // missing base-url
 	})
 
-	_, err := newRegistry(registryParams{K: k})
+	_, err := newRegistry(p)
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "bad-service")
 }

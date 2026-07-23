@@ -35,12 +35,16 @@ func (c *testConfig) Validate() error {
 	return nil
 }
 
+func newTestLoader() *Loader {
+	return NewLoader(koanf.New("."))
+}
+
 func TestLoad_WithOverride(t *testing.T) {
-	k := koanf.New(".")
+	loader := newTestLoader()
 
 	override := &testConfig{Host: "override-host", Port: 9090}
 
-	cfg, err := Load[testConfig](k, "test", override)
+	cfg, err := Load[testConfig](loader, "test", override)
 	require.NoError(t, err)
 
 	assert.Equal(t, "override-host", cfg.Host)
@@ -52,7 +56,9 @@ func TestLoad_FromKoanf(t *testing.T) {
 	k := koanf.New(".")
 	_ = k.Load(confmap{"test": map[string]interface{}{"host": "koanf-host", "port": 3000}}, nil)
 
-	cfg, err := Load[testConfig](k, "test", nil)
+	loader := NewLoader(k)
+
+	cfg, err := Load[testConfig](loader, "test", nil)
 	require.NoError(t, err)
 
 	assert.Equal(t, "koanf-host", cfg.Host)
@@ -61,10 +67,10 @@ func TestLoad_FromKoanf(t *testing.T) {
 }
 
 func TestLoad_EmptyKoanf_DefaultsApplied(t *testing.T) {
-	k := koanf.New(".")
+	loader := newTestLoader()
 
 	// No key in koanf, no override → empty struct → defaults applied → validation runs
-	cfg, err := Load[testConfig](k, "test", &testConfig{Host: "required"})
+	cfg, err := Load[testConfig](loader, "test", &testConfig{Host: "required"})
 	require.NoError(t, err)
 
 	assert.Equal(t, "required", cfg.Host)
@@ -73,10 +79,10 @@ func TestLoad_EmptyKoanf_DefaultsApplied(t *testing.T) {
 }
 
 func TestLoad_ValidationFails(t *testing.T) {
-	k := koanf.New(".")
+	loader := newTestLoader()
 
 	// Host is empty → validation should fail
-	_, err := Load[testConfig](k, "test", nil)
+	_, err := Load[testConfig](loader, "test", nil)
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "invalid test config")
 	assert.Contains(t, err.Error(), "host is required")
@@ -86,8 +92,10 @@ func TestLoad_DefaultsBeforeValidation(t *testing.T) {
 	k := koanf.New(".")
 	_ = k.Load(confmap{"test": map[string]interface{}{"host": "localhost", "port": -1}}, nil)
 
+	loader := NewLoader(k)
+
 	// Port -1 is set explicitly → defaults won't override it → validation should catch it
-	_, err := Load[testConfig](k, "test", nil)
+	_, err := Load[testConfig](loader, "test", nil)
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "port must be between 0 and 65535")
 }

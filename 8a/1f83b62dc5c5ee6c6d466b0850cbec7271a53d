@@ -1,0 +1,57 @@
+pkg/core/config/koanf_test.go
+  s_cc3d6a4c5f410d::t_4a7d0333f95fe2 49,74,85,92,98,117
+pkg/core/config/loader_test.go
+  s_cc3d6a4c5f410d::t_aa8ca85ce7d7ee 38-41,43,47,59-61,70,73,82,85,95-96,98
+pkg/core/logger/config_test.go
+  s_cc3d6a4c5f410d::t_a3b621d17f9520 19,82,119,164,182,225,247
+pkg/core/logger/module.go
+  s_cc3d6a4c5f410d::t_bca5763c8fc21a 57-58
+pkg/core/module.go
+  s_9ea5eb7fc4274d::t_ce23f92d2e63cc 7,81,83,86,89,91-98
+pkg/grpc/client/module.go
+  s_cc3d6a4c5f410d::t_d72a942b5a4155 9,11-12
+pkg/http/client/registry.go
+  s_cc3d6a4c5f410d::t_d68e6539e4d48a 28,50
+pkg/http/client/registry_test.go
+  s_cc3d6a4c5f410d::t_c6ba1e26a05d7d 6,21-26,28,33,54,58,64,68,77,81,90,94
+pkg/http/server/module.go
+  s_cc3d6a4c5f410d::t_bde465b9b67169 52-53
+pkg/messaging/kafka/config/config.go
+  s_cc3d6a4c5f410d::t_3ac4524ce61242 39-40
+pkg/messaging/kafka/config/config_test.go
+  s_cc3d6a4c5f410d::t_fc396ebe110566 17
+pkg/messaging/patterns/outbox/module.go
+  s_cc3d6a4c5f410d::t_e1b41b187a1b3d 44-45
+pkg/observability/config/module.go
+  s_cc3d6a4c5f410d::t_c0328279148c10 63-64
+pkg/persistence/mongo/module.go
+  s_cc3d6a4c5f410d::t_e0891562334707 37-40,66-67
+pkg/security/token/module.go
+  s_cc3d6a4c5f410d::t_e984a70ce538fa 40-41
+pkg/security/validation/module.go
+  s_cc3d6a4c5f410d::t_aaad89bfdd3d95 60,83-84
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.14",
+  "base_commit_sha": "8a1f83b62dc5c5ee6c6d466b0850cbec7271a53d",
+  "prompts": {},
+  "sessions": {
+    "s_9ea5eb7fc4274d": {
+      "agent_id": {
+        "tool": "opencode",
+        "id": "ses_07a3d7d8fffeTAKvf5NwVxUAAs",
+        "model": "mimo-v2.5-free"
+      },
+      "human_author": "Sokol111 <igorsokol111@gmail.com>"
+    },
+    "s_cc3d6a4c5f410d": {
+      "agent_id": {
+        "tool": "opencode",
+        "id": "ses_080654a85ffeEKysIfB9cXmWMd",
+        "model": "kimi-k2.7-code"
+      },
+      "human_author": "Sokol111 <igorsokol111@gmail.com>"
+    }
+  }
+}

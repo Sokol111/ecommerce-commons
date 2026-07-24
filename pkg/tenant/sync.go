@@ -11,20 +11,20 @@ import (
 
 const deletionDelay = 5 * time.Minute
 
-// tenantSyncer fetches tenant slugs and reconciles them with the local registry.
-type tenantSyncer struct {
+// TenantSyncer fetches tenant slugs and reconciles them with the local registry.
+type TenantSyncer struct {
 	provider SlugsProvider
-	repo     repository
+	repo     Repository
 	log      *zap.Logger
 }
 
-func newTenantSyncer(provider SlugsProvider, repo repository, log *zap.Logger) *tenantSyncer {
-	return &tenantSyncer{provider: provider, repo: repo, log: log}
+func NewTenantSyncer(provider SlugsProvider, repo Repository, log *zap.Logger) *TenantSyncer {
+	return &TenantSyncer{provider: provider, repo: repo, log: log}
 }
 
-// sync fetches tenant slugs and reconciles them with the local registry.
+// Sync fetches tenant slugs and reconciles them with the local registry.
 // Returns the list of active slugs.
-func (s *tenantSyncer) sync(ctx context.Context) ([]string, error) {
+func (s *TenantSyncer) Sync(ctx context.Context) ([]string, error) {
 	localSlugs, err := s.slugsFromRegistry(ctx)
 	if err != nil {
 		return nil, err
@@ -44,7 +44,7 @@ func (s *tenantSyncer) sync(ctx context.Context) ([]string, error) {
 }
 
 // slugsFromRegistry reads active tenant slugs from the local registry.
-func (s *tenantSyncer) slugsFromRegistry(ctx context.Context) ([]string, error) {
+func (s *TenantSyncer) slugsFromRegistry(ctx context.Context) ([]string, error) {
 	records, err := s.repo.FindActive(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("failed to read local tenant registry: %w", err)
@@ -55,7 +55,7 @@ func (s *tenantSyncer) slugsFromRegistry(ctx context.Context) ([]string, error) 
 // syncRegistry compares API slugs with local slugs and reconciles:
 //   - Slugs in API but not local → upsert as active
 //   - Slugs in local but not API → mark for deletion
-func (s *tenantSyncer) syncRegistry(ctx context.Context, apiSlugs, localSlugs []string) error {
+func (s *TenantSyncer) syncRegistry(ctx context.Context, apiSlugs, localSlugs []string) error {
 	// New tenants from API (not in local) → upsert as active
 	toCreate := lo.Without(apiSlugs, localSlugs...)
 	for _, slug := range toCreate {

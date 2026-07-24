@@ -21,12 +21,12 @@ type Lifecycle interface {
 }
 
 type lifecycle struct {
-	repo   repository
-	runner *migrationRunner
+	repo   Repository
+	runner *MigrationRunner
 	log    *zap.Logger
 }
 
-func newLifecycle(repo repository, runner *migrationRunner, log *zap.Logger) Lifecycle {
+func NewLifecycle(repo Repository, runner *MigrationRunner, log *zap.Logger) Lifecycle {
 	return &lifecycle{repo: repo, runner: runner, log: log}
 }
 

@@ -1,11 +1,12 @@
-package tenant
+package fxconfig
 
 import (
 	"context"
 
 	"github.com/Sokol111/ecommerce-commons/pkg/core/health"
 	"github.com/Sokol111/ecommerce-commons/pkg/core/worker"
-	"github.com/Sokol111/ecommerce-commons/pkg/http/connect/interceptor"
+	fx_interceptor "github.com/Sokol111/ecommerce-commons/pkg/http/connect/interceptor/fxconfig"
+	"github.com/Sokol111/ecommerce-commons/pkg/tenant"
 	"go.uber.org/fx"
 )
 
@@ -41,41 +42,34 @@ func NewModule(opts ...Option) fx.Option {
 	}
 
 	modules := []fx.Option{
-		fx.Provide(
-			newMongoRepository,
-			newMigrationRunner,
-			newTenantSyncer,
-			newLifecycle,
-			provideDatabaseResolver,
+		fx.Supply(
 			fx.Annotate(
-				newMongoCleaner,
-				fx.As(new(Cleaner)),
-				fx.ResultTags(`group:"tenant_cleaners"`),
-			),
-			fx.Annotate(
-				newCleanupWorker,
-				fx.ParamTags(``, `group:"tenant_cleaners"`, ``),
-			),
-			fx.Annotate(
-				func() interceptor.Interceptor {
-					return interceptor.Interceptor{
-						Priority: ResolverInterceptorPriority,
-						Handler:  NewResolverInterceptor(),
-					}
-				},
-				fx.ResultTags(`group:"connect_interceptor"`),
-			),
-			fx.Annotate(
-				func() interceptor.Interceptor {
-					return interceptor.Interceptor{
-						Priority: ValidatorInterceptorPriority,
-						Handler:  NewValidatorInterceptor(),
-					}
-				},
+				fx_interceptor.Interceptor{Priority: ResolverInterceptorPriority, Handler: tenant.NewResolverInterceptor()},
 				fx.ResultTags(`group:"connect_interceptor"`),
 			),
 		),
-		fx.Invoke(worker.RunWorker[*cleanupWorker]("tenant-cleanup", worker.WithReady())),
+		fx.Supply(
+			fx.Annotate(
+				fx_interceptor.Interceptor{Priority: ValidatorInterceptorPriority, Handler: tenant.NewValidatorInterceptor()},
+				fx.ResultTags(`group:"connect_interceptor"`),
+			),
+		),
+		fx.Provide(
+			tenant.NewMongoRepository,
+			tenant.NewMigrationRunner,
+			tenant.NewTenantSyncer,
+			tenant.NewLifecycle,
+			fx.Annotate(
+				tenant.NewMongoCleaner,
+				fx.As(new(tenant.Cleaner)),
+				fx.ResultTags(`group:"tenant_cleaners"`),
+			),
+			fx.Annotate(
+				tenant.NewCleanupWorker,
+				fx.ParamTags(``, `group:"tenant_cleaners"`, ``),
+			),
+		),
+		fx.Invoke(worker.RunWorker[*tenant.CleanupWorker]("tenant-cleanup", worker.WithReady())),
 	}
 
 	if cfg.enableMigrations {
@@ -86,16 +80,16 @@ func NewModule(opts ...Option) fx.Option {
 }
 
 // registerMigrations syncs the tenant registry and runs per-tenant migrations on startup.
-func registerMigrations(lc fx.Lifecycle, syncer *tenantSyncer, runner *migrationRunner, readiness health.ComponentManager) {
+func registerMigrations(lc fx.Lifecycle, syncer *tenant.TenantSyncer, runner *tenant.MigrationRunner, readiness health.ComponentManager) {
 	markReady := readiness.AddComponent("tenant-migrations")
 	lc.Append(fx.Hook{
 		OnStart: func(ctx context.Context) error {
-			slugs, err := syncer.sync(ctx)
+			slugs, err := syncer.Sync(ctx)
 			if err != nil {
 				return err
 			}
 
-			if err := runner.migrateAll(slugs); err != nil {
+			if err := runner.MigrateAll(slugs); err != nil {
 				return err
 			}
 

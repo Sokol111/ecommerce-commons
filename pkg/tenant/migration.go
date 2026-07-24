@@ -4,15 +4,15 @@ import (
 	"fmt"
 	"net/url"
 
-	"github.com/Sokol111/ecommerce-commons/pkg/persistence/mongo"
+	"github.com/Sokol111/ecommerce-commons/pkg/mongo"
 	"go.uber.org/zap"
 )
 
 // databaseMigrator applies migrations to a database at the given URI.
 type databaseMigrator func(dbURL, migrationsPath string, log *zap.Logger) error
 
-// migrationRunner runs per-tenant database migrations.
-type migrationRunner struct {
+// MigrationRunner runs per-tenant database migrations.
+type MigrationRunner struct {
 	baseDatabase   string
 	migrationsPath string
 	baseURI        string
@@ -20,11 +20,11 @@ type migrationRunner struct {
 	log            *zap.Logger
 }
 
-// newMigrationRunner creates a migrationRunner.
-func newMigrationRunner(cfg mongo.Config, log *zap.Logger) *migrationRunner {
+// NewMigrationRunner creates a MigrationRunner.
+func NewMigrationRunner(cfg mongo.Config, log *zap.Logger) *MigrationRunner {
 	baseCfg := cfg
 	baseCfg.Database = ""
-	return &migrationRunner{
+	return &MigrationRunner{
 		baseDatabase:   cfg.Database,
 		migrationsPath: cfg.Migrations.Path,
 		baseURI:        baseCfg.BuildURI(),
@@ -33,8 +33,8 @@ func newMigrationRunner(cfg mongo.Config, log *zap.Logger) *migrationRunner {
 	}
 }
 
-// migrateAll runs migrations for all given tenant slugs.
-func (r *migrationRunner) migrateAll(slugs []string) error {
+// MigrateAll runs migrations for all given tenant slugs.
+func (r *MigrationRunner) MigrateAll(slugs []string) error {
 	if len(slugs) == 0 {
 		r.log.Warn("No active tenants found, skipping migrations")
 		return nil
@@ -51,7 +51,7 @@ func (r *migrationRunner) migrateAll(slugs []string) error {
 	return nil
 }
 
-func (r *migrationRunner) migrateTenant(slug string) error {
+func (r *MigrationRunner) migrateTenant(slug string) error {
 	database := fmt.Sprintf("%s_%s", r.baseDatabase, slug)
 
 	u, err := url.Parse(r.baseURI)

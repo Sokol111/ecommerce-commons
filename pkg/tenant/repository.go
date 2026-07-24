@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/Sokol111/ecommerce-commons/pkg/persistence/mongo"
 	"go.mongodb.org/mongo-driver/v2/bson"
 	mongodriver "go.mongodb.org/mongo-driver/v2/mongo"
 	"go.mongodb.org/mongo-driver/v2/mongo/options"
@@ -30,11 +29,11 @@ type Record struct {
 	ModifiedAt  time.Time  `bson:"modified_at"`
 }
 
-// repository provides access to the local tenant registry stored in the shared (admin) database.
+// Repository provides access to the local tenant registry stored in the shared (admin) database.
 // Used for:
 //   - Fallback tenant list when tenant-service API is unavailable
 //   - Deferred cleanup: marking tenants for deletion and querying pending deletions
-type repository interface {
+type Repository interface {
 	// Upsert creates or updates a tenant record with status=active.
 	Upsert(ctx context.Context, slug string) error
 
@@ -51,18 +50,18 @@ type repository interface {
 	Remove(ctx context.Context, slug string) error
 }
 
-type mongoRepository struct {
+type repository struct {
 	coll *mongodriver.Collection
 }
 
-// newMongoRepository creates a repository backed by MongoDB.
-func newMongoRepository(admin mongo.Admin) repository {
-	return &mongoRepository{
-		coll: admin.GetDatabase().Collection("tenants"),
+// NewMongoRepository creates a repository backed by MongoDB.
+func NewMongoRepository(database *mongodriver.Database) Repository {
+	return &repository{
+		coll: database.Collection("tenants"),
 	}
 }
 
-func (r *mongoRepository) Upsert(ctx context.Context, slug string) error {
+func (r *repository) Upsert(ctx context.Context, slug string) error {
 	now := time.Now()
 	filter := bson.D{{Key: "_id", Value: slug}}
 	update := bson.D{
@@ -83,7 +82,7 @@ func (r *mongoRepository) Upsert(ctx context.Context, slug string) error {
 	return nil
 }
 
-func (r *mongoRepository) MarkForDeletion(ctx context.Context, slug string, deleteAfter time.Time) error {
+func (r *repository) MarkForDeletion(ctx context.Context, slug string, deleteAfter time.Time) error {
 	now := time.Now()
 	filter := bson.D{{Key: "_id", Value: slug}}
 	update := bson.D{
@@ -104,7 +103,7 @@ func (r *mongoRepository) MarkForDeletion(ctx context.Context, slug string, dele
 	return nil
 }
 
-func (r *mongoRepository) FindPendingDeletion(ctx context.Context) ([]Record, error) {
+func (r *repository) FindPendingDeletion(ctx context.Context) ([]Record, error) {
 	filter := bson.D{
 		{Key: "status", Value: StatusPendingDeletion},
 		{Key: "delete_after", Value: bson.D{{Key: "$lte", Value: time.Now()}}},
@@ -123,7 +122,7 @@ func (r *mongoRepository) FindPendingDeletion(ctx context.Context) ([]Record, er
 	return records, nil
 }
 
-func (r *mongoRepository) FindActive(ctx context.Context) ([]Record, error) {
+func (r *repository) FindActive(ctx context.Context) ([]Record, error) {
 	filter := bson.D{{Key: "status", Value: StatusActive}}
 
 	cursor, err := r.coll.Find(ctx, filter)
@@ -139,7 +138,7 @@ func (r *mongoRepository) FindActive(ctx context.Context) ([]Record, error) {
 	return records, nil
 }
 
-func (r *mongoRepository) Remove(ctx context.Context, slug string) error {
+func (r *repository) Remove(ctx context.Context, slug string) error {
 	filter := bson.D{{Key: "_id", Value: slug}}
 	if _, err := r.coll.DeleteOne(ctx, filter); err != nil {
 		return fmt.Errorf("failed to remove tenant %q from registry: %w", slug, err)

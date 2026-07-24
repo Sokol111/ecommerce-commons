@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/Sokol111/ecommerce-commons/pkg/persistence/mongo"
 	"go.mongodb.org/mongo-driver/v2/bson"
 	mongodriver "go.mongodb.org/mongo-driver/v2/mongo"
 	"go.mongodb.org/mongo-driver/v2/mongo/options"
@@ -29,9 +28,9 @@ type outboxRepository struct {
 	maxBackoffMillis int64
 }
 
-func NewOutboxRepository(m mongo.Mongo, config Config) Repository {
+func NewOutboxRepository(database *mongodriver.Database, config Config) Repository {
 	return &outboxRepository{
-		coll:             m.GetCollection("outbox"),
+		coll:             database.Collection("outbox"),
 		maxBackoffMillis: config.MaxBackoff.Milliseconds(),
 	}
 }

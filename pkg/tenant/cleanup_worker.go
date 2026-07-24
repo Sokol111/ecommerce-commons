@@ -9,17 +9,17 @@ import (
 
 const cleanupWorkerInterval = 1 * time.Minute
 
-type cleanupWorker struct {
-	repo     repository
+type CleanupWorker struct {
+	repo     Repository
 	cleaners []Cleaner
 	log      *zap.Logger
 }
 
-func newCleanupWorker(repo repository, cleaners []Cleaner, log *zap.Logger) *cleanupWorker {
-	return &cleanupWorker{repo: repo, cleaners: cleaners, log: log}
+func NewCleanupWorker(repo Repository, cleaners []Cleaner, log *zap.Logger) *CleanupWorker {
+	return &CleanupWorker{repo: repo, cleaners: cleaners, log: log}
 }
 
-func (w *cleanupWorker) Run(ctx context.Context) error {
+func (w *CleanupWorker) Run(ctx context.Context) error {
 	ticker := time.NewTicker(cleanupWorkerInterval)
 	defer ticker.Stop()
 
@@ -33,7 +33,7 @@ func (w *cleanupWorker) Run(ctx context.Context) error {
 	}
 }
 
-func (w *cleanupWorker) processExpiredTenants(ctx context.Context) {
+func (w *CleanupWorker) processExpiredTenants(ctx context.Context) {
 	records, err := w.repo.FindPendingDeletion(ctx)
 	if err != nil {
 		w.log.Error("failed to find pending deletion tenants", zap.Error(err))
@@ -45,7 +45,7 @@ func (w *cleanupWorker) processExpiredTenants(ctx context.Context) {
 	}
 }
 
-func (w *cleanupWorker) cleanupTenant(ctx context.Context, slug string) {
+func (w *CleanupWorker) cleanupTenant(ctx context.Context, slug string) {
 	w.log.Info("cleaning up expired tenant", zap.String("tenant", slug))
 
 	for _, cleaner := range w.cleaners {

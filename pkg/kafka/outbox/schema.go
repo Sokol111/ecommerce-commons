@@ -4,7 +4,6 @@ import (
 	"context"
 	"time"
 
-	"github.com/Sokol111/ecommerce-commons/pkg/persistence/mongo"
 	"go.mongodb.org/mongo-driver/v2/bson"
 	mongodriver "go.mongodb.org/mongo-driver/v2/mongo"
 	"go.mongodb.org/mongo-driver/v2/mongo/options"
@@ -23,8 +22,8 @@ const (
 
 // EnsureIndexes creates required indexes for outbox collection.
 // This is idempotent - safe to call multiple times.
-func EnsureIndexes(ctx context.Context, m mongo.Mongo) error {
-	coll := m.GetCollection(collectionName)
+func EnsureIndexes(ctx context.Context, database *mongodriver.Database) error {
+	coll := database.Collection(collectionName)
 
 	indexes := []mongodriver.IndexModel{
 		{

@@ -4,7 +4,7 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/Sokol111/ecommerce-commons/pkg/persistence/mongo"
+	mongodriver "go.mongodb.org/mongo-driver/v2/mongo"
 	"go.uber.org/zap"
 )
 
@@ -16,23 +16,22 @@ type Cleaner interface {
 
 // mongoCleaner drops tenant databases during tenant cleanup.
 type mongoCleaner struct {
-	admin mongo.Admin
-	log   *zap.Logger
+	database *mongodriver.Database
+	log      *zap.Logger
 }
 
-// newMongoCleaner creates a Cleaner that drops tenant databases.
-func newMongoCleaner(admin mongo.Admin, log *zap.Logger) *mongoCleaner {
-	return &mongoCleaner{admin: admin, log: log}
+// NewMongoCleaner creates a Cleaner that drops tenant databases.
+func NewMongoCleaner(database *mongodriver.Database, log *zap.Logger) Cleaner {
+	return &mongoCleaner{database: database, log: log}
 }
 
 // CleanupTenant drops the database for the given tenant slug.
 func (c *mongoCleaner) CleanupTenant(ctx context.Context, slug string) error {
-	db := c.admin.GetDatabase()
-	dbName := fmt.Sprintf("%s_%s", db.Name(), slug)
+	dbName := fmt.Sprintf("%s_%s", c.database.Name(), slug)
 
 	c.log.Info("Dropping tenant database", zap.String("tenant", slug), zap.String("database", dbName))
 
-	if err := db.Client().Database(dbName).Drop(ctx); err != nil {
+	if err := c.database.Client().Database(dbName).Drop(ctx); err != nil {
 		return fmt.Errorf("failed to drop tenant database %q: %w", dbName, err)
 	}
 

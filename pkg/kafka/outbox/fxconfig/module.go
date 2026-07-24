@@ -3,12 +3,13 @@ package fxconfig
 import (
 	"context"
 
+	mongodriver "go.mongodb.org/mongo-driver/v2/mongo"
+
 	coreconfig "github.com/Sokol111/ecommerce-commons/pkg/core/config"
 	"github.com/Sokol111/ecommerce-commons/pkg/core/health"
 	"github.com/Sokol111/ecommerce-commons/pkg/core/worker"
 	"github.com/Sokol111/ecommerce-commons/pkg/kafka/kafkaproto"
 	"github.com/Sokol111/ecommerce-commons/pkg/kafka/outbox"
-	"github.com/Sokol111/ecommerce-commons/pkg/persistence/mongo"
 	"go.uber.org/fx"
 	"go.uber.org/zap"
 )
@@ -51,12 +52,12 @@ func newHeaderPopulator(appCfg coreconfig.AppConfig) kafkaproto.HeaderPopulator 
 	return kafkaproto.NewHeaderPopulator(appCfg.ServiceName)
 }
 
-func ensureSchema(lc fx.Lifecycle, log *zap.Logger, m mongo.Mongo, readiness health.ComponentManager) {
+func ensureSchema(lc fx.Lifecycle, log *zap.Logger, database *mongodriver.Database, readiness health.ComponentManager) {
 	markReady := readiness.AddComponent("outbox-schema")
 	lc.Append(fx.Hook{
 		OnStart: func(ctx context.Context) error {
 			log.Info("ensuring outbox indexes")
-			if err := outbox.EnsureIndexes(ctx, m); err != nil {
+			if err := outbox.EnsureIndexes(ctx, database); err != nil {
 				return err
 			}
 			log.Info("outbox indexes ready")

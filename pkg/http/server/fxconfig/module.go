@@ -1,11 +1,14 @@
-package server
+package fxconfig
 
 import (
 	"context"
+	"net"
 	"net/http"
+	"strconv"
 
-	"github.com/Sokol111/ecommerce-commons/pkg/core/config"
+	coreconf "github.com/Sokol111/ecommerce-commons/pkg/core/config"
 	"github.com/Sokol111/ecommerce-commons/pkg/core/health"
+	"github.com/Sokol111/ecommerce-commons/pkg/http/server"
 	"go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp"
 	"go.uber.org/fx"
 	"go.uber.org/zap"
@@ -13,14 +16,14 @@ import (
 
 // serverOptions holds internal configuration for the HTTP server module.
 type serverOptions struct {
-	config *Config
+	config *server.Config
 }
 
 // Option is a functional option for configuring the HTTP server module.
 type Option func(*serverOptions)
 
 // WithServerConfig provides a static Config (useful for tests).
-func WithServerConfig(cfg Config) Option {
+func WithServerConfig(cfg server.Config) Option {
 	return func(opts *serverOptions) {
 		opts.config = &cfg
 	}
@@ -45,33 +48,38 @@ func NewHTTPServerModule(opts ...Option) fx.Option {
 		fx.Decorate(func(handler http.Handler) http.Handler {
 			return otelhttp.NewHandler(handler, "http-server")
 		}),
+		fx.Invoke(func(conf server.Config, logger *zap.Logger) {
+			logger.Info("server config loaded", zap.Any("config", conf))
+		}),
 		fx.Invoke(startHTTPServer),
 	)
 }
 
-func provideConfig(opts *serverOptions, loader *config.Loader, logger *zap.Logger) (Config, error) {
-	cfg, err := config.Load[Config](loader, "server", opts.config)
-	if err != nil {
-		return Config{}, err
-	}
-
-	logger.Info("server config loaded", zap.Any("config", cfg))
-	return cfg, nil
+func provideConfig(opts *serverOptions, loader *coreconf.Loader, logger *zap.Logger) (server.Config, error) {
+	return coreconf.Load[server.Config](loader, "server", opts.config)
 }
 
-func startHTTPServer(lc fx.Lifecycle, log *zap.Logger, conf Config, handler http.Handler, readiness health.ComponentManager, shutdowner fx.Shutdowner) {
-	var srv Server
+func startHTTPServer(lc fx.Lifecycle, log *zap.Logger, conf server.Config, handler http.Handler, readiness health.ComponentManager, shutdowner fx.Shutdowner) {
+	var srv *http.Server
 	markReady := readiness.AddComponent("http-server")
 	lc.Append(fx.Hook{
 		OnStart: func(ctx context.Context) error {
 			// Create server in OnStart - all routes are registered by now
-			srv = newServer(log, conf, handler)
+			srv = server.NewServer(conf, handler)
+
+			ln, err := net.Listen("tcp", ":"+strconv.Itoa(conf.Port))
+			if err != nil {
+				log.Error("failed to listen", zap.Error(err))
+				return err
+			}
+			actualAddr := ln.Addr()
+			log.Info("starting HTTP server at", zap.String("addr", actualAddr.String()))
+
+			markReady()
 
 			go func() {
-				if err := srv.ServeWithReadyCallback(func() {
-					markReady()
-				}); err != nil {
-					log.Error("HTTP server failed, shutting down application", zap.Error(err))
+				if err := srv.Serve(ln); err != nil && err != http.ErrServerClosed {
+					log.Error("HTTP server stopped with error", zap.Error(err))
 					_ = shutdowner.Shutdown() //nolint:errcheck // shutdown is best-effort
 				}
 			}()

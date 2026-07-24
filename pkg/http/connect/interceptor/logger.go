@@ -7,27 +7,10 @@ import (
 
 	"connectrpc.com/connect"
 	"github.com/Sokol111/ecommerce-commons/pkg/core/logger"
-	"go.uber.org/fx"
 	"go.uber.org/zap"
 )
 
-// LoggerModule provides a request-logging interceptor.
-// Recommended priority: 20 (after recovery).
-func LoggerModule(priority int) fx.Option {
-	return fx.Provide(
-		fx.Annotate(
-			func() Interceptor {
-				return Interceptor{
-					Priority: priority,
-					Handler:  connect.UnaryInterceptorFunc(loggerUnaryInterceptor),
-				}
-			},
-			fx.ResultTags(`group:"connect_interceptor"`),
-		),
-	)
-}
-
-func loggerUnaryInterceptor(next connect.UnaryFunc) connect.UnaryFunc {
+func LoggerUnaryInterceptor(next connect.UnaryFunc) connect.UnaryFunc {
 	return func(ctx context.Context, req connect.AnyRequest) (connect.AnyResponse, error) {
 		start := time.Now()
 

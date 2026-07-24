@@ -3,16 +3,16 @@ package fxconfig
 import (
 	"time"
 
-	config_fx_pkg "github.com/Sokol111/ecommerce-commons/pkg/core/config/fxconfig"
-	health_fx_pkg "github.com/Sokol111/ecommerce-commons/pkg/core/health/fxconfig"
-	logger_fx_pkg "github.com/Sokol111/ecommerce-commons/pkg/core/logger/fxconfig"
+	fx_config "github.com/Sokol111/ecommerce-commons/pkg/core/config/fxconfig"
+	fx_health "github.com/Sokol111/ecommerce-commons/pkg/core/health/fxconfig"
+	fx_logger "github.com/Sokol111/ecommerce-commons/pkg/core/logger/fxconfig"
 	"go.uber.org/fx"
 )
 
 // coreOptions holds internal configuration for the core module.
 type coreOptions struct {
-	configOpts []config_fx_pkg.Option
-	loggerOpts []logger_fx_pkg.Option
+	configOpts []fx_config.Option
+	loggerOpts []fx_logger.Option
 }
 
 // Option is a functional option for configuring the core module.
@@ -34,7 +34,7 @@ type Option func(*coreOptions)
 //	        logger_fxpkg.WithLoggerConfig(logger.Config{...}),
 //	    ),
 //	)
-func WithConfigOptions(opts ...config_fx_pkg.Option) Option {
+func WithConfigOptions(opts ...fx_config.Option) Option {
 	return func(co *coreOptions) {
 		co.configOpts = append(co.configOpts, opts...)
 	}
@@ -42,7 +42,7 @@ func WithConfigOptions(opts ...config_fx_pkg.Option) Option {
 
 // WithLoggerOptions passes logger options directly to the underlying logger module.
 // Use this to provide static logger config or customize logger behavior.
-func WithLoggerOptions(opts ...logger_fx_pkg.Option) Option {
+func WithLoggerOptions(opts ...fx_logger.Option) Option {
 	return func(co *coreOptions) {
 		co.loggerOpts = append(co.loggerOpts, opts...)
 	}
@@ -79,8 +79,8 @@ func NewCoreModule(opts ...Option) fx.Option {
 	return fx.Options(
 		fx.StartTimeout(5*time.Minute),
 		fx.StopTimeout(5*time.Minute),
-		config_fx_pkg.NewConfigModule(cfg.configOpts...),
-		logger_fx_pkg.NewZapLoggingModule(cfg.loggerOpts...),
-		health_fx_pkg.NewReadinessModule(),
+		fx_config.NewConfigModule(cfg.configOpts...),
+		fx_logger.NewZapLoggingModule(cfg.loggerOpts...),
+		fx_health.NewReadinessModule(),
 	)
 }

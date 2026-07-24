@@ -1,8 +1,8 @@
-package modules
+package fxconfig
 
 import (
-	"github.com/Sokol111/ecommerce-commons/pkg/http/connect/interceptor"
-	"github.com/Sokol111/ecommerce-commons/pkg/http/health"
+	fx_interceptor "github.com/Sokol111/ecommerce-commons/pkg/http/connect/interceptor/fxconfig"
+	fx_health "github.com/Sokol111/ecommerce-commons/pkg/http/health/fxconfig"
 	"github.com/Sokol111/ecommerce-commons/pkg/http/server"
 	"go.uber.org/fx"
 )
@@ -12,19 +12,19 @@ type httpOptions struct {
 	serverConfig *server.Config
 }
 
-// HTTPOption is a functional option for configuring the HTTP module.
-type HTTPOption func(*httpOptions)
+// Option is a functional option for configuring the HTTP module.
+type Option func(*httpOptions)
 
 // WithServerConfig provides a static server Config (useful for tests).
 // When set, the server configuration will not be loaded from koanf.
-func WithServerConfig(cfg server.Config) HTTPOption {
+func WithServerConfig(cfg server.Config) Option {
 	return func(opts *httpOptions) {
 		opts.serverConfig = &cfg
 	}
 }
 
 // WithH2C enables HTTP/2 without TLS (required for native gRPC support).
-func WithH2C() HTTPOption {
+func WithH2C() Option {
 	return func(opts *httpOptions) {
 		if opts.serverConfig == nil {
 			opts.serverConfig = &server.Config{}
@@ -48,7 +48,7 @@ func WithH2C() HTTPOption {
 //	modules.NewHTTPModule(
 //	    modules.WithServerConfig(server.Config{...}),
 //	)
-func NewHTTPModule(opts ...HTTPOption) fx.Option {
+func NewHTTPModule(opts ...Option) fx.Option {
 	cfg := &httpOptions{}
 	for _, opt := range opts {
 		opt(cfg)
@@ -56,8 +56,8 @@ func NewHTTPModule(opts ...HTTPOption) fx.Option {
 
 	return fx.Options(
 		serverModule(cfg),
-		health.NewHealthRoutesModule(),
-		interceptor.NewModule(),
+		fx_health.NewHealthRoutesModule(),
+		fx_interceptor.NewInterceptorsModule(),
 	)
 }
 

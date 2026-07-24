@@ -7,19 +7,19 @@ import (
 	coreHealth "github.com/Sokol111/ecommerce-commons/pkg/core/health"
 )
 
-type healthHandler struct {
+type HealthHandler struct {
 	readiness      coreHealth.ReadinessChecker
 	trafficControl coreHealth.TrafficController
 }
 
-func newHealthHandler(r coreHealth.ReadinessChecker, tc coreHealth.TrafficController) *healthHandler {
-	return &healthHandler{
+func NewHealthHandler(r coreHealth.ReadinessChecker, tc coreHealth.TrafficController) *HealthHandler {
+	return &HealthHandler{
 		readiness:      r,
 		trafficControl: tc,
 	}
 }
 
-func (h *healthHandler) IsReady(w http.ResponseWriter, r *http.Request) {
+func (h *HealthHandler) IsReady(w http.ResponseWriter, r *http.Request) {
 	// Support both simple text and detailed JSON responses
 	if r.URL.Query().Get("format") == "json" || r.Header.Get("Accept") == "application/json" {
 		status := h.readiness.GetStatus()
@@ -45,7 +45,12 @@ func (h *healthHandler) IsReady(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func (h *healthHandler) IsLive(w http.ResponseWriter, _ *http.Request) {
+func (h *HealthHandler) IsLive(w http.ResponseWriter, _ *http.Request) {
 	w.WriteHeader(http.StatusOK)
 	_, _ = w.Write([]byte("alive")) //nolint:errcheck // HTTP handler, error logged by net/http
+}
+
+func RegisterHealthRoutes(mux *http.ServeMux, h *HealthHandler) {
+	mux.HandleFunc("/health/ready", h.IsReady)
+	mux.HandleFunc("/health/live", h.IsLive)
 }

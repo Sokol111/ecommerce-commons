@@ -39,7 +39,7 @@ func TestHealthHandler_IsReady(t *testing.T) {
 	t.Run("returns 200 OK when ready (simple format)", func(t *testing.T) {
 		readiness := &mockReadinessChecker{isReady: true}
 		traffic := &mockTrafficController{}
-		handler := newHealthHandler(readiness, traffic)
+		handler := NewHealthHandler(readiness, traffic)
 
 		w := httptest.NewRecorder()
 		r := httptest.NewRequest("GET", "/health/ready", nil)
@@ -54,7 +54,7 @@ func TestHealthHandler_IsReady(t *testing.T) {
 	t.Run("returns 503 Service Unavailable when not ready (simple format)", func(t *testing.T) {
 		readiness := &mockReadinessChecker{isReady: false}
 		traffic := &mockTrafficController{}
-		handler := newHealthHandler(readiness, traffic)
+		handler := NewHealthHandler(readiness, traffic)
 
 		w := httptest.NewRecorder()
 		r := httptest.NewRequest("GET", "/health/ready", nil)
@@ -80,7 +80,7 @@ func TestHealthHandler_IsReady(t *testing.T) {
 			},
 		}
 		traffic := &mockTrafficController{}
-		handler := newHealthHandler(readiness, traffic)
+		handler := NewHealthHandler(readiness, traffic)
 
 		w := httptest.NewRecorder()
 		r := httptest.NewRequest("GET", "/health/ready?format=json", nil)
@@ -105,7 +105,7 @@ func TestHealthHandler_IsReady(t *testing.T) {
 			},
 		}
 		traffic := &mockTrafficController{}
-		handler := newHealthHandler(readiness, traffic)
+		handler := NewHealthHandler(readiness, traffic)
 
 		w := httptest.NewRecorder()
 		r := httptest.NewRequest("GET", "/health/ready", nil)
@@ -130,7 +130,7 @@ func TestHealthHandler_IsReady(t *testing.T) {
 			},
 		}
 		traffic := &mockTrafficController{}
-		handler := newHealthHandler(readiness, traffic)
+		handler := NewHealthHandler(readiness, traffic)
 
 		w := httptest.NewRecorder()
 		r := httptest.NewRequest("GET", "/health/ready?format=json", nil)
@@ -151,7 +151,7 @@ func TestHealthHandler_IsLive(t *testing.T) {
 	t.Run("always returns 200 OK", func(t *testing.T) {
 		readiness := &mockReadinessChecker{isReady: false}
 		traffic := &mockTrafficController{}
-		handler := newHealthHandler(readiness, traffic)
+		handler := NewHealthHandler(readiness, traffic)
 
 		w := httptest.NewRecorder()
 		r := httptest.NewRequest("GET", "/health/live", nil)
@@ -166,7 +166,7 @@ func TestHealthHandler_IsLive(t *testing.T) {
 		// Even when service is not ready, liveness should pass
 		readiness := &mockReadinessChecker{isReady: false}
 		traffic := &mockTrafficController{}
-		handler := newHealthHandler(readiness, traffic)
+		handler := NewHealthHandler(readiness, traffic)
 
 		w := httptest.NewRecorder()
 		r := httptest.NewRequest("GET", "/health/live", nil)
@@ -181,7 +181,7 @@ func TestNewHealthHandler(t *testing.T) {
 	readiness := &mockReadinessChecker{}
 	traffic := &mockTrafficController{}
 
-	handler := newHealthHandler(readiness, traffic)
+	handler := NewHealthHandler(readiness, traffic)
 
 	assert.NotNil(t, handler)
 	assert.Equal(t, readiness, handler.readiness)
@@ -191,10 +191,10 @@ func TestNewHealthHandler(t *testing.T) {
 func TestRegisterHealthRoutes(t *testing.T) {
 	readiness := &mockReadinessChecker{isReady: true}
 	traffic := &mockTrafficController{}
-	handler := newHealthHandler(readiness, traffic)
+	handler := NewHealthHandler(readiness, traffic)
 	mux := http.NewServeMux()
 
-	registerHealthRoutes(mux, handler)
+	RegisterHealthRoutes(mux, handler)
 
 	// Test /health/ready endpoint is registered
 	t.Run("registers /health/ready endpoint", func(t *testing.T) {

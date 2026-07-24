@@ -7,27 +7,10 @@ import (
 
 	"connectrpc.com/connect"
 	"github.com/Sokol111/ecommerce-commons/pkg/core/logger"
-	"go.uber.org/fx"
 	"go.uber.org/zap"
 )
 
-// RecoveryModule provides a panic-recovery interceptor.
-// Recommended priority: 10 (first in chain).
-func RecoveryModule(priority int) fx.Option {
-	return fx.Provide(
-		fx.Annotate(
-			func() Interceptor {
-				return Interceptor{
-					Priority: priority,
-					Handler:  connect.UnaryInterceptorFunc(recoveryUnaryInterceptor),
-				}
-			},
-			fx.ResultTags(`group:"connect_interceptor"`),
-		),
-	)
-}
-
-func recoveryUnaryInterceptor(next connect.UnaryFunc) connect.UnaryFunc {
+func RecoveryUnaryInterceptor(next connect.UnaryFunc) connect.UnaryFunc {
 	return func(ctx context.Context, req connect.AnyRequest) (_ connect.AnyResponse, err error) {
 		defer func() {
 			if r := recover(); r != nil {

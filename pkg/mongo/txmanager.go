@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 
+	mongodriver "go.mongodb.org/mongo-driver/v2/mongo"
 	"go.uber.org/zap"
 )
 
@@ -25,24 +26,24 @@ func WithTransaction[T any](ctx context.Context, tm TxManager, fn func(txCtx con
 	return result.(T), nil //nolint:errcheck // Type assertion is safe here since fn returns T
 }
 
-type mongoTxManager struct {
-	admin Admin
-	log   *zap.Logger
+type txManager struct {
+	client *mongodriver.Client
+	log    *zap.Logger
 }
 
-func newTxManager(admin Admin, log *zap.Logger) TxManager {
-	return &mongoTxManager{
-		admin: admin,
-		log:   log,
+func NewTxManager(client *mongodriver.Client, log *zap.Logger) TxManager {
+	return &txManager{
+		client: client,
+		log:    log,
 	}
 }
 
 // WithTransaction executes the provided function within a MongoDB transaction.
 // MongoDB driver's WithTransaction already handles retries for transient errors internally.
-func (t *mongoTxManager) WithTransaction(ctx context.Context, fn func(sessCtx context.Context) (any, error)) (any, error) {
+func (t *txManager) WithTransaction(ctx context.Context, fn func(sessCtx context.Context) (any, error)) (any, error) {
 	t.log.Debug("starting transaction")
 
-	sess, err := t.admin.StartSession(ctx)
+	sess, err := t.client.StartSession()
 	if err != nil {
 		return nil, fmt.Errorf("failed to start session: %w", err)
 	}

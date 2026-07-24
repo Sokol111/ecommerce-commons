@@ -6,7 +6,6 @@ import (
 	"github.com/Sokol111/ecommerce-commons/pkg/core/health"
 	"github.com/Sokol111/ecommerce-commons/pkg/core/worker"
 	"github.com/Sokol111/ecommerce-commons/pkg/http/connect/interceptor"
-	"github.com/Sokol111/ecommerce-commons/pkg/persistence/mongo"
 	"go.uber.org/fx"
 )
 
@@ -104,9 +103,4 @@ func registerMigrations(lc fx.Lifecycle, syncer *tenantSyncer, runner *migration
 			return nil
 		},
 	})
-}
-
-// provideDatabaseResolver provides a DatabaseResolver that extracts the tenant slug from context.
-func provideDatabaseResolver() mongo.DatabaseResolver {
-	return MustSlugFromContext
 }

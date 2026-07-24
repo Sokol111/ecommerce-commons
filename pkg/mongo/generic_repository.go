@@ -58,7 +58,7 @@ type EntityMapper[Domain any, Entity any] interface {
 
 // GenericRepository provides common CRUD operations for MongoDB.
 type GenericRepository[Domain any, Entity any] struct {
-	collProvider collectionProvider
+	collProvider CollectionProvider
 	mapper       EntityMapper[Domain, Entity]
 }
 
@@ -74,45 +74,9 @@ func (r *GenericRepository[Domain, Entity]) Mapper() EntityMapper[Domain, Entity
 }
 
 // NewGenericRepository creates a new generic repository with a fixed collection.
-// This is the standard constructor for single-tenant services.
+// This is the standard constructor for single-tenant and multi-tenant services.
 func NewGenericRepository[Domain any, Entity any](
-	db Mongo,
-	collectionName string,
-	mapper EntityMapper[Domain, Entity],
-) (*GenericRepository[Domain, Entity], error) {
-	if db == nil {
-		return nil, fmt.Errorf("db is required")
-	}
-	if collectionName == "" {
-		return nil, fmt.Errorf("collection name is required")
-	}
-	return newRepository(newStaticCollectionProvider(db.GetCollection(collectionName)), mapper)
-}
-
-// NewTenantRepository creates a new generic repository with dynamic collection resolution.
-// Used for multi-tenant services where the collection is resolved per-request
-// based on the context (database-per-tenant strategy).
-// The resolver function extracts the database suffix (e.g. tenant slug) from context.
-func NewTenantRepository[Domain any, Entity any](
-	admin Admin,
-	collectionName string,
-	mapper EntityMapper[Domain, Entity],
-	resolver DatabaseResolver,
-) (*GenericRepository[Domain, Entity], error) {
-	if admin == nil {
-		return nil, fmt.Errorf("admin is required")
-	}
-	if collectionName == "" {
-		return nil, fmt.Errorf("collection name is required")
-	}
-	if resolver == nil {
-		return nil, fmt.Errorf("database resolver is required")
-	}
-	return newRepository(newDynamicCollectionProvider(admin, collectionName, resolver), mapper)
-}
-
-func newRepository[Domain any, Entity any](
-	provider collectionProvider,
+	provider CollectionProvider,
 	mapper EntityMapper[Domain, Entity],
 ) (*GenericRepository[Domain, Entity], error) {
 	if mapper == nil {

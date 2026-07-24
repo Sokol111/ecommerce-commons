@@ -10,11 +10,6 @@ import (
 	"go.uber.org/zap"
 )
 
-// runMigrations applies database migrations.
-func runMigrations(cfg Config, log *zap.Logger) error {
-	return MigrateDatabase(cfg.BuildURI(), cfg.Migrations.Path, log)
-}
-
 // MigrateDatabase applies file-based migrations to the given MongoDB database URI.
 func MigrateDatabase(dbURL, migrationsPath string, log *zap.Logger) error {
 	sourcePath := "file://" + migrationsPath

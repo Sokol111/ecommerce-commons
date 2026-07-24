@@ -68,6 +68,7 @@ type ReadPreferenceConfig struct {
 type MigrationConfig struct {
 	// Path to migrations directory
 	Path string `koanf:"path"`
+	Mode string `koanf:"mode"` // single, multitenant, none
 }
 
 // BuildURI constructs a MongoDB connection string from Config.
@@ -133,6 +134,9 @@ func (c *Config) ApplyDefaults() {
 	// Migration defaults
 	if c.Migrations.Path == "" {
 		c.Migrations.Path = "/db/migrations"
+	}
+	if c.Migrations.Mode == "" {
+		c.Migrations.Mode = "none" // Default: no migrations
 	}
 }
 
@@ -204,9 +208,9 @@ func (c ReadPreferenceConfig) validate() error {
 	return nil
 }
 
-// buildWriteConcern constructs a WriteConcern from config.
+// BuildWriteConcern constructs a WriteConcern from config.
 // Returns nil if no write concern is configured.
-func (c WriteConcernConfig) buildWriteConcern() *writeconcern.WriteConcern {
+func (c WriteConcernConfig) BuildWriteConcern() *writeconcern.WriteConcern {
 	if c.W == "" && c.Journal == nil {
 		return nil
 	}
@@ -227,10 +231,10 @@ func (c WriteConcernConfig) buildWriteConcern() *writeconcern.WriteConcern {
 	return wc
 }
 
-// buildReadConcern constructs a ReadConcern from config.
+// BuildReadConcern constructs a ReadConcern from config.
 // Returns nil if no read concern level is configured.
 // Assumes validate() has been called to ensure Level is valid.
-func (c ReadConcernConfig) buildReadConcern() *readconcern.ReadConcern {
+func (c ReadConcernConfig) BuildReadConcern() *readconcern.ReadConcern {
 	switch c.Level {
 	case "local":
 		return readconcern.Local()
@@ -247,10 +251,10 @@ func (c ReadConcernConfig) buildReadConcern() *readconcern.ReadConcern {
 	}
 }
 
-// buildReadPreference constructs a ReadPreference from config.
+// BuildReadPreference constructs a ReadPreference from config.
 // Returns nil if no read preference mode is configured.
 // Assumes validate() has been called to ensure Mode is valid.
-func (c ReadPreferenceConfig) buildReadPreference() *readpref.ReadPref {
+func (c ReadPreferenceConfig) BuildReadPreference() *readpref.ReadPref {
 	mode, ok := validReadPreferenceModes[c.Mode]
 	if !ok {
 		return nil

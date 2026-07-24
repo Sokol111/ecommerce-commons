@@ -1,0 +1,19 @@
+pkg/http/fxconfig/module.go
+  s_b9a2713dc53267::t_db34c773bda29e 6,12,18-21,34
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.14",
+  "base_commit_sha": "6b6dc8cbc510cab9c294d2c4b6a33deb943fbbb8",
+  "prompts": {},
+  "sessions": {
+    "s_b9a2713dc53267": {
+      "agent_id": {
+        "tool": "opencode",
+        "id": "ses_0704fce6bffeFgIInE4tYXczQQ",
+        "model": "mimo-v2.5-free"
+      },
+      "human_author": "Sokol111 <igorsokol111@gmail.com>"
+    }
+  }
+}

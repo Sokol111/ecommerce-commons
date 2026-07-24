@@ -1,0 +1,88 @@
+package consumer
+
+import (
+	"context"
+	"fmt"
+
+	"github.com/Sokol111/ecommerce-commons/pkg/kafka/kafkaproto"
+	"github.com/twmb/franz-go/pkg/kgo"
+	"go.uber.org/zap"
+	"google.golang.org/protobuf/proto"
+)
+
+// MessageEnvelope contains deserialized event with original Kafka record metadata.
+type MessageEnvelope struct {
+	Event  proto.Message
+	Record *kgo.Record
+}
+
+// MessageDeserializer reads raw Kafka records, deserializes them, and sends to output channel.
+type MessageDeserializer struct {
+	inputChan    <-chan *kgo.Record
+	outputChan   chan<- *MessageEnvelope
+	deserializer kafkaproto.Deserializer
+	log          *zap.Logger
+	tracer       MessageTracer
+	dlqHandler   DLQHandler
+}
+
+func NewMessageDeserializer(
+	inputChan chan *kgo.Record,
+	outputChan chan *MessageEnvelope,
+	deserializer kafkaproto.Deserializer,
+	log *zap.Logger,
+	tracer MessageTracer,
+	dlqHandler DLQHandler,
+) *MessageDeserializer {
+	return &MessageDeserializer{
+		inputChan:    inputChan,
+		outputChan:   outputChan,
+		deserializer: deserializer,
+		log:          log,
+		tracer:       tracer,
+		dlqHandler:   dlqHandler,
+	}
+}
+
+func (d *MessageDeserializer) Run(ctx context.Context) error {
+	for {
+		select {
+		case <-ctx.Done():
+			return nil
+		case record := <-d.inputChan:
+			d.deserializeAndSend(ctx, record)
+		}
+	}
+}
+
+func (d *MessageDeserializer) deserializeAndSend(ctx context.Context, record *kgo.Record) {
+	headers := make(map[string][]byte, len(record.Headers))
+	for _, h := range record.Headers {
+		headers[h.Key] = h.Value
+	}
+
+	event, err := d.deserializer.Deserialize(record.Value, headers)
+	if err != nil {
+		// Deserialization error is permanent - send to DLQ
+		d.log.Error("failed to deserialize message - sending to DLQ",
+			zap.String("key", string(record.Key)),
+			zap.Int32("partition", record.Partition),
+			zap.Int64("offset", record.Offset),
+			zap.Error(err))
+
+		tracedCtx := d.tracer.ExtractContext(ctx, record)
+		d.dlqHandler.SendToDLQ(tracedCtx, record, fmt.Errorf("deserialization failed: %w", err))
+		return
+	}
+
+	envelope := &MessageEnvelope{
+		Event:  event,
+		Record: record,
+	}
+
+	select {
+	case <-ctx.Done():
+		return
+	case d.outputChan <- envelope:
+	}
+}

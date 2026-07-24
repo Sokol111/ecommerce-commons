@@ -1,4 +1,4 @@
-package internal
+package fxconfig
 
 import (
 	"context"
@@ -11,8 +11,8 @@ import (
 // ExcludedPaths contains paths that should be excluded from tracing and metrics.
 var ExcludedPaths = []string{"/health", "/metrics"}
 
-// NewResource creates a new OpenTelemetry resource with service information.
-func NewResource(ctx context.Context, appCfg appconfig.AppConfig) (*resource.Resource, error) {
+// newResource creates a new OpenTelemetry resource with service information.
+func newResource(ctx context.Context, appCfg appconfig.AppConfig) (*resource.Resource, error) {
 	return resource.New(ctx,
 		resource.WithFromEnv(),
 		resource.WithAttributes(

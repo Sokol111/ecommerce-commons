@@ -1,23 +1,17 @@
-// Package profiling provides Grafana Pyroscope continuous profiling integration.
-package profiling
+package fxconfig
 
 import (
 	"context"
 	"runtime"
 
 	appconfig "github.com/Sokol111/ecommerce-commons/pkg/core/config"
-	"github.com/Sokol111/ecommerce-commons/pkg/observability/config"
+	"github.com/Sokol111/ecommerce-commons/pkg/observability"
 	"github.com/grafana/pyroscope-go"
 	"go.uber.org/fx"
 	"go.uber.org/zap"
 )
 
-// NewProfilingModule returns an fx.Option that provides continuous profiling.
-func NewProfilingModule() fx.Option {
-	return fx.Invoke(startProfiler)
-}
-
-func startProfiler(lc fx.Lifecycle, cfg config.Config, appCfg appconfig.AppConfig, log *zap.Logger) {
+func startProfiler(lc fx.Lifecycle, cfg observability.Config, appCfg appconfig.AppConfig, log *zap.Logger) {
 	if !cfg.Profiling.Enabled {
 		return
 	}
@@ -76,7 +70,7 @@ func (l *zapLogger) Infof(format string, args ...interface{}) {
 
 func (l *zapLogger) Debugf(_ string, _ ...interface{}) {}
 
-func buildProfileTypes(cfg config.ProfilingConfig) []pyroscope.ProfileType {
+func buildProfileTypes(cfg observability.ProfilingConfig) []pyroscope.ProfileType {
 	var types []pyroscope.ProfileType
 	if *cfg.CPU {
 		types = append(types, pyroscope.ProfileCPU)

@@ -250,8 +250,3 @@ kafka:
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "auto offset reset must be 'earliest' or 'latest'")
 }
-
-func TestNewKafkaConfigModule(t *testing.T) {
-	module := NewKafkaConfigModule()
-	assert.NotNil(t, module)
-}

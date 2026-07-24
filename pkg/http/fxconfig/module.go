@@ -3,20 +3,20 @@ package fxconfig
 import (
 	fx_interceptor "github.com/Sokol111/ecommerce-commons/pkg/http/connect/interceptor/fxconfig"
 	fx_health "github.com/Sokol111/ecommerce-commons/pkg/http/health/fxconfig"
-	server_fxconfig "github.com/Sokol111/ecommerce-commons/pkg/http/server/fxconfig"
+	fx_server "github.com/Sokol111/ecommerce-commons/pkg/http/server/fxconfig"
 	"go.uber.org/fx"
 )
 
 // httpOptions holds internal configuration for the HTTP module.
 type httpOptions struct {
-	serverOpts []server_fxconfig.Option
+	serverOpts []fx_server.Option
 }
 
 // Option is a functional option for configuring the HTTP module.
 type Option func(*httpOptions)
 
 // WithServerOptions passes options to the underlying server module.
-func WithServerOptions(opts ...server_fxconfig.Option) Option {
+func WithServerOptions(opts ...fx_server.Option) Option {
 	return func(o *httpOptions) {
 		o.serverOpts = append(o.serverOpts, opts...)
 	}
@@ -31,7 +31,7 @@ func NewHTTPModule(opts ...Option) fx.Option {
 	}
 
 	return fx.Options(
-		server_fxconfig.NewHTTPServerModule(cfg.serverOpts...),
+		fx_server.NewHTTPServerModule(cfg.serverOpts...),
 		fx_health.NewHealthRoutesModule(),
 		fx_interceptor.NewInterceptorsModule(),
 	)

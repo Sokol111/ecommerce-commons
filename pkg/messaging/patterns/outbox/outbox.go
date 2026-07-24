@@ -27,15 +27,15 @@ type Outbox interface {
 }
 
 type outbox struct {
-	outboxRepository repository
+	outboxRepository Repository
 	logger           *zap.Logger
-	entitiesChan     chan<- *outboxEntity
+	entitiesChan     chan<- *OutboxEntity
 	serializer       serde.Serializer
-	tracePropagator  tracePropagator
+	tracePropagator  TracePropagator
 	headerPopulator  kafkaproto.HeaderPopulator
 }
 
-func newOutbox(logger *zap.Logger, outboxRepository repository, entitiesChan chan *outboxEntity, serializer serde.Serializer, tracePropagator tracePropagator, headerPopulator kafkaproto.HeaderPopulator) Outbox {
+func NewOutbox(logger *zap.Logger, outboxRepository Repository, entitiesChan chan *OutboxEntity, serializer serde.Serializer, tracePropagator TracePropagator, headerPopulator kafkaproto.HeaderPopulator) Outbox {
 	return &outbox{
 		outboxRepository: outboxRepository,
 		logger:           logger,
@@ -79,7 +79,7 @@ func (o *outbox) Create(ctx context.Context, msg Message) (SendFunc, error) {
 	return o.createSendFunc(entity), nil
 }
 
-func (o *outbox) createSendFunc(entity *outboxEntity) SendFunc {
+func (o *outbox) createSendFunc(entity *OutboxEntity) SendFunc {
 	return func(ctx context.Context) error {
 		timer := time.NewTimer(1 * time.Second)
 		defer timer.Stop()

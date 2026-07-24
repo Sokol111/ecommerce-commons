@@ -82,13 +82,13 @@ func newTestMessage() Message {
 func TestOutbox_Create(t *testing.T) {
 	t.Run("successfully creates outbox message", func(t *testing.T) {
 		repo := newMockRepository()
-		entitiesChan := make(chan *outboxEntity, 10)
+		entitiesChan := make(chan *OutboxEntity, 10)
 		serializer := &mockSerializer{}
 		propagator := &mockTracePropagator{}
 		headerPopulator := &mockHeaderPopulator{}
 		log := zap.NewNop()
 
-		o := newOutbox(log, repo, entitiesChan, serializer, propagator, headerPopulator)
+		o := NewOutbox(log, repo, entitiesChan, serializer, propagator, headerPopulator)
 
 		msg := newTestMessage()
 
@@ -105,7 +105,7 @@ func TestOutbox_Create(t *testing.T) {
 
 	t.Run("serialization error returns error", func(t *testing.T) {
 		repo := newMockRepository()
-		entitiesChan := make(chan *outboxEntity, 10)
+		entitiesChan := make(chan *OutboxEntity, 10)
 		serializer := &mockSerializer{
 			serializeFunc: func(event proto.Message) ([]byte, error) {
 				return nil, errors.New("serialization failed")
@@ -115,7 +115,7 @@ func TestOutbox_Create(t *testing.T) {
 		headerPopulator := &mockHeaderPopulator{}
 		log := zap.NewNop()
 
-		o := newOutbox(log, repo, entitiesChan, serializer, propagator, headerPopulator)
+		o := NewOutbox(log, repo, entitiesChan, serializer, propagator, headerPopulator)
 
 		msg := Message{
 			Event: &emptypb.Empty{},
@@ -133,13 +133,13 @@ func TestOutbox_Create(t *testing.T) {
 	t.Run("repository error returns error", func(t *testing.T) {
 		repo := newMockRepository()
 		repo.createErr = errors.New("database error")
-		entitiesChan := make(chan *outboxEntity, 10)
+		entitiesChan := make(chan *OutboxEntity, 10)
 		serializer := &mockSerializer{}
 		propagator := &mockTracePropagator{}
 		headerPopulator := &mockHeaderPopulator{}
 		log := zap.NewNop()
 
-		o := newOutbox(log, repo, entitiesChan, serializer, propagator, headerPopulator)
+		o := NewOutbox(log, repo, entitiesChan, serializer, propagator, headerPopulator)
 
 		msg := Message{
 			Event: &emptypb.Empty{},
@@ -156,7 +156,7 @@ func TestOutbox_Create(t *testing.T) {
 
 	t.Run("headers are propagated with trace context", func(t *testing.T) {
 		repo := newMockRepository()
-		entitiesChan := make(chan *outboxEntity, 10)
+		entitiesChan := make(chan *OutboxEntity, 10)
 		serializer := &mockSerializer{}
 		propagator := &mockTracePropagator{
 			saveTraceContextFunc: func(ctx context.Context, headers map[string]string) map[string]string {
@@ -170,7 +170,7 @@ func TestOutbox_Create(t *testing.T) {
 		headerPopulator := &mockHeaderPopulator{}
 		log := zap.NewNop()
 
-		o := newOutbox(log, repo, entitiesChan, serializer, propagator, headerPopulator)
+		o := NewOutbox(log, repo, entitiesChan, serializer, propagator, headerPopulator)
 
 		msg := Message{
 			Event:   &emptypb.Empty{},
@@ -191,13 +191,13 @@ func TestOutbox_Create(t *testing.T) {
 func TestOutbox_SendFunc(t *testing.T) {
 	t.Run("sends entity to channel", func(t *testing.T) {
 		repo := newMockRepository()
-		entitiesChan := make(chan *outboxEntity, 10)
+		entitiesChan := make(chan *OutboxEntity, 10)
 		serializer := &mockSerializer{}
 		propagator := &mockTracePropagator{}
 		headerPopulator := &mockHeaderPopulator{}
 		log := zap.NewNop()
 
-		o := newOutbox(log, repo, entitiesChan, serializer, propagator, headerPopulator)
+		o := NewOutbox(log, repo, entitiesChan, serializer, propagator, headerPopulator)
 
 		msg := Message{
 			Event: &emptypb.Empty{},
@@ -221,13 +221,13 @@ func TestOutbox_SendFunc(t *testing.T) {
 
 	t.Run("returns error on context cancellation", func(t *testing.T) {
 		repo := newMockRepository()
-		entitiesChan := make(chan *outboxEntity) // unbuffered channel
+		entitiesChan := make(chan *OutboxEntity) // unbuffered channel
 		serializer := &mockSerializer{}
 		propagator := &mockTracePropagator{}
 		headerPopulator := &mockHeaderPopulator{}
 		log := zap.NewNop()
 
-		o := newOutbox(log, repo, entitiesChan, serializer, propagator, headerPopulator)
+		o := NewOutbox(log, repo, entitiesChan, serializer, propagator, headerPopulator)
 
 		msg := Message{
 			Event: &emptypb.Empty{},
@@ -248,13 +248,13 @@ func TestOutbox_SendFunc(t *testing.T) {
 
 	t.Run("returns error when channel is full", func(t *testing.T) {
 		repo := newMockRepository()
-		entitiesChan := make(chan *outboxEntity) // unbuffered, no receiver
+		entitiesChan := make(chan *OutboxEntity) // unbuffered, no receiver
 		serializer := &mockSerializer{}
 		propagator := &mockTracePropagator{}
 		headerPopulator := &mockHeaderPopulator{}
 		log := zap.NewNop()
 
-		o := newOutbox(log, repo, entitiesChan, serializer, propagator, headerPopulator)
+		o := NewOutbox(log, repo, entitiesChan, serializer, propagator, headerPopulator)
 
 		msg := Message{
 			Event: &emptypb.Empty{},
@@ -275,13 +275,13 @@ func TestOutbox_SendFunc(t *testing.T) {
 func TestOutbox_NilHeaders(t *testing.T) {
 	t.Run("handles nil headers gracefully", func(t *testing.T) {
 		repo := newMockRepository()
-		entitiesChan := make(chan *outboxEntity, 10)
+		entitiesChan := make(chan *OutboxEntity, 10)
 		serializer := &mockSerializer{}
 		propagator := &mockTracePropagator{}
 		headerPopulator := &mockHeaderPopulator{}
 		log := zap.NewNop()
 
-		o := newOutbox(log, repo, entitiesChan, serializer, propagator, headerPopulator)
+		o := NewOutbox(log, repo, entitiesChan, serializer, propagator, headerPopulator)
 
 		msg := Message{
 			Event:   &emptypb.Empty{},

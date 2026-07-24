@@ -8,22 +8,22 @@ import (
 	"go.uber.org/zap"
 )
 
-type sender struct {
+type Sender struct {
 	producer        producer.Producer
-	entitiesChan    <-chan *outboxEntity
-	confirmChan     chan<- confirmResult
+	entitiesChan    <-chan *OutboxEntity
+	confirmChan     chan<- ConfirmResult
 	logger          *zap.Logger
-	tracePropagator tracePropagator
+	tracePropagator TracePropagator
 }
 
-func newSender(
+func NewSender(
 	producer producer.Producer,
-	entitiesChan chan *outboxEntity,
-	confirmChan chan confirmResult,
+	entitiesChan chan *OutboxEntity,
+	confirmChan chan ConfirmResult,
 	logger *zap.Logger,
-	tracePropagator tracePropagator,
-) *sender {
-	return &sender{
+	tracePropagator TracePropagator,
+) *Sender {
+	return &Sender{
 		producer:        producer,
 		entitiesChan:    entitiesChan,
 		confirmChan:     confirmChan,
@@ -32,7 +32,7 @@ func newSender(
 	}
 }
 
-func (s *sender) Run(ctx context.Context) error {
+func (s *Sender) Run(ctx context.Context) error {
 	defer s.logger.Info("sender worker stopped")
 
 	for {
@@ -52,7 +52,7 @@ func (s *sender) Run(ctx context.Context) error {
 	}
 }
 
-func (s *sender) send(ctx context.Context, entity *outboxEntity) {
+func (s *Sender) send(ctx context.Context, entity *OutboxEntity) {
 	_, span, kafkaHeaders := s.tracePropagator.StartKafkaProducerSpan(entity.Headers, entity.Topic, entity.ID)
 	defer span.End()
 
@@ -66,6 +66,6 @@ func (s *sender) send(ctx context.Context, entity *outboxEntity) {
 	entityID := entity.ID
 	confirmChan := s.confirmChan
 	s.producer.Produce(ctx, record, func(_ *kgo.Record, err error) {
-		confirmChan <- confirmResult{ID: entityID, Err: err}
+		confirmChan <- ConfirmResult{ID: entityID, Err: err}
 	})
 }

@@ -11,7 +11,7 @@ import (
 
 func TestOtelTracePropagator_SaveTraceContext(t *testing.T) {
 	t.Run("creates headers map when nil", func(t *testing.T) {
-		propagator := newTracePropagator(noop.NewTracerProvider())
+		propagator := NewTracePropagator(noop.NewTracerProvider())
 
 		result := propagator.SaveTraceContext(context.Background(), nil)
 
@@ -19,7 +19,7 @@ func TestOtelTracePropagator_SaveTraceContext(t *testing.T) {
 	})
 
 	t.Run("preserves existing headers", func(t *testing.T) {
-		propagator := newTracePropagator(noop.NewTracerProvider())
+		propagator := NewTracePropagator(noop.NewTracerProvider())
 		existingHeaders := map[string]string{
 			"custom-header": "custom-value",
 		}
@@ -30,7 +30,7 @@ func TestOtelTracePropagator_SaveTraceContext(t *testing.T) {
 	})
 
 	t.Run("modifies original headers map", func(t *testing.T) {
-		propagator := newTracePropagator(noop.NewTracerProvider())
+		propagator := NewTracePropagator(noop.NewTracerProvider())
 		headers := map[string]string{
 			"existing": "value",
 		}
@@ -44,7 +44,7 @@ func TestOtelTracePropagator_SaveTraceContext(t *testing.T) {
 
 func TestOtelTracePropagator_StartKafkaProducerSpan(t *testing.T) {
 	t.Run("returns context and span", func(t *testing.T) {
-		propagator := newTracePropagator(noop.NewTracerProvider())
+		propagator := NewTracePropagator(noop.NewTracerProvider())
 		headers := map[string]string{}
 
 		ctx, span, kafkaHeaders := propagator.StartKafkaProducerSpan(headers, "test-topic", "message-123")
@@ -58,7 +58,7 @@ func TestOtelTracePropagator_StartKafkaProducerSpan(t *testing.T) {
 	})
 
 	t.Run("handles nil headers", func(t *testing.T) {
-		propagator := newTracePropagator(noop.NewTracerProvider())
+		propagator := NewTracePropagator(noop.NewTracerProvider())
 
 		ctx, span, kafkaHeaders := propagator.StartKafkaProducerSpan(nil, "test-topic", "message-123")
 
@@ -70,7 +70,7 @@ func TestOtelTracePropagator_StartKafkaProducerSpan(t *testing.T) {
 	})
 
 	t.Run("converts headers to kafka headers", func(t *testing.T) {
-		propagator := newTracePropagator(noop.NewTracerProvider())
+		propagator := NewTracePropagator(noop.NewTracerProvider())
 		headers := map[string]string{
 			"header1": "value1",
 			"header2": "value2",
@@ -90,7 +90,7 @@ func TestOtelTracePropagator_StartKafkaProducerSpan(t *testing.T) {
 	})
 
 	t.Run("does not modify original headers", func(t *testing.T) {
-		propagator := newTracePropagator(noop.NewTracerProvider())
+		propagator := NewTracePropagator(noop.NewTracerProvider())
 		originalHeaders := map[string]string{
 			"original": "value",
 		}
@@ -106,11 +106,11 @@ func TestOtelTracePropagator_StartKafkaProducerSpan(t *testing.T) {
 
 func TestNewTracePropagator(t *testing.T) {
 	t.Run("creates propagator", func(t *testing.T) {
-		propagator := newTracePropagator(noop.NewTracerProvider())
+		propagator := NewTracePropagator(noop.NewTracerProvider())
 
 		require.NotNil(t, propagator)
 
 		// Verify it implements the interface
-		var _ tracePropagator = propagator //nolint:staticcheck // Intentional interface compliance check
+		var _ TracePropagator = propagator //nolint:staticcheck // Intentional interface compliance check
 	})
 }

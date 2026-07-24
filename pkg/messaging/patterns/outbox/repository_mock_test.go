@@ -9,12 +9,12 @@ import (
 // mockRepository is a mock implementation of repository interface for testing
 type mockRepository struct {
 	mu                 sync.Mutex
-	created            []*outboxEntity
+	created            []*OutboxEntity
 	createErr          error
-	fetchAndLockEntity *outboxEntity
+	fetchAndLockEntity *OutboxEntity
 	fetchAndLockErr    error
 	fetchAndLockCalls  int
-	fetchAndLockFunc   func(ctx context.Context) (*outboxEntity, error)
+	fetchAndLockFunc   func(ctx context.Context) (*OutboxEntity, error)
 	updateAsSentIDs    []string
 	updateAsSentErr    error
 	updateAsSentCalls  int
@@ -22,18 +22,18 @@ type mockRepository struct {
 
 func newMockRepository() *mockRepository {
 	return &mockRepository{
-		created: make([]*outboxEntity, 0),
+		created: make([]*OutboxEntity, 0),
 	}
 }
 
-func newMockRepositoryWithFetchFunc(fetchFunc func(ctx context.Context) (*outboxEntity, error)) *mockRepository {
+func newMockRepositoryWithFetchFunc(fetchFunc func(ctx context.Context) (*OutboxEntity, error)) *mockRepository {
 	return &mockRepository{
-		created:          make([]*outboxEntity, 0),
+		created:          make([]*OutboxEntity, 0),
 		fetchAndLockFunc: fetchFunc,
 	}
 }
 
-func (m *mockRepository) Create(ctx context.Context, payload []byte, id string, key string, topic string, headers map[string]string) (*outboxEntity, error) {
+func (m *mockRepository) Create(ctx context.Context, payload []byte, id string, key string, topic string, headers map[string]string) (*OutboxEntity, error) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
@@ -41,7 +41,7 @@ func (m *mockRepository) Create(ctx context.Context, payload []byte, id string, 
 		return nil, m.createErr
 	}
 
-	entity := &outboxEntity{
+	entity := &OutboxEntity{
 		ID:             id,
 		Payload:        payload,
 		Key:            key,
@@ -56,7 +56,7 @@ func (m *mockRepository) Create(ctx context.Context, payload []byte, id string, 
 	return entity, nil
 }
 
-func (m *mockRepository) FetchAndLock(ctx context.Context) (*outboxEntity, error) {
+func (m *mockRepository) FetchAndLock(ctx context.Context) (*OutboxEntity, error) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
@@ -94,7 +94,7 @@ func (m *mockRepository) UpdateAsSentByIDs(ctx context.Context, ids []string) er
 	return nil
 }
 
-func (m *mockRepository) SetFetchAndLockEntity(entity *outboxEntity) {
+func (m *mockRepository) SetFetchAndLockEntity(entity *OutboxEntity) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	m.fetchAndLockEntity = entity

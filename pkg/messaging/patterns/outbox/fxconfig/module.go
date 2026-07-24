@@ -1,4 +1,4 @@
-package outbox
+package fxconfig
 
 import (
 	"context"
@@ -7,6 +7,7 @@ import (
 	"github.com/Sokol111/ecommerce-commons/pkg/core/health"
 	"github.com/Sokol111/ecommerce-commons/pkg/core/worker"
 	"github.com/Sokol111/ecommerce-commons/pkg/messaging/kafka/kafkaproto"
+	"github.com/Sokol111/ecommerce-commons/pkg/messaging/patterns/outbox"
 	"github.com/Sokol111/ecommerce-commons/pkg/persistence/mongo"
 	"go.uber.org/fx"
 	"go.uber.org/zap"
@@ -22,27 +23,28 @@ func NewOutboxModule() fx.Option {
 		),
 		fx.Provide(
 			provideConfig,
-			newOutboxRepository,
-			newFetcher,
-			newSender,
-			newConfirmer,
-			newOutbox,
-			newTracePropagator,
+			outbox.NewOutboxRepository,
+			outbox.NewFetcher,
+			outbox.NewSender,
+			outbox.NewConfirmer,
+			outbox.NewTracePropagator,
 			newHeaderPopulator,
 			provideEntitiesChannel,
 			provideConfirmChannel,
+			fx.Private,
 		),
+		fx.Provide(outbox.NewOutbox),
 		fx.Invoke(
-			worker.RunWorker[*fetcher]("outbox-fetcher", worker.WithTrafficReady()),
-			worker.RunWorker[*sender]("outbox-sender", worker.WithTrafficReady()),
-			worker.RunWorker[*confirmer]("outbox-confirmer", worker.WithTrafficReady()),
+			worker.RunWorker[*outbox.Fetcher]("outbox-fetcher", worker.WithTrafficReady()),
+			worker.RunWorker[*outbox.Sender]("outbox-sender", worker.WithTrafficReady()),
+			worker.RunWorker[*outbox.Confirmer]("outbox-confirmer", worker.WithTrafficReady()),
 			ensureSchema,
 		),
 	)
 }
 
-func provideConfig(loader *coreconfig.Loader) (Config, error) {
-	return coreconfig.Load[Config](loader, "outbox", nil)
+func provideConfig(loader *coreconfig.Loader) (outbox.Config, error) {
+	return coreconfig.Load[outbox.Config](loader, "outbox", nil)
 }
 
 func newHeaderPopulator(appCfg coreconfig.AppConfig) kafkaproto.HeaderPopulator {
@@ -54,7 +56,7 @@ func ensureSchema(lc fx.Lifecycle, log *zap.Logger, m mongo.Mongo, readiness hea
 	lc.Append(fx.Hook{
 		OnStart: func(ctx context.Context) error {
 			log.Info("ensuring outbox indexes")
-			if err := EnsureIndexes(ctx, m); err != nil {
+			if err := outbox.EnsureIndexes(ctx, m); err != nil {
 				return err
 			}
 			log.Info("outbox indexes ready")
@@ -64,10 +66,10 @@ func ensureSchema(lc fx.Lifecycle, log *zap.Logger, m mongo.Mongo, readiness hea
 	})
 }
 
-func provideEntitiesChannel() chan *outboxEntity {
-	return make(chan *outboxEntity, 100)
+func provideEntitiesChannel() chan *outbox.OutboxEntity {
+	return make(chan *outbox.OutboxEntity, 100)
 }
 
-func provideConfirmChannel() chan confirmResult {
-	return make(chan confirmResult, 1000)
+func provideConfirmChannel() chan outbox.ConfirmResult {
+	return make(chan outbox.ConfirmResult, 1000)
 }

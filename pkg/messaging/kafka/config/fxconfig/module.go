@@ -1,21 +1,22 @@
-package config
+package fxconfig
 
 import (
 	coreconfig "github.com/Sokol111/ecommerce-commons/pkg/core/config"
+	config "github.com/Sokol111/ecommerce-commons/pkg/messaging/kafka/config"
 	"go.uber.org/fx"
 	"go.uber.org/zap"
 )
 
 // kafkaConfigOptions holds internal configuration for the Kafka config module.
 type kafkaConfigOptions struct {
-	config *Config
+	config *config.Config
 }
 
-// KafkaConfigOption is a functional option for configuring the Kafka config module.
-type KafkaConfigOption func(*kafkaConfigOptions)
+// Option is a functional option for configuring the Kafka config module.
+type Option func(*kafkaConfigOptions)
 
 // WithKafkaConfig provides a static Config (useful for tests).
-func WithKafkaConfig(cfg Config) KafkaConfigOption {
+func WithKafkaConfig(cfg config.Config) Option {
 	return func(opts *kafkaConfigOptions) {
 		opts.config = &cfg
 	}
@@ -24,7 +25,7 @@ func WithKafkaConfig(cfg Config) KafkaConfigOption {
 // NewKafkaConfigModule provides Kafka configuration for dependency injection.
 // By default, configuration is loaded from koanf.
 // Use WithKafkaConfig for static config (useful for tests).
-func NewKafkaConfigModule(opts ...KafkaConfigOption) fx.Option {
+func NewKafkaConfigModule(opts ...Option) fx.Option {
 	cfg := &kafkaConfigOptions{}
 	for _, opt := range opts {
 		opt(cfg)
@@ -36,12 +37,6 @@ func NewKafkaConfigModule(opts ...KafkaConfigOption) fx.Option {
 	)
 }
 
-func provideConfig(opts *kafkaConfigOptions, loader *coreconfig.Loader, logger *zap.Logger) (Config, error) {
-	cfg, err := coreconfig.Load[Config](loader, "kafka", opts.config)
-	if err != nil {
-		return Config{}, err
-	}
-
-	logger.Info("loaded kafka config")
-	return cfg, nil
+func provideConfig(opts *kafkaConfigOptions, loader *coreconfig.Loader, logger *zap.Logger) (config.Config, error) {
+	return coreconfig.Load[config.Config](loader, "kafka", opts.config)
 }

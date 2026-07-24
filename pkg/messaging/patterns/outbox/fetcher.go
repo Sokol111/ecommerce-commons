@@ -8,21 +8,21 @@ import (
 	"go.uber.org/zap"
 )
 
-type fetcher struct {
-	outboxRepository repository
-	entitiesChan     chan<- *outboxEntity
+type Fetcher struct {
+	outboxRepository Repository
+	entitiesChan     chan<- *OutboxEntity
 	logger           *zap.Logger
 }
 
-func newFetcher(outboxRepository repository, entitiesChan chan *outboxEntity, logger *zap.Logger) *fetcher {
-	return &fetcher{
+func NewFetcher(outboxRepository Repository, entitiesChan chan *OutboxEntity, logger *zap.Logger) *Fetcher {
+	return &Fetcher{
 		outboxRepository: outboxRepository,
 		entitiesChan:     entitiesChan,
 		logger:           logger,
 	}
 }
 
-func (f *fetcher) Run(ctx context.Context) error {
+func (f *Fetcher) Run(ctx context.Context) error {
 	for {
 		select {
 		case <-ctx.Done():

@@ -8,41 +8,41 @@ import (
 	"go.uber.org/zap"
 )
 
-// confirmResult carries the result of a Kafka produce callback.
-type confirmResult struct {
+// ConfirmResult carries the result of a Kafka produce callback.
+type ConfirmResult struct {
 	ID  string
 	Err error
 }
 
-type confirmer struct {
-	outboxRepository repository
-	confirmChan      <-chan confirmResult
+type Confirmer struct {
+	outboxRepository Repository
+	confirmChan      <-chan ConfirmResult
 	logger           *zap.Logger
 	wg               sync.WaitGroup
 }
 
-func newConfirmer(
-	outboxRepository repository,
-	confirmChan chan confirmResult,
+func NewConfirmer(
+	outboxRepository Repository,
+	confirmChan chan ConfirmResult,
 	logger *zap.Logger,
-) *confirmer {
-	return &confirmer{
+) *Confirmer {
+	return &Confirmer{
 		outboxRepository: outboxRepository,
 		confirmChan:      confirmChan,
 		logger:           logger,
 	}
 }
 
-func (c *confirmer) Run(ctx context.Context) error {
+func (c *Confirmer) Run(ctx context.Context) error {
 	defer c.wg.Wait()
 
-	results := make([]confirmResult, 0, 100)
+	results := make([]ConfirmResult, 0, 100)
 
 	flush := func() {
 		if len(results) == 0 {
 			return
 		}
-		copySlice := make([]confirmResult, len(results))
+		copySlice := make([]ConfirmResult, len(results))
 		copy(copySlice, results)
 		c.wg.Add(1)
 		go c.handleConfirmation(ctx, copySlice)
@@ -75,7 +75,7 @@ func (c *confirmer) Run(ctx context.Context) error {
 	}
 }
 
-func (c *confirmer) handleConfirmation(ctx context.Context, results []confirmResult) {
+func (c *Confirmer) handleConfirmation(ctx context.Context, results []ConfirmResult) {
 	defer c.wg.Done()
 
 	ids := make([]string, 0, len(results))

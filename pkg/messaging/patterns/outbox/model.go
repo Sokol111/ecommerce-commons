@@ -10,7 +10,7 @@ const (
 	StatusSent       = "SENT"
 )
 
-type outboxEntity struct {
+type OutboxEntity struct {
 	ID               string            `bson:"_id"`
 	Payload          []byte            `bson:"payload"`
 	Key              string            `bson:"key"`

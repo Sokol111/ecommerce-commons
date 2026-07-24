@@ -15,8 +15,8 @@ import (
 func TestConfirmer_Run(t *testing.T) {
 	t.Run("processes confirm results and updates repository", func(t *testing.T) {
 		repo := newMockRepository()
-		confirmChan := make(chan confirmResult, 10)
-		c := newConfirmer(repo, confirmChan, zap.NewNop())
+		confirmChan := make(chan ConfirmResult, 10)
+		c := NewConfirmer(repo, confirmChan, zap.NewNop())
 
 		ctx, cancel := context.WithTimeout(context.Background(), 500*time.Millisecond)
 		defer cancel()
@@ -29,7 +29,7 @@ func TestConfirmer_Run(t *testing.T) {
 		}()
 
 		// Send confirm result
-		confirmChan <- confirmResult{ID: "message-id-1", Err: nil}
+		confirmChan <- ConfirmResult{ID: "message-id-1", Err: nil}
 
 		// Wait for ticker flush (2 seconds) or cancel context
 		time.Sleep(2500 * time.Millisecond)
@@ -42,8 +42,8 @@ func TestConfirmer_Run(t *testing.T) {
 
 	t.Run("batches multiple confirm results", func(t *testing.T) {
 		repo := newMockRepository()
-		confirmChan := make(chan confirmResult, 200)
-		c := newConfirmer(repo, confirmChan, zap.NewNop())
+		confirmChan := make(chan ConfirmResult, 200)
+		c := NewConfirmer(repo, confirmChan, zap.NewNop())
 
 		ctx, cancel := context.WithTimeout(context.Background(), 500*time.Millisecond)
 		defer cancel()
@@ -57,7 +57,7 @@ func TestConfirmer_Run(t *testing.T) {
 
 		// Send 100 confirm results to trigger batch flush
 		for i := 0; i < 100; i++ {
-			confirmChan <- confirmResult{ID: fmt.Sprintf("msg-%d", i), Err: nil}
+			confirmChan <- ConfirmResult{ID: fmt.Sprintf("msg-%d", i), Err: nil}
 		}
 
 		// Wait for batch to be processed
@@ -71,8 +71,8 @@ func TestConfirmer_Run(t *testing.T) {
 
 	t.Run("returns nil when context is cancelled", func(t *testing.T) {
 		repo := newMockRepository()
-		confirmChan := make(chan confirmResult, 10)
-		c := newConfirmer(repo, confirmChan, zap.NewNop())
+		confirmChan := make(chan ConfirmResult, 10)
+		c := NewConfirmer(repo, confirmChan, zap.NewNop())
 
 		ctx, cancel := context.WithCancel(context.Background())
 		cancel()
@@ -84,8 +84,8 @@ func TestConfirmer_Run(t *testing.T) {
 
 	t.Run("skips results with delivery errors", func(t *testing.T) {
 		repo := newMockRepository()
-		confirmChan := make(chan confirmResult, 10)
-		c := newConfirmer(repo, confirmChan, zap.NewNop())
+		confirmChan := make(chan ConfirmResult, 10)
+		c := NewConfirmer(repo, confirmChan, zap.NewNop())
 
 		ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
 		defer cancel()
@@ -98,10 +98,10 @@ func TestConfirmer_Run(t *testing.T) {
 		}()
 
 		// Send result with delivery error
-		confirmChan <- confirmResult{ID: "failed-message", Err: errors.New("kafka delivery failed")}
+		confirmChan <- ConfirmResult{ID: "failed-message", Err: errors.New("kafka delivery failed")}
 
 		// Send successful result
-		confirmChan <- confirmResult{ID: "success-message", Err: nil}
+		confirmChan <- ConfirmResult{ID: "success-message", Err: nil}
 
 		time.Sleep(2500 * time.Millisecond)
 		cancel()
@@ -115,8 +115,8 @@ func TestConfirmer_Run(t *testing.T) {
 	t.Run("handles repository error gracefully", func(t *testing.T) {
 		repo := newMockRepository()
 		repo.updateAsSentErr = errors.New("database error")
-		confirmChan := make(chan confirmResult, 10)
-		c := newConfirmer(repo, confirmChan, zap.NewNop())
+		confirmChan := make(chan ConfirmResult, 10)
+		c := NewConfirmer(repo, confirmChan, zap.NewNop())
 
 		ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
 		defer cancel()
@@ -128,7 +128,7 @@ func TestConfirmer_Run(t *testing.T) {
 			_ = c.Run(ctx)
 		}()
 
-		confirmChan <- confirmResult{ID: "message-id", Err: nil}
+		confirmChan <- ConfirmResult{ID: "message-id", Err: nil}
 
 		time.Sleep(2500 * time.Millisecond)
 		cancel()
@@ -140,8 +140,8 @@ func TestConfirmer_Run(t *testing.T) {
 
 	t.Run("flushes remaining results on context cancellation", func(t *testing.T) {
 		repo := newMockRepository()
-		confirmChan := make(chan confirmResult, 10)
-		c := newConfirmer(repo, confirmChan, zap.NewNop())
+		confirmChan := make(chan ConfirmResult, 10)
+		c := NewConfirmer(repo, confirmChan, zap.NewNop())
 
 		ctx, cancel := context.WithCancel(context.Background())
 
@@ -154,7 +154,7 @@ func TestConfirmer_Run(t *testing.T) {
 
 		// Send some results
 		for i := 0; i < 5; i++ {
-			confirmChan <- confirmResult{ID: string(rune('a' + i)), Err: nil}
+			confirmChan <- ConfirmResult{ID: string(rune('a' + i)), Err: nil}
 		}
 
 		// Give some time for results to be received
@@ -171,10 +171,10 @@ func TestConfirmer_Run(t *testing.T) {
 func TestNewConfirmer(t *testing.T) {
 	t.Run("creates confirmer with dependencies", func(t *testing.T) {
 		repo := newMockRepository()
-		confirmChan := make(chan confirmResult)
+		confirmChan := make(chan ConfirmResult)
 		logger := zap.NewNop()
 
-		c := newConfirmer(repo, confirmChan, logger)
+		c := NewConfirmer(repo, confirmChan, logger)
 
 		assert.NotNil(t, c)
 		assert.Equal(t, repo, c.outboxRepository)

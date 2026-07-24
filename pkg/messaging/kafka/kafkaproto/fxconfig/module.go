@@ -1,6 +1,7 @@
-package kafkaproto
+package fxconfig
 
 import (
+	"github.com/Sokol111/ecommerce-commons/pkg/messaging/kafka/kafkaproto"
 	"github.com/Sokol111/ecommerce-commons/pkg/messaging/kafka/serde"
 	"go.uber.org/fx"
 )
@@ -9,8 +10,8 @@ import (
 func NewProtoModule() fx.Option {
 	return fx.Module("kafkaproto",
 		fx.Provide(
-			func() serde.Serializer { return NewSerializer() },
-			func() serde.Deserializer { return NewDeserializer() },
+			func() serde.Serializer { return kafkaproto.NewSerializer() },
+			func() serde.Deserializer { return kafkaproto.NewDeserializer() },
 		),
 	)
 }

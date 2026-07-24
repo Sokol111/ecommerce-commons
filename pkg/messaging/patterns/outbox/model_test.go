@@ -10,7 +10,7 @@ import (
 func TestOutboxEntity(t *testing.T) {
 	t.Run("creates entity with all fields", func(t *testing.T) {
 		now := time.Now().UTC()
-		entity := outboxEntity{
+		entity := OutboxEntity{
 			ID:             "test-id",
 			Payload:        []byte("test-payload"),
 			Key:            "partition-key",
@@ -36,7 +36,7 @@ func TestOutboxEntity(t *testing.T) {
 	})
 
 	t.Run("entity with nil headers", func(t *testing.T) {
-		entity := outboxEntity{
+		entity := OutboxEntity{
 			ID:      "test-id",
 			Headers: nil,
 		}

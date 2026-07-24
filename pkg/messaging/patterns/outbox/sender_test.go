@@ -68,11 +68,11 @@ func (n senderNoopSpan) End(options ...trace.SpanEndOption) {}
 func TestSender_Run(t *testing.T) {
 	t.Run("sends entity to kafka", func(t *testing.T) {
 		producer := &mockProducer{}
-		entitiesChan := make(chan *outboxEntity, 10)
-		confirmChan := make(chan confirmResult, 10)
+		entitiesChan := make(chan *OutboxEntity, 10)
+		confirmChan := make(chan ConfirmResult, 10)
 		propagator := &mockSenderTracePropagator{}
 
-		s := newSender(producer, entitiesChan, confirmChan, zap.NewNop(), propagator)
+		s := NewSender(producer, entitiesChan, confirmChan, zap.NewNop(), propagator)
 
 		ctx, cancel := context.WithTimeout(context.Background(), 100*time.Millisecond)
 		defer cancel()
@@ -84,7 +84,7 @@ func TestSender_Run(t *testing.T) {
 			_ = s.Run(ctx)
 		}()
 
-		entity := &outboxEntity{
+		entity := &OutboxEntity{
 			ID:      "test-id",
 			Payload: []byte("test-payload"),
 			Key:     "test-key",
@@ -116,11 +116,11 @@ func TestSender_Run(t *testing.T) {
 
 	t.Run("returns nil when context is cancelled", func(t *testing.T) {
 		producer := &mockProducer{}
-		entitiesChan := make(chan *outboxEntity, 10)
-		confirmChan := make(chan confirmResult, 10)
+		entitiesChan := make(chan *OutboxEntity, 10)
+		confirmChan := make(chan ConfirmResult, 10)
 		propagator := &mockSenderTracePropagator{}
 
-		s := newSender(producer, entitiesChan, confirmChan, zap.NewNop(), propagator)
+		s := NewSender(producer, entitiesChan, confirmChan, zap.NewNop(), propagator)
 
 		ctx, cancel := context.WithCancel(context.Background())
 		cancel()
@@ -132,11 +132,11 @@ func TestSender_Run(t *testing.T) {
 
 	t.Run("sends multiple entities", func(t *testing.T) {
 		producer := &mockProducer{}
-		entitiesChan := make(chan *outboxEntity, 10)
-		confirmChan := make(chan confirmResult, 10)
+		entitiesChan := make(chan *OutboxEntity, 10)
+		confirmChan := make(chan ConfirmResult, 10)
 		propagator := &mockSenderTracePropagator{}
 
-		s := newSender(producer, entitiesChan, confirmChan, zap.NewNop(), propagator)
+		s := NewSender(producer, entitiesChan, confirmChan, zap.NewNop(), propagator)
 
 		ctx, cancel := context.WithTimeout(context.Background(), 200*time.Millisecond)
 		defer cancel()
@@ -149,7 +149,7 @@ func TestSender_Run(t *testing.T) {
 		}()
 
 		for i := 0; i < 5; i++ {
-			entitiesChan <- &outboxEntity{
+			entitiesChan <- &OutboxEntity{
 				ID:      string(rune('a' + i)),
 				Topic:   "test-topic",
 				Payload: []byte("payload"),
@@ -166,15 +166,15 @@ func TestSender_Run(t *testing.T) {
 
 	t.Run("includes kafka headers from trace propagator", func(t *testing.T) {
 		producer := &mockProducer{}
-		entitiesChan := make(chan *outboxEntity, 10)
-		confirmChan := make(chan confirmResult, 10)
+		entitiesChan := make(chan *OutboxEntity, 10)
+		confirmChan := make(chan ConfirmResult, 10)
 		propagator := &mockSenderTracePropagator{
 			kafkaHeaders: []kgo.RecordHeader{
 				{Key: "custom-trace", Value: []byte("custom-value")},
 			},
 		}
 
-		s := newSender(producer, entitiesChan, confirmChan, zap.NewNop(), propagator)
+		s := NewSender(producer, entitiesChan, confirmChan, zap.NewNop(), propagator)
 
 		ctx, cancel := context.WithTimeout(context.Background(), 100*time.Millisecond)
 		defer cancel()
@@ -186,7 +186,7 @@ func TestSender_Run(t *testing.T) {
 			_ = s.Run(ctx)
 		}()
 
-		entitiesChan <- &outboxEntity{
+		entitiesChan <- &OutboxEntity{
 			ID:      "test-id",
 			Topic:   "test-topic",
 			Payload: []byte("payload"),
@@ -207,12 +207,12 @@ func TestSender_Run(t *testing.T) {
 func TestNewSender(t *testing.T) {
 	t.Run("creates sender with dependencies", func(t *testing.T) {
 		producer := &mockProducer{}
-		entitiesChan := make(chan *outboxEntity)
-		confirmChan := make(chan confirmResult)
+		entitiesChan := make(chan *OutboxEntity)
+		confirmChan := make(chan ConfirmResult)
 		log := zap.NewNop()
 		propagator := &mockSenderTracePropagator{}
 
-		s := newSender(producer, entitiesChan, confirmChan, log, propagator)
+		s := NewSender(producer, entitiesChan, confirmChan, log, propagator)
 
 		assert.NotNil(t, s)
 		assert.Equal(t, producer, s.producer)

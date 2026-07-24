@@ -14,15 +14,15 @@ import (
 func TestFetcher_Run(t *testing.T) {
 	t.Run("fetches entity and sends to channel", func(t *testing.T) {
 		repo := newMockRepository()
-		entity := &outboxEntity{
+		entity := &OutboxEntity{
 			ID:      "test-id",
 			Payload: []byte("test-payload"),
 			Topic:   "test-topic",
 		}
 		repo.SetFetchAndLockEntity(entity)
 
-		entitiesChan := make(chan *outboxEntity, 10)
-		f := newFetcher(repo, entitiesChan, zap.NewNop())
+		entitiesChan := make(chan *OutboxEntity, 10)
+		f := NewFetcher(repo, entitiesChan, zap.NewNop())
 
 		ctx, cancel := context.WithTimeout(context.Background(), 100*time.Millisecond)
 		defer cancel()
@@ -49,8 +49,8 @@ func TestFetcher_Run(t *testing.T) {
 
 	t.Run("returns nil when context is cancelled", func(t *testing.T) {
 		repo := newMockRepository()
-		entitiesChan := make(chan *outboxEntity, 10)
-		f := newFetcher(repo, entitiesChan, zap.NewNop())
+		entitiesChan := make(chan *OutboxEntity, 10)
+		f := NewFetcher(repo, entitiesChan, zap.NewNop())
 
 		ctx, cancel := context.WithCancel(context.Background())
 		cancel()
@@ -64,8 +64,8 @@ func TestFetcher_Run(t *testing.T) {
 		repo := newMockRepository()
 		repo.SetFetchAndLockError(errEntityNotFound)
 
-		entitiesChan := make(chan *outboxEntity, 10)
-		f := newFetcher(repo, entitiesChan, zap.NewNop())
+		entitiesChan := make(chan *OutboxEntity, 10)
+		f := NewFetcher(repo, entitiesChan, zap.NewNop())
 
 		ctx, cancel := context.WithTimeout(context.Background(), 100*time.Millisecond)
 		defer cancel()
@@ -81,12 +81,12 @@ func TestFetcher_Run(t *testing.T) {
 
 	t.Run("multiple entities are fetched sequentially", func(t *testing.T) {
 		fetchCount := 0
-		entities := []*outboxEntity{
+		entities := []*OutboxEntity{
 			{ID: "entity-1"},
 			{ID: "entity-2"},
 			{ID: "entity-3"},
 		}
-		repo := newMockRepositoryWithFetchFunc(func(ctx context.Context) (*outboxEntity, error) {
+		repo := newMockRepositoryWithFetchFunc(func(ctx context.Context) (*OutboxEntity, error) {
 			fetchCount++
 			if fetchCount <= len(entities) {
 				return entities[fetchCount-1], nil
@@ -94,8 +94,8 @@ func TestFetcher_Run(t *testing.T) {
 			return nil, errEntityNotFound
 		})
 
-		entitiesChan := make(chan *outboxEntity, 10)
-		f := newFetcher(repo, entitiesChan, zap.NewNop())
+		entitiesChan := make(chan *OutboxEntity, 10)
+		f := NewFetcher(repo, entitiesChan, zap.NewNop())
 
 		ctx, cancel := context.WithTimeout(context.Background(), 200*time.Millisecond)
 		defer cancel()
@@ -107,7 +107,7 @@ func TestFetcher_Run(t *testing.T) {
 			_ = f.Run(ctx)
 		}()
 
-		received := make([]*outboxEntity, 0)
+		received := make([]*OutboxEntity, 0)
 		timeout := time.After(150 * time.Millisecond)
 	loop:
 		for {
@@ -135,10 +135,10 @@ func TestFetcher_Run(t *testing.T) {
 func TestNewFetcher(t *testing.T) {
 	t.Run("creates fetcher with dependencies", func(t *testing.T) {
 		repo := newMockRepository()
-		entitiesChan := make(chan *outboxEntity)
+		entitiesChan := make(chan *OutboxEntity)
 		logger := zap.NewNop()
 
-		f := newFetcher(repo, entitiesChan, logger)
+		f := NewFetcher(repo, entitiesChan, logger)
 
 		assert.NotNil(t, f)
 		assert.Equal(t, repo, f.outboxRepository)

@@ -14,12 +14,12 @@ import (
 
 var errEntityNotFound = errors.New("entity not found in database")
 
-type repository interface {
+type Repository interface {
 
 	// can return errEntityNotFound.
-	FetchAndLock(ctx context.Context) (*outboxEntity, error)
+	FetchAndLock(ctx context.Context) (*OutboxEntity, error)
 
-	Create(ctx context.Context, payload []byte, id string, key string, topic string, headers map[string]string) (*outboxEntity, error)
+	Create(ctx context.Context, payload []byte, id string, key string, topic string, headers map[string]string) (*OutboxEntity, error)
 
 	UpdateAsSentByIDs(ctx context.Context, ids []string) error
 }
@@ -29,15 +29,15 @@ type outboxRepository struct {
 	maxBackoffMillis int64
 }
 
-func newOutboxRepository(m mongo.Mongo, config Config) repository {
+func NewOutboxRepository(m mongo.Mongo, config Config) Repository {
 	return &outboxRepository{
 		coll:             m.GetCollection("outbox"),
 		maxBackoffMillis: config.MaxBackoff.Milliseconds(),
 	}
 }
 
-func (r *outboxRepository) FetchAndLock(ctx context.Context) (*outboxEntity, error) {
-	var entity outboxEntity
+func (r *outboxRepository) FetchAndLock(ctx context.Context) (*OutboxEntity, error) {
+	var entity OutboxEntity
 
 	now := time.Now().UTC()
 
@@ -88,9 +88,9 @@ func (r *outboxRepository) FetchAndLock(ctx context.Context) (*outboxEntity, err
 	return &entity, nil
 }
 
-func (r *outboxRepository) Create(ctx context.Context, payload []byte, id string, key string, topic string, headers map[string]string) (*outboxEntity, error) {
+func (r *outboxRepository) Create(ctx context.Context, payload []byte, id string, key string, topic string, headers map[string]string) (*OutboxEntity, error) {
 	now := time.Now().UTC()
-	entity := outboxEntity{
+	entity := OutboxEntity{
 		ID:               id,
 		Payload:          payload,
 		Key:              key,

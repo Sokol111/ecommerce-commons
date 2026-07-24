@@ -11,7 +11,7 @@ import (
 	"go.opentelemetry.io/otel/trace"
 )
 
-type tracePropagator interface {
+type TracePropagator interface {
 	// SaveTraceContext saves the current trace context into headers for storage in outbox.
 	SaveTraceContext(ctx context.Context, headers map[string]string) map[string]string
 
@@ -24,7 +24,7 @@ type otelTracePropagator struct {
 	tracer trace.Tracer
 }
 
-func newTracePropagator(tp trace.TracerProvider) tracePropagator {
+func NewTracePropagator(tp trace.TracerProvider) TracePropagator {
 	return &otelTracePropagator{
 		tracer: tp.Tracer("outbox"),
 	}

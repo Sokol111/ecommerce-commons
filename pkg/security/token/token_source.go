@@ -9,8 +9,8 @@ import (
 	"golang.org/x/oauth2/clientcredentials"
 )
 
-// newTokenSource creates an oauth2.TokenSource using the client_credentials grant.
-func newTokenSource(cfg Config) (oauth2.TokenSource, error) {
+// NewTokenSource creates an oauth2.TokenSource using the client_credentials grant.
+func NewTokenSource(cfg Config) (oauth2.TokenSource, error) {
 	if cfg.ClientID == "" || cfg.ClientSecret == "" || cfg.TokenURL == "" {
 		return nil, errors.New("client-credentials not configured: set client-id, client-secret, and token-url in security.client-credentials")
 	}

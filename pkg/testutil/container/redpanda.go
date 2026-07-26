@@ -10,30 +10,30 @@ import (
 	"github.com/testcontainers/testcontainers-go/wait"
 )
 
-// SchemaRegistryContainer wraps the testcontainers Schema Registry container.
-type SchemaRegistryContainer struct {
-	Container testcontainers.Container
-	URL       string
+// RedpandaContainer wraps the testcontainers Redpanda container.
+type RedpandaContainer struct {
+	container         testcontainers.Container
+	SchemaRegistryURL string
+	KafkaBroker       string
 }
 
-// SchemaRegistryOption configures the Schema Registry container.
-type SchemaRegistryOption func(*schemaRegistryOptions)
+// RedpandaOption configures the Redpanda container.
+type RedpandaOption func(*redpandaOptions)
 
-type schemaRegistryOptions struct {
+type redpandaOptions struct {
 	image string
 }
 
-// WithSchemaRegistryImage sets the Schema Registry image to use.
-func WithSchemaRegistryImage(image string) SchemaRegistryOption {
-	return func(o *schemaRegistryOptions) {
+// WithRedpandaImage sets the Redpanda image to use.
+func WithRedpandaImage(image string) RedpandaOption {
+	return func(o *redpandaOptions) {
 		o.image = image
 	}
 }
 
-// StartSchemaRegistryContainer starts a Schema Registry container with an embedded Kafka.
-// This uses Redpanda which includes both Kafka and Schema Registry in one container.
-func StartSchemaRegistryContainer(ctx context.Context, opts ...SchemaRegistryOption) (*SchemaRegistryContainer, error) {
-	options := &schemaRegistryOptions{
+// StartRedpandaContainer starts a Redpanda container with an embedded Kafka and Schema Registry.
+func StartRedpandaContainer(ctx context.Context, opts ...RedpandaOption) (*RedpandaContainer, error) {
+	options := &redpandaOptions{
 		image: "redpandadata/redpanda:v24.1.1",
 	}
 	for _, opt := range opts {
@@ -68,20 +68,27 @@ func StartSchemaRegistryContainer(ctx context.Context, opts ...SchemaRegistryOpt
 		return nil, fmt.Errorf("failed to start redpanda container: %w", err)
 	}
 
-	// Get Schema Registry URL
+	// Get host URL
 	host, err := container.Host(ctx)
 	if err != nil {
 		_ = container.Terminate(ctx) //nolint:errcheck // best effort cleanup
 		return nil, fmt.Errorf("failed to get container host: %w", err)
 	}
 
-	port, err := container.MappedPort(ctx, "8081")
+	kafkaPort, err := container.MappedPort(ctx, "9092")
+	if err != nil {
+		_ = container.Terminate(ctx) //nolint:errcheck // best effort cleanup
+		return nil, fmt.Errorf("failed to get kafka port: %w", err)
+	}
+
+	schemaRegistryPort, err := container.MappedPort(ctx, "8081")
 	if err != nil {
 		_ = container.Terminate(ctx) //nolint:errcheck // best effort cleanup
 		return nil, fmt.Errorf("failed to get schema registry port: %w", err)
 	}
 
-	schemaRegistryURL := fmt.Sprintf("http://%s:%s", host, port.Port())
+	schemaRegistryURL := fmt.Sprintf("http://%s:%s", host, schemaRegistryPort.Port())
+	kafkaBroker := fmt.Sprintf("%s:%s", host, kafkaPort.Port())
 
 	// Wait for Schema Registry to be ready
 	if err := waitForSchemaRegistry(ctx, schemaRegistryURL, 30*time.Second); err != nil {
@@ -89,33 +96,19 @@ func StartSchemaRegistryContainer(ctx context.Context, opts ...SchemaRegistryOpt
 		return nil, fmt.Errorf("schema registry not ready: %w", err)
 	}
 
-	return &SchemaRegistryContainer{
-		Container: container,
-		URL:       schemaRegistryURL,
+	return &RedpandaContainer{
+		container:         container,
+		SchemaRegistryURL: schemaRegistryURL,
+		KafkaBroker:       kafkaBroker,
 	}, nil
 }
 
 // Terminate terminates the container.
-func (s *SchemaRegistryContainer) Terminate(ctx context.Context) error {
-	if s.Container != nil {
-		return s.Container.Terminate(ctx)
+func (s *RedpandaContainer) Terminate(ctx context.Context) error {
+	if s.container != nil {
+		return s.container.Terminate(ctx)
 	}
 	return nil
-}
-
-// KafkaBroker returns the Kafka broker address (useful if you need real Kafka too).
-func (s *SchemaRegistryContainer) KafkaBroker(ctx context.Context) (string, error) {
-	host, err := s.Container.Host(ctx)
-	if err != nil {
-		return "", err
-	}
-
-	port, err := s.Container.MappedPort(ctx, "9092")
-	if err != nil {
-		return "", err
-	}
-
-	return fmt.Sprintf("%s:%s", host, port.Port()), nil
 }
 
 func waitForSchemaRegistry(ctx context.Context, url string, timeout time.Duration) error {

@@ -7,39 +7,12 @@ import (
 	"strings"
 
 	"connectrpc.com/connect"
-	"github.com/Sokol111/ecommerce-commons/pkg/http/connect/interceptor"
-	"go.uber.org/fx"
 	"go.uber.org/zap"
 )
-
-// AuthInterceptorPriority is the recommended priority for the auth interceptor.
-// It must run AFTER tenant resolution (18) but BEFORE tenant validation (26)
-// so that claims are available for tenant validation.
-const AuthInterceptorPriority = 22
 
 // ProcedurePermissions maps Connect procedure names to required permission strings.
 // Each service provides its own ProcedurePermissions via FX.
 type ProcedurePermissions map[string][]string
-
-// newAuthInterceptorModule provides the auth Connect interceptor via FX.
-// It expects ProcedurePermissions to be provided by the service module.
-func newAuthInterceptorModule() fx.Option {
-	return fx.Provide(
-		fx.Annotate(
-			func(
-				validator Validator,
-				perms ProcedurePermissions,
-				log *zap.Logger,
-			) interceptor.Interceptor {
-				return interceptor.Interceptor{
-					Priority: AuthInterceptorPriority,
-					Handler:  NewAuthInterceptor(validator, perms, log),
-				}
-			},
-			fx.ResultTags(`group:"connect_interceptor"`),
-		),
-	)
-}
 
 // NewAuthInterceptor creates a Connect-RPC interceptor that validates bearer
 // tokens, stores claims in context, and enforces required permissions per

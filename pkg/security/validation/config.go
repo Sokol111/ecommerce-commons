@@ -4,6 +4,7 @@ import "fmt"
 
 // Config holds the configuration for JWT token validation (incoming requests).
 type Config struct {
+	Enabled *bool `koanf:"enabled"`
 	// JwksURL is the URL to fetch the JSON Web Key Set for verifying tokens.
 	// Example: "http://logto:3001/oidc/jwks"
 	JwksURL string `koanf:"jwks-url"`
@@ -19,10 +20,22 @@ type Config struct {
 }
 
 // ApplyDefaults is a no-op for validation config (no defaults to set).
-func (c *Config) ApplyDefaults() {}
+func (c *Config) ApplyDefaults() {
+	if c.Enabled == nil {
+		if c.JwksURL == "" && c.Issuer == "" && c.Audience == "" {
+			c.Enabled = new(false)
+		} else {
+			c.Enabled = new(true)
+		}
+	}
+}
 
 // Validate validates the configuration.
 func (c *Config) Validate() error {
+	// If nothing is configured, the module is optional — skip validation.
+	if c.Enabled != nil && !*c.Enabled {
+		return nil
+	}
 	if c.JwksURL == "" {
 		return fmt.Errorf("security.jwks.jwks-url is required")
 	}

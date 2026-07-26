@@ -42,8 +42,8 @@ var oidcScopes = map[string]bool{
 	"all":            true,
 }
 
-// newTokenValidator creates a new JWT validator that fetches keys from a JWKS endpoint.
-func newTokenValidator(config Config) (Validator, error) {
+// NewTokenValidator creates a new JWT validator that fetches keys from a JWKS endpoint.
+func NewTokenValidator(config Config) (Validator, error) {
 	jwks, err := keyfunc.NewDefault([]string{config.JwksURL})
 	if err != nil {
 		return nil, errors.New("invalid public key")

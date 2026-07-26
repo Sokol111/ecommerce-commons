@@ -4,6 +4,8 @@ import "fmt"
 
 // Config holds the configuration for service-to-service authentication (outgoing requests).
 type Config struct {
+	Enabled *bool `koanf:"enabled"`
+
 	// ClientID is the OAuth2 client ID for the client_credentials flow.
 	ClientID string `koanf:"client-id"`
 
@@ -25,6 +27,13 @@ type Config struct {
 
 // ApplyDefaults sets default values for unset configuration fields.
 func (c *Config) ApplyDefaults() {
+	if c.Enabled == nil {
+		if c.ClientID == "" && c.ClientSecret == "" && c.TokenURL == "" && c.Resource == "" && len(c.Scopes) == 0 {
+			c.Enabled = new(false)
+		} else {
+			c.Enabled = new(true)
+		}
+	}
 	if len(c.Scopes) == 0 {
 		c.Scopes = []string{"openid"}
 	}
@@ -34,7 +43,7 @@ func (c *Config) ApplyDefaults() {
 // Returns nil if the config is completely empty (module not configured).
 func (c *Config) Validate() error {
 	// If nothing is configured, the module is optional — skip validation.
-	if c.ClientID == "" && c.ClientSecret == "" && c.TokenURL == "" {
+	if c.Enabled != nil && !*c.Enabled {
 		return nil
 	}
 	if c.ClientID == "" {

@@ -18,8 +18,8 @@ type testTokenPayload struct {
 	Permissions []string `json:"permissions"`
 }
 
-// newTestValidator creates a new test validator.
-func newTestValidator() Validator {
+// NewTestValidator creates a new test validator.
+func NewTestValidator() Validator {
 	return &testValidator{}
 }
 

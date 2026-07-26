@@ -8,22 +8,22 @@ import (
 	"go.uber.org/fx"
 )
 
-// messagingOptions holds internal configuration for the messaging module.
-type messagingOptions struct {
+// kafkaOptions holds internal configuration for the Kafka module.
+type kafkaOptions struct {
 	kafkaOpts []fx_kafka_config.Option
 }
 
-// Option is a functional option for configuring the messaging module.
-type Option func(*messagingOptions)
+// Option is a functional option for configuring the Kafka module.
+type Option func(*kafkaOptions)
 
 // WithKafkaOptions provides Kafka configuration options.
 func WithKafkaOptions(opts ...fx_kafka_config.Option) Option {
-	return func(o *messagingOptions) {
+	return func(o *kafkaOptions) {
 		o.kafkaOpts = append(o.kafkaOpts, opts...)
 	}
 }
 
-// NewMessagingModule provides messaging functionality: kafka, outbox, consumer, producer.
+// NewKafkaModule provides kafka functionality: outbox, consumer, producer.
 //
 // Options:
 //   - WithKafkaOptions: provide Kafka configuration options
@@ -31,14 +31,14 @@ func WithKafkaOptions(opts ...fx_kafka_config.Option) Option {
 // Example usage:
 //
 //	// Production - loads config from koanf
-//	messaging.NewMessagingModule()
+//	kafka.NewKafkaModule()
 //
 //	// Testing - with static config
-//	messaging.NewMessagingModule(
-//	    messaging.WithKafkaOptions(fx_kafka_config.WithKafkaConfig(config.Config{...})),
+//	kafka.NewKafkaModule(
+//	    kafka.WithKafkaOptions(fx_kafka_config.WithKafkaConfig(config.Config{...})),
 //	)
-func NewMessagingModule(opts ...Option) fx.Option {
-	cfg := &messagingOptions{}
+func NewKafkaModule(opts ...Option) fx.Option {
+	cfg := &kafkaOptions{}
 	for _, opt := range opts {
 		opt(cfg)
 	}

@@ -13,7 +13,7 @@ import (
 
 // MongoDBContainer wraps the testcontainers MongoDB container with a client.
 type MongoDBContainer struct {
-	Container        *mongodb.MongoDBContainer
+	container        *mongodb.MongoDBContainer
 	Client           *mongo.Client
 	ConnectionString string
 }
@@ -86,7 +86,7 @@ func StartMongoDBContainer(ctx context.Context, opts ...MongoDBContainerOption) 
 	}
 
 	return &MongoDBContainer{
-		Container:        mongoContainer,
+		container:        mongoContainer,
 		Client:           client,
 		ConnectionString: connectionString,
 	}, nil
@@ -107,8 +107,8 @@ func (m *MongoDBContainer) Terminate(ctx context.Context) error {
 		}
 	}
 
-	if m.Container != nil {
-		if err := testcontainers.TerminateContainer(m.Container); err != nil {
+	if m.container != nil {
+		if err := testcontainers.TerminateContainer(m.container); err != nil {
 			errs = append(errs, fmt.Errorf("failed to terminate mongodb container: %w", err))
 		}
 	}

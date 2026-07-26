@@ -33,38 +33,49 @@ func WithTenantConfig(cfg tenant.Config) Option {
 	}
 }
 
-// NewModule provides tenant lifecycle management and Connect-RPC interceptors
+// NewTenantModule provides tenant lifecycle management and Connect-RPC interceptors
 // for dependency injection.
-func NewModule(opts ...Option) fx.Option {
+func NewTenantModule(opts ...Option) fx.Option {
 	cfg := &tenantOptions{}
 	for _, opt := range opts {
 		opt(cfg)
 	}
 
-	modules := []fx.Option{
+	return fx.Module("tenant-lifecycle",
 		fx.Supply(cfg),
-		fx.Supply(
-			fx.Annotate(
-				fx_interceptor.Interceptor{Priority: ResolverInterceptorPriority, Handler: tenant.NewResolverInterceptor()},
-				fx.ResultTags(`group:"connect_interceptor"`),
-			),
-		),
-		fx.Supply(
-			fx.Annotate(
-				fx_interceptor.Interceptor{Priority: ValidatorInterceptorPriority, Handler: tenant.NewValidatorInterceptor()},
-				fx.ResultTags(`group:"connect_interceptor"`),
-			),
-		),
 		fx.Decorate(func(
 			syncer *tenant.TenantSyncer,
 			repo tenant.Repository,
-			cfg mongo.Config,
+			mongoConf mongo.Config,
 			log *zap.Logger,
+			cfg tenant.Config,
+			runner mongo.MigrationRunner,
 		) mongo.MigrationRunner {
-			return tenant.NewTenantMigrationRunner(syncer, repo, cfg, log)
+			if !cfg.Enabled {
+				return runner
+			}
+			return tenant.NewTenantMigrationRunner(syncer, repo, mongoConf, log)
 		}),
+		fx.Provide(provideConfig),
 		fx.Provide(
-			provideConfig,
+			fx.Annotate(
+				func(cfg tenant.Config) fx_interceptor.Interceptor {
+					if !cfg.Enabled {
+						return fx_interceptor.Interceptor{}
+					}
+					return fx_interceptor.Interceptor{Priority: ResolverInterceptorPriority, Handler: tenant.NewResolverInterceptor()}
+				},
+				fx.ResultTags(`group:"connect_interceptor"`),
+			),
+			fx.Annotate(
+				func(cfg tenant.Config) fx_interceptor.Interceptor {
+					if !cfg.Enabled {
+						return fx_interceptor.Interceptor{}
+					}
+					return fx_interceptor.Interceptor{Priority: ValidatorInterceptorPriority, Handler: tenant.NewValidatorInterceptor()}
+				},
+				fx.ResultTags(`group:"connect_interceptor"`),
+			),
 			tenant.NewMongoRepository,
 			tenant.NewTenantSyncer,
 			tenant.NewLifecycle,
@@ -74,14 +85,19 @@ func NewModule(opts ...Option) fx.Option {
 				fx.ResultTags(`group:"tenant_cleaners"`),
 			),
 			fx.Annotate(
-				tenant.NewCleanupWorker,
-				fx.ParamTags(``, `group:"tenant_cleaners"`, ``),
+				provideCleanupWorker,
+				fx.ParamTags(``, ``, `group:"tenant_cleaners"`, ``),
 			),
 		),
-		fx.Invoke(worker.RunWorker[*tenant.CleanupWorker]("tenant-cleanup", worker.WithReady())),
-	}
+		fx.Invoke(worker.RunWorker[tenant.CleanupWorker]("tenant-cleanup", worker.WithReady())),
+	)
+}
 
-	return fx.Module("tenant-lifecycle", modules...)
+func provideCleanupWorker(cfg tenant.Config, repository tenant.Repository, cleaners []tenant.Cleaner, logger *zap.Logger) tenant.CleanupWorker {
+	if !cfg.Enabled {
+		return &tenant.NoopCleanupWorker{}
+	}
+	return tenant.NewDefaultCleanupWorker(repository, cleaners, logger)
 }
 
 func provideConfig(opts *tenantOptions, loader *config.Loader) (tenant.Config, error) {

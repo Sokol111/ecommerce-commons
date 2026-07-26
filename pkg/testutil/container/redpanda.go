@@ -90,10 +90,10 @@ func StartRedpandaContainer(ctx context.Context, opts ...RedpandaOption) (*Redpa
 	schemaRegistryURL := fmt.Sprintf("http://%s:%s", host, schemaRegistryPort.Port())
 	kafkaBroker := fmt.Sprintf("%s:%s", host, kafkaPort.Port())
 
-	// Wait for Schema Registry to be ready
-	if err := waitForSchemaRegistry(ctx, schemaRegistryURL, 30*time.Second); err != nil {
+	// Wait for Redpanda to be ready
+	if err := waitForRedpanda(ctx, schemaRegistryURL, 30*time.Second); err != nil {
 		_ = container.Terminate(ctx) //nolint:errcheck // best effort cleanup
-		return nil, fmt.Errorf("schema registry not ready: %w", err)
+		return nil, fmt.Errorf("redpanda not ready: %w", err)
 	}
 
 	return &RedpandaContainer{
@@ -111,7 +111,7 @@ func (s *RedpandaContainer) Terminate(ctx context.Context) error {
 	return nil
 }
 
-func waitForSchemaRegistry(ctx context.Context, url string, timeout time.Duration) error {
+func waitForRedpanda(ctx context.Context, url string, timeout time.Duration) error {
 	ctx, cancel := context.WithTimeout(ctx, timeout)
 	defer cancel()
 

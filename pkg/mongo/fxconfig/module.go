@@ -44,10 +44,14 @@ func NewMongoModule(opts ...Option) fx.Option {
 			provideDatabase,
 			provideConfig,
 			mongo.NewTxManager,
+			fx.Annotate(
+				mongo.NewSingleMigrationRunner,
+				fx.As(new(mongo.MigrationRunner)),
+			),
 		),
 		fx.Invoke(
 			applyMongoLifecycle,
-			registerMigrations,
+			registerMigrationHook,
 		),
 	)
 }
@@ -99,16 +103,12 @@ func applyMongoLifecycle(lc fx.Lifecycle, log *zap.Logger, cfg mongo.Config, cli
 	})
 }
 
-// registerMigrations runs single-tenant migrations on startup.
-func registerMigrations(lc fx.Lifecycle, cfg mongo.Config, log *zap.Logger, readiness health.ComponentManager) {
-	if cfg.Migrations.Mode != "single" {
-		log.Warn("skipping single mongo migrations", zap.String("mode", cfg.Migrations.Mode))
-		return
-	}
-	markReady := readiness.AddComponent("single-migrations")
+// RegisterMigrationHook registers a lifecycle hook to run database migrations on application start.
+func registerMigrationHook(lc fx.Lifecycle, runner mongo.MigrationRunner, ready health.ComponentManager) {
+	markReady := ready.AddComponent("migrations")
 	lc.Append(fx.Hook{
-		OnStart: func(_ context.Context) error {
-			if err := mongo.MigrateDatabase(cfg.BuildURI(), cfg.Migrations.Path, log); err != nil {
+		OnStart: func(ctx context.Context) error {
+			if err := runner.Run(ctx); err != nil {
 				return err
 			}
 			markReady()

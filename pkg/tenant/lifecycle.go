@@ -22,11 +22,11 @@ type Lifecycle interface {
 
 type lifecycle struct {
 	repo   Repository
-	runner *MigrationRunner
+	runner *TenantMigrationRunner
 	log    *zap.Logger
 }
 
-func NewLifecycle(repo Repository, runner *MigrationRunner, log *zap.Logger) Lifecycle {
+func NewLifecycle(repo Repository, runner *TenantMigrationRunner, log *zap.Logger) Lifecycle {
 	return &lifecycle{repo: repo, runner: runner, log: log}
 }
 
@@ -37,7 +37,7 @@ func (l *lifecycle) Create(ctx context.Context, slug string) error {
 		return fmt.Errorf("failed to register tenant %q: %w", slug, err)
 	}
 
-	if err := l.runner.migrateTenant(slug); err != nil {
+	if err := l.runner.MigrateTenant(slug); err != nil {
 		return fmt.Errorf("failed to migrate tenant %q: %w", slug, err)
 	}
 

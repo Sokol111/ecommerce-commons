@@ -66,9 +66,9 @@ type ReadPreferenceConfig struct {
 
 // MigrationConfig holds migration-specific configuration.
 type MigrationConfig struct {
+	Enabled bool `koanf:"enabled"`
 	// Path to migrations directory
 	Path string `koanf:"path"`
-	Mode string `koanf:"mode"` // single, multitenant, none
 }
 
 // BuildURI constructs a MongoDB connection string from Config.
@@ -90,6 +90,37 @@ func (c Config) BuildURI() string {
 		Scheme: "mongodb",
 		Host:   fmt.Sprintf("%s:%d", c.Host, c.Port),
 		Path:   "/" + c.Database,
+	}
+
+	if c.Username != "" {
+		u.User = url.UserPassword(c.Username, c.Password)
+	}
+
+	q := u.Query()
+	if c.ReplicaSet != "" {
+		q.Set("replicaSet", c.ReplicaSet)
+	}
+	if c.DirectConnection {
+		q.Set("directConnection", "true")
+	}
+	u.RawQuery = q.Encode()
+
+	return u.String()
+}
+
+// BuildBaseURI constructs a MongoDB connection string without the database name.
+func (c Config) BuildBaseURI() string {
+	if c.ConnectionString != "" {
+		u, err := url.Parse(c.ConnectionString)
+		if err == nil {
+			u.Path = ""
+			return u.String()
+		}
+	}
+
+	u := &url.URL{
+		Scheme: "mongodb",
+		Host:   fmt.Sprintf("%s:%d", c.Host, c.Port),
 	}
 
 	if c.Username != "" {
@@ -134,9 +165,6 @@ func (c *Config) ApplyDefaults() {
 	// Migration defaults
 	if c.Migrations.Path == "" {
 		c.Migrations.Path = "/db/migrations"
-	}
-	if c.Migrations.Mode == "" {
-		c.Migrations.Mode = "none" // Default: no migrations
 	}
 }
 

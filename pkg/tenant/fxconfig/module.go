@@ -1,13 +1,13 @@
 package fxconfig
 
 import (
-	"context"
-
-	"github.com/Sokol111/ecommerce-commons/pkg/core/health"
+	"github.com/Sokol111/ecommerce-commons/pkg/core/config"
 	"github.com/Sokol111/ecommerce-commons/pkg/core/worker"
 	fx_interceptor "github.com/Sokol111/ecommerce-commons/pkg/http/connect/interceptor/fxconfig"
+	"github.com/Sokol111/ecommerce-commons/pkg/mongo"
 	"github.com/Sokol111/ecommerce-commons/pkg/tenant"
 	"go.uber.org/fx"
+	"go.uber.org/zap"
 )
 
 // ResolverInterceptorPriority puts tenant resolution before logger (18) so
@@ -18,30 +18,31 @@ const ResolverInterceptorPriority = 18
 // so auth failures are logged with the resolved tenant field.
 const ValidatorInterceptorPriority = 26
 
-// moduleOptions holds internal configuration for the tenant module.
-type moduleOptions struct {
-	enableMigrations bool
+// tenantOptions holds internal configuration for the tenant module.
+type tenantOptions struct {
+	config *tenant.Config
 }
 
 // Option is a functional option for configuring the tenant module.
-type Option func(*moduleOptions)
+type Option func(*tenantOptions)
 
-// WithMigrations enables per-tenant database migrations on startup.
-func WithMigrations() Option {
-	return func(opts *moduleOptions) {
-		opts.enableMigrations = true
+// WithTenantConfig provides a static Config (useful for tests).
+func WithTenantConfig(cfg tenant.Config) Option {
+	return func(opts *tenantOptions) {
+		opts.config = &cfg
 	}
 }
 
 // NewModule provides tenant lifecycle management and Connect-RPC interceptors
 // for dependency injection.
 func NewModule(opts ...Option) fx.Option {
-	cfg := &moduleOptions{}
+	cfg := &tenantOptions{}
 	for _, opt := range opts {
 		opt(cfg)
 	}
 
 	modules := []fx.Option{
+		fx.Supply(cfg),
 		fx.Supply(
 			fx.Annotate(
 				fx_interceptor.Interceptor{Priority: ResolverInterceptorPriority, Handler: tenant.NewResolverInterceptor()},
@@ -54,9 +55,17 @@ func NewModule(opts ...Option) fx.Option {
 				fx.ResultTags(`group:"connect_interceptor"`),
 			),
 		),
+		fx.Decorate(func(
+			syncer *tenant.TenantSyncer,
+			repo tenant.Repository,
+			cfg mongo.Config,
+			log *zap.Logger,
+		) mongo.MigrationRunner {
+			return tenant.NewTenantMigrationRunner(syncer, repo, cfg, log)
+		}),
 		fx.Provide(
+			provideConfig,
 			tenant.NewMongoRepository,
-			tenant.NewMigrationRunner,
 			tenant.NewTenantSyncer,
 			tenant.NewLifecycle,
 			fx.Annotate(
@@ -72,29 +81,9 @@ func NewModule(opts ...Option) fx.Option {
 		fx.Invoke(worker.RunWorker[*tenant.CleanupWorker]("tenant-cleanup", worker.WithReady())),
 	}
 
-	if cfg.enableMigrations {
-		modules = append(modules, fx.Invoke(registerMigrations))
-	}
-
 	return fx.Module("tenant-lifecycle", modules...)
 }
 
-// registerMigrations syncs the tenant registry and runs per-tenant migrations on startup.
-func registerMigrations(lc fx.Lifecycle, syncer *tenant.TenantSyncer, runner *tenant.MigrationRunner, readiness health.ComponentManager) {
-	markReady := readiness.AddComponent("tenant-migrations")
-	lc.Append(fx.Hook{
-		OnStart: func(ctx context.Context) error {
-			slugs, err := syncer.Sync(ctx)
-			if err != nil {
-				return err
-			}
-
-			if err := runner.MigrateAll(slugs); err != nil {
-				return err
-			}
-
-			markReady()
-			return nil
-		},
-	})
+func provideConfig(opts *tenantOptions, loader *config.Loader) (tenant.Config, error) {
+	return config.Load[tenant.Config](loader, "multi-tenancy", opts.config)
 }

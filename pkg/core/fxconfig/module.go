@@ -1,12 +1,14 @@
 package fxconfig
 
 import (
+	"context"
 	"time"
 
 	fx_config "github.com/Sokol111/ecommerce-commons/pkg/core/config/fxconfig"
 	fx_health "github.com/Sokol111/ecommerce-commons/pkg/core/health/fxconfig"
 	fx_logger "github.com/Sokol111/ecommerce-commons/pkg/core/logger/fxconfig"
 	"go.uber.org/fx"
+	"go.uber.org/zap"
 )
 
 // coreOptions holds internal configuration for the core module.
@@ -82,5 +84,13 @@ func NewCoreModule(opts ...Option) fx.Option {
 		fx_config.NewConfigModule(cfg.configOpts...),
 		fx_logger.NewZapLoggingModule(cfg.loggerOpts...),
 		fx_health.NewReadinessModule(),
+		fx.Invoke(func(lc fx.Lifecycle, log *zap.Logger) {
+			lc.Append(fx.Hook{
+				OnStop: func(ctx context.Context) error {
+					log.Info("Application stopping...")
+					return nil
+				},
+			})
+		}),
 	)
 }

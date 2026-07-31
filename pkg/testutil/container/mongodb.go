@@ -40,8 +40,14 @@ func WithReplicaSet(name string) MongoDBContainerOption {
 	}
 }
 
+func StartDefaultMongoDBContainer() *MongoDBContainer {
+	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
+	defer cancel()
+	return StartMongoDBContainer(ctx, WithReplicaSet("rs0"))
+}
+
 // StartMongoDBContainer starts a MongoDB container and returns a wrapper with a connected client.
-func StartMongoDBContainer(ctx context.Context, opts ...MongoDBContainerOption) (*MongoDBContainer, error) {
+func StartMongoDBContainer(ctx context.Context, opts ...MongoDBContainerOption) *MongoDBContainer {
 	options := &mongoDBContainerOptions{
 		image: "mongo:7",
 	}
@@ -58,14 +64,14 @@ func StartMongoDBContainer(ctx context.Context, opts ...MongoDBContainerOption) 
 	// Start MongoDB container
 	mongoContainer, err := mongodb.Run(ctx, options.image, tcOpts...)
 	if err != nil {
-		return nil, fmt.Errorf("failed to start mongodb container: %w", err)
+		panic(fmt.Errorf("failed to start mongodb container: %w", err))
 	}
 
 	// Get connection string
 	connectionString, err := mongoContainer.ConnectionString(ctx)
 	if err != nil {
 		_ = testcontainers.TerminateContainer(mongoContainer) //nolint:errcheck // best effort cleanup
-		return nil, fmt.Errorf("failed to get connection string: %w", err)
+		panic(fmt.Errorf("failed to get connection string: %w", err))
 	}
 
 	// Connect to MongoDB
@@ -73,7 +79,7 @@ func StartMongoDBContainer(ctx context.Context, opts ...MongoDBContainerOption) 
 	client, err := mongo.Connect(clientOpts)
 	if err != nil {
 		_ = testcontainers.TerminateContainer(mongoContainer) //nolint:errcheck // best effort cleanup
-		return nil, fmt.Errorf("failed to connect to mongodb: %w", err)
+		panic(fmt.Errorf("failed to connect to mongodb: %w", err))
 	}
 
 	// Ping to verify connection
@@ -82,14 +88,14 @@ func StartMongoDBContainer(ctx context.Context, opts ...MongoDBContainerOption) 
 	if err := client.Ping(pingCtx, nil); err != nil {
 		_ = client.Disconnect(context.Background())           //nolint:errcheck // best effort cleanup
 		_ = testcontainers.TerminateContainer(mongoContainer) //nolint:errcheck // best effort cleanup
-		return nil, fmt.Errorf("failed to ping mongodb: %w", err)
+		panic(fmt.Errorf("failed to ping mongodb: %w", err))
 	}
 
 	return &MongoDBContainer{
 		container:        mongoContainer,
 		Client:           client,
 		ConnectionString: connectionString,
-	}, nil
+	}
 }
 
 // Database returns a database handle for the given name.
@@ -98,7 +104,9 @@ func (m *MongoDBContainer) Database(name string) *mongo.Database {
 }
 
 // Terminate disconnects the client and terminates the container.
-func (m *MongoDBContainer) Terminate(ctx context.Context) error {
+func (m *MongoDBContainer) Terminate() error {
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
 	var errs []error
 
 	if m.Client != nil {

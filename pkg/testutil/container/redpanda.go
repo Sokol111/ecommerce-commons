@@ -31,8 +31,14 @@ func WithRedpandaImage(image string) RedpandaOption {
 	}
 }
 
+func StartDefaultRedpandaContainer() *RedpandaContainer {
+	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
+	defer cancel()
+	return StartRedpandaContainer(ctx)
+}
+
 // StartRedpandaContainer starts a Redpanda container with an embedded Kafka and Schema Registry.
-func StartRedpandaContainer(ctx context.Context, opts ...RedpandaOption) (*RedpandaContainer, error) {
+func StartRedpandaContainer(ctx context.Context, opts ...RedpandaOption) *RedpandaContainer {
 	options := &redpandaOptions{
 		image: "redpandadata/redpanda:v24.1.1",
 	}
@@ -65,26 +71,26 @@ func StartRedpandaContainer(ctx context.Context, opts ...RedpandaOption) (*Redpa
 		Started: true,
 	})
 	if err != nil {
-		return nil, fmt.Errorf("failed to start redpanda container: %w", err)
+		panic(fmt.Errorf("failed to start redpanda container: %w", err))
 	}
 
 	// Get host URL
 	host, err := container.Host(ctx)
 	if err != nil {
 		_ = container.Terminate(ctx) //nolint:errcheck // best effort cleanup
-		return nil, fmt.Errorf("failed to get container host: %w", err)
+		panic(fmt.Errorf("failed to get container host: %w", err))
 	}
 
 	kafkaPort, err := container.MappedPort(ctx, "9092")
 	if err != nil {
 		_ = container.Terminate(ctx) //nolint:errcheck // best effort cleanup
-		return nil, fmt.Errorf("failed to get kafka port: %w", err)
+		panic(fmt.Errorf("failed to get kafka port: %w", err))
 	}
 
 	schemaRegistryPort, err := container.MappedPort(ctx, "8081")
 	if err != nil {
 		_ = container.Terminate(ctx) //nolint:errcheck // best effort cleanup
-		return nil, fmt.Errorf("failed to get schema registry port: %w", err)
+		panic(fmt.Errorf("failed to get schema registry port: %w", err))
 	}
 
 	schemaRegistryURL := fmt.Sprintf("http://%s:%s", host, schemaRegistryPort.Port())
@@ -93,18 +99,20 @@ func StartRedpandaContainer(ctx context.Context, opts ...RedpandaOption) (*Redpa
 	// Wait for Redpanda to be ready
 	if err := waitForRedpanda(ctx, schemaRegistryURL, 30*time.Second); err != nil {
 		_ = container.Terminate(ctx) //nolint:errcheck // best effort cleanup
-		return nil, fmt.Errorf("redpanda not ready: %w", err)
+		panic(fmt.Errorf("redpanda not ready: %w", err))
 	}
 
 	return &RedpandaContainer{
 		container:         container,
 		SchemaRegistryURL: schemaRegistryURL,
 		KafkaBroker:       kafkaBroker,
-	}, nil
+	}
 }
 
 // Terminate terminates the container.
-func (s *RedpandaContainer) Terminate(ctx context.Context) error {
+func (s *RedpandaContainer) Terminate() error {
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
 	if s.container != nil {
 		return s.container.Terminate(ctx)
 	}

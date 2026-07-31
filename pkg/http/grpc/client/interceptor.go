@@ -1,7 +1,8 @@
-package grpcclient
+package client
 
 import (
 	"context"
+	"time"
 
 	"github.com/Sokol111/ecommerce-commons/pkg/core/logger"
 	"github.com/Sokol111/ecommerce-commons/pkg/tenant"
@@ -10,9 +11,9 @@ import (
 	"google.golang.org/grpc/metadata"
 )
 
-// unaryInterceptor propagates tenant slug into outgoing gRPC metadata
+// TenantSlugUnaryInterceptor propagates tenant slug into outgoing gRPC metadata
 // and enriches the logger with grpc_method for downstream logs.
-func unaryInterceptor(ctx context.Context, method string, req, reply interface{}, cc *grpc.ClientConn, invoker grpc.UnaryInvoker, opts ...grpc.CallOption) error {
+func TenantSlugUnaryInterceptor(ctx context.Context, method string, req, reply interface{}, cc *grpc.ClientConn, invoker grpc.UnaryInvoker, opts ...grpc.CallOption) error {
 	if slug, ok := tenant.SlugFromContext(ctx); ok {
 		md, _ := metadata.FromOutgoingContext(ctx)
 		md = md.Copy()
@@ -25,4 +26,13 @@ func unaryInterceptor(ctx context.Context, method string, req, reply interface{}
 	}
 
 	return invoker(ctx, method, req, reply, cc, opts...)
+}
+
+// TimeoutUnaryInterceptor wraps RPC calls with a context timeout.
+func TimeoutUnaryInterceptor(timeout time.Duration) grpc.UnaryClientInterceptor {
+	return func(ctx context.Context, method string, req, reply interface{}, cc *grpc.ClientConn, invoker grpc.UnaryInvoker, opts ...grpc.CallOption) error {
+		ctx, cancel := context.WithTimeout(ctx, timeout)
+		defer cancel()
+		return invoker(ctx, method, req, reply, cc, opts...)
+	}
 }

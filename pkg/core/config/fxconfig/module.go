@@ -85,7 +85,9 @@ func NewConfigModule(opts ...Option) fx.Option {
 
 	return fx.Module("commons-config",
 		fx.Supply(cfg),
-		fx.Supply(loadDotEnv(cfg)),
+		fx.Provide(func() (dotenvLoaded, error) {
+			return loadDotEnv(cfg)
+		}),
 		fx.Provide(resolveConfigPath),
 		fx.Provide(func(configPath configPath) (*koanf.Koanf, config.Source, error) {
 			k, err := config.NewKoanf(string(configPath))

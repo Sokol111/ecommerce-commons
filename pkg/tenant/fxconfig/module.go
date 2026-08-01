@@ -42,7 +42,7 @@ func NewTenantModule(opts ...Option) fx.Option {
 		opt(cfg)
 	}
 
-	return fx.Module("tenant-lifecycle",
+	return fx.Options(
 		fx.Supply(cfg),
 		fx.Provide(provideConfig),
 		fx.Provide(fx.Annotate(

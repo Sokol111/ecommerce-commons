@@ -3,6 +3,7 @@ package tenant
 import (
 	"context"
 	"fmt"
+	"net/url"
 
 	"github.com/Sokol111/ecommerce-commons/pkg/mongo"
 	"go.uber.org/zap"
@@ -66,7 +67,13 @@ func (r *TenantMigrationRunner) Run(ctx context.Context) error {
 // MigrateTenant migrates the database for a single tenant identified by its slug.
 func (r *TenantMigrationRunner) MigrateTenant(slug string) error {
 	database := fmt.Sprintf("%s_%s", r.baseDatabase, slug)
-	dbURL := r.baseURI + "/" + database
+
+	u, err := url.Parse(r.baseURI)
+	if err != nil {
+		return fmt.Errorf("failed to parse base mongo uri: %w", err)
+	}
+	u.Path = "/" + database
+	dbURL := u.String()
 
 	r.log.Info("Running migration for tenant",
 		zap.String("tenant", slug),

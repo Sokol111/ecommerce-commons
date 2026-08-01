@@ -1,0 +1,19 @@
+pkg/fxconfig/module.go
+  s_1dc70044bffbba::t_cdd30c1596ae7a 17
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.14",
+  "base_commit_sha": "53ecdd106fa6b6fdb73d7a1054baf68f6bbc5b79",
+  "prompts": {},
+  "sessions": {
+    "s_1dc70044bffbba": {
+      "agent_id": {
+        "tool": "opencode",
+        "id": "ses_0465aee5cffekvt4GyPGC6KqwT",
+        "model": "kimi-k2.7-code"
+      },
+      "human_author": "Sokol111 <igorsokol111@gmail.com>"
+    }
+  }
+}

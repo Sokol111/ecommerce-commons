@@ -6,6 +6,7 @@ import (
 	fx_interceptor "github.com/Sokol111/ecommerce-commons/pkg/http/connect/interceptor/fxconfig"
 	"github.com/Sokol111/ecommerce-commons/pkg/mongo"
 	"github.com/Sokol111/ecommerce-commons/pkg/tenant"
+	mongodriver "go.mongodb.org/mongo-driver/v2/mongo"
 	"go.uber.org/fx"
 	"go.uber.org/zap"
 )
@@ -43,47 +44,28 @@ func NewTenantModule(opts ...Option) fx.Option {
 
 	return fx.Module("tenant-lifecycle",
 		fx.Supply(cfg),
-		fx.Decorate(func(
-			syncer *tenant.TenantSyncer,
-			repo tenant.Repository,
-			mongoConf mongo.Config,
-			log *zap.Logger,
-			cfg tenant.Config,
-			runner mongo.MigrationRunner,
-		) mongo.MigrationRunner {
-			if !cfg.Enabled {
-				return runner
-			}
-			return tenant.NewTenantMigrationRunner(syncer, repo, mongoConf, log)
-		}),
 		fx.Provide(provideConfig),
+		fx.Provide(fx.Annotate(
+			provideTenantMigrationRunner,
+			fx.ParamTags(``, `optional:"true"`, ``, ``, ``),
+		)),
+		fx.Decorate(decorateMigrationRunner),
 		fx.Provide(
 			fx.Annotate(
-				func(cfg tenant.Config) fx_interceptor.Interceptor {
-					if !cfg.Enabled {
-						return fx_interceptor.Interceptor{}
-					}
-					return fx_interceptor.Interceptor{Priority: ResolverInterceptorPriority, Handler: tenant.NewResolverInterceptor()}
-				},
+				provideResolverInterceptor,
 				fx.ResultTags(`group:"connect_interceptor"`),
 			),
 			fx.Annotate(
-				func(cfg tenant.Config) fx_interceptor.Interceptor {
-					if !cfg.Enabled {
-						return fx_interceptor.Interceptor{}
-					}
-					return fx_interceptor.Interceptor{Priority: ValidatorInterceptorPriority, Handler: tenant.NewValidatorInterceptor()}
-				},
+				provideValidatorInterceptor,
 				fx.ResultTags(`group:"connect_interceptor"`),
 			),
-			tenant.NewMongoRepository,
-			tenant.NewTenantSyncer,
-			tenant.NewLifecycle,
+			provideTenantRepository,
+			provideTenantSyncer,
 			fx.Annotate(
-				tenant.NewMongoCleaner,
-				fx.As(new(tenant.Cleaner)),
-				fx.ResultTags(`group:"tenant_cleaners"`),
+				provideTenantLifecycle,
+				fx.ParamTags(``, ``, `optional:"true"`, ``),
 			),
+			provideTenantCleaner,
 			fx.Annotate(
 				provideCleanupWorker,
 				fx.ParamTags(``, ``, `group:"tenant_cleaners"`, ``),
@@ -102,4 +84,70 @@ func provideCleanupWorker(cfg tenant.Config, repository tenant.Repository, clean
 
 func provideConfig(opts *tenantOptions, loader *config.Loader) (tenant.Config, error) {
 	return config.Load[tenant.Config](loader, "multi-tenancy", opts.config)
+}
+
+func provideTenantMigrationRunner(
+	cfg tenant.Config,
+	syncer *tenant.TenantSyncer,
+	repo tenant.Repository,
+	mongoConf mongo.Config,
+	log *zap.Logger,
+) *tenant.TenantMigrationRunner {
+	if !cfg.Enabled {
+		return nil
+	}
+	return tenant.NewTenantMigrationRunner(syncer, repo, mongoConf, log)
+}
+
+func decorateMigrationRunner(
+	cfg tenant.Config,
+	defaultRunner mongo.MigrationRunner,
+	tenantRunner *tenant.TenantMigrationRunner,
+) mongo.MigrationRunner {
+	if !cfg.Enabled || tenantRunner == nil {
+		return defaultRunner
+	}
+	return tenantRunner
+}
+
+func provideResolverInterceptor(cfg tenant.Config) fx_interceptor.Interceptor {
+	if !cfg.Enabled {
+		return fx_interceptor.Interceptor{}
+	}
+	return fx_interceptor.Interceptor{Priority: ResolverInterceptorPriority, Handler: tenant.NewResolverInterceptor()}
+}
+
+func provideValidatorInterceptor(cfg tenant.Config) fx_interceptor.Interceptor {
+	if !cfg.Enabled {
+		return fx_interceptor.Interceptor{}
+	}
+	return fx_interceptor.Interceptor{Priority: ValidatorInterceptorPriority, Handler: tenant.NewValidatorInterceptor()}
+}
+
+func provideTenantRepository(cfg tenant.Config, database *mongodriver.Database) tenant.Repository {
+	if !cfg.Enabled {
+		return nil
+	}
+	return tenant.NewMongoRepository(database)
+}
+
+func provideTenantSyncer(cfg tenant.Config, provider tenant.SlugsProvider, repo tenant.Repository, log *zap.Logger) *tenant.TenantSyncer {
+	if !cfg.Enabled {
+		return nil
+	}
+	return tenant.NewTenantSyncer(provider, repo, log)
+}
+
+func provideTenantLifecycle(cfg tenant.Config, repo tenant.Repository, runner *tenant.TenantMigrationRunner, log *zap.Logger) tenant.Lifecycle {
+	if !cfg.Enabled {
+		return nil
+	}
+	return tenant.NewLifecycle(repo, runner, log)
+}
+
+func provideTenantCleaner(cfg tenant.Config, database *mongodriver.Database, log *zap.Logger) tenant.Cleaner {
+	if !cfg.Enabled {
+		return nil
+	}
+	return tenant.NewMongoCleaner(database, log)
 }

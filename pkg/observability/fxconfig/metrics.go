@@ -81,10 +81,13 @@ func metricViews() []sdkmetric.View {
 func activateMetrics(lc fx.Lifecycle, log *zap.Logger, cfg observability.Config, provider *sdkmetric.MeterProvider, readiness health.ComponentManager) {
 	markReady := readiness.AddComponent(observability.MetricsComponentName)
 
-	// provider, err := provideMeterProvider(context.Background(), p.Cfg.OtelCollectorEndpoint, p.Cfg.Metrics.Interval, p.AppCfg, p.ExtraViews)
-
 	lc.Append(fx.Hook{
 		OnStart: func(context.Context) error {
+			if provider == nil {
+				log.Info("metrics: disabled, skipping activation")
+				markReady()
+				return nil
+			}
 			otel.SetMeterProvider(provider)
 			_ = otelruntime.Start(otelruntime.WithMinimumReadMemStatsInterval(observability.DefaultRuntimeStatsInterval)) //nolint:errcheck // best-effort runtime stats
 			log.Info("metrics initialized",
@@ -95,6 +98,9 @@ func activateMetrics(lc fx.Lifecycle, log *zap.Logger, cfg observability.Config,
 			return nil
 		},
 		OnStop: func(ctx context.Context) error {
+			if provider == nil {
+				return nil
+			}
 			shutdownCtx, cancel := context.WithTimeout(ctx, observability.DefaultShutdownTimeout)
 			defer cancel()
 			return provider.Shutdown(shutdownCtx)

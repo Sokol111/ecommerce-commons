@@ -14,7 +14,7 @@ import (
 )
 
 func NewCommonsModule() fx.Option {
-	return fx.Module("ecommerce-commons",
+	return fx.Options(
 		fx_config.NewCoreModule(),
 		fx_http.NewHTTPModule(),
 		fx_mongo.NewMongoModule(),

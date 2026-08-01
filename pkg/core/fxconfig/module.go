@@ -4,17 +4,17 @@ import (
 	"context"
 	"time"
 
-	fx_config "github.com/Sokol111/ecommerce-commons/pkg/core/config/fxconfig"
-	fx_health "github.com/Sokol111/ecommerce-commons/pkg/core/health/fxconfig"
-	fx_logger "github.com/Sokol111/ecommerce-commons/pkg/core/logger/fxconfig"
+	config_fx_pkg "github.com/Sokol111/ecommerce-commons/pkg/core/config/fxconfig"
+	health_fx_pkg "github.com/Sokol111/ecommerce-commons/pkg/core/health/fxconfig"
+	logger_fx_pkg "github.com/Sokol111/ecommerce-commons/pkg/core/logger/fxconfig"
 	"go.uber.org/fx"
 	"go.uber.org/zap"
 )
 
 // coreOptions holds internal configuration for the core module.
 type coreOptions struct {
-	configOpts []fx_config.Option
-	loggerOpts []fx_logger.Option
+	configOpts []config_fx_pkg.Option
+	loggerOpts []logger_fx_pkg.Option
 }
 
 // Option is a functional option for configuring the core module.
@@ -36,7 +36,7 @@ type Option func(*coreOptions)
 //	        logger_fxpkg.WithLoggerConfig(logger.Config{...}),
 //	    ),
 //	)
-func WithConfigOptions(opts ...fx_config.Option) Option {
+func WithConfigOptions(opts ...config_fx_pkg.Option) Option {
 	return func(co *coreOptions) {
 		co.configOpts = append(co.configOpts, opts...)
 	}
@@ -44,7 +44,7 @@ func WithConfigOptions(opts ...fx_config.Option) Option {
 
 // WithLoggerOptions passes logger options directly to the underlying logger module.
 // Use this to provide static logger config or customize logger behavior.
-func WithLoggerOptions(opts ...fx_logger.Option) Option {
+func WithLoggerOptions(opts ...logger_fx_pkg.Option) Option {
 	return func(co *coreOptions) {
 		co.loggerOpts = append(co.loggerOpts, opts...)
 	}
@@ -81,9 +81,9 @@ func NewCoreModule(opts ...Option) fx.Option {
 	return fx.Options(
 		fx.StartTimeout(5*time.Minute),
 		fx.StopTimeout(5*time.Minute),
-		fx_config.NewConfigModule(cfg.configOpts...),
-		fx_logger.NewZapLoggingModule(cfg.loggerOpts...),
-		fx_health.NewReadinessModule(),
+		config_fx_pkg.NewConfigModule(cfg.configOpts...),
+		logger_fx_pkg.NewZapLoggingModule(cfg.loggerOpts...),
+		health_fx_pkg.NewReadinessModule(),
 		fx.Invoke(func(lc fx.Lifecycle, log *zap.Logger) {
 			lc.Append(fx.Hook{
 				OnStop: func(ctx context.Context) error {

@@ -8,6 +8,7 @@ import (
 	"go.uber.org/zap"
 )
 
+// TraceContextUnaryInterceptor is a connect unary interceptor that injects trace and span IDs into the request logger.
 func TraceContextUnaryInterceptor(next connect.UnaryFunc) connect.UnaryFunc {
 	return func(ctx context.Context, req connect.AnyRequest) (connect.AnyResponse, error) {
 		traceID, spanID := GetTraceIDAndSpanID(ctx)

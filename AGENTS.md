@@ -4,10 +4,10 @@
 
 `ecommerce-commons` is the shared Go library imported by every service in the ecommerce
 workspace (catalog, product-query, category-query, image, tenant). It has **no `cmd/` and no
-`main`** — it ships reusable building blocks, each exposed as an `fx` module that services
-compose in their own `cmd/main.go`. There is nothing to "run"; you build, test, and lint it,
-and consumers pick up changes locally through the root `go.work` (no tag/release needed for
-local dev — see the workspace root `AGENTS.md`).
+`main`**. It ships reusable building blocks plus their Fx wiring, which services compose in
+their own `cmd/main.go`. There is nothing to "run"; you build, test, and lint it, and consumers
+pick up changes locally through the root `go.work` (no tag/release needed for local dev — see the
+workspace root `AGENTS.md`).
 
 ## Commands
 
@@ -23,30 +23,41 @@ make check-all           # deps + fmt + lint + test + vuln-check (the CI pipelin
 make install-tools       # golangci-lint, mockery, govulncheck, go-mod-outdated, go-licenses
 ```
 
-Run a single test: `go test ./pkg/messaging/kafka/consumer/ -run TestRouter -v`
+Run a single test: `go test ./pkg/kafka/consumer/ -run TestRouter -v`
 Integration tests are gated behind `-tags=integration`; plain `go test ./...` / `make test-unit` skips them.
 
 ## Module system (the core convention)
 
-Every package exposes a constructor returning `fx.Option` — named `Module()`, `New*Module()`,
-or `NewModule()`. Services assemble their app **only** from these; they never construct
-components by hand. When adding a component, `fx.Provide` it inside the relevant module rather
-than exporting a bare constructor.
+Runtime packages contain framework-agnostic functionality. Their Fx constructors and options
+live in a sibling `fxconfig` package: for example, `pkg/mongo` is wired by
+`pkg/mongo/fxconfig`, and configuration loading by `pkg/core/config/fxconfig`. Do not add Fx
+imports or DI constructors to runtime packages. Add them to the closest `fxconfig` package.
+
+Each Fx package exposes a constructor returning `fx.Option`, conventionally named
+`New*Module()`. `pkg/fxconfig.NewCommonsModule()` aggregates the standard library modules:
+core, HTTP, Mongo, observability, Kafka, tenant, client credentials, and JWKS validation.
+Services can compose this aggregate or individual `fxconfig` modules; they do not construct
+infrastructure components by hand.
 
 Modules follow a **functional-options** pattern with a consistent testing escape hatch: the
 production path loads config from koanf, while `With*Config(...)` options inject static config
-for tests (e.g. `core.WithAppConfig`, `messaging.WithKafkaConfig`, `persistence.WithMongoConfig`,
-plus `core.WithoutEnvFile()` / `core.WithoutConfigFile()`). Follow this pattern for any new module.
+for tests. Options belong to the relevant `fxconfig` package: for example,
+`core/config/fxconfig.WithAppConfig`, `kafka/config/fxconfig.WithKafkaConfig`, and
+`mongo/fxconfig.WithMongoConfig`. Use `core/config/fxconfig.WithoutDotEnv()` and
+`WithoutConfigFile()` to disable external configuration in tests. Follow this pattern for any
+new module.
 
 Top-level modules and what they wire:
-- `pkg/core` — `NewCoreModule()`: config loading (koanf + dotenv), zap logger, readiness health.
-  Also sets 5-min fx start/stop timeouts. This is the foundation every service starts with.
-- `pkg/messaging` — `NewMessagingModule()`: Kafka producer, protobuf serde, and the outbox pattern.
-- `pkg/persistence` — `NewPersistenceModule()`: MongoDB. `WithMigrations()` runs migrations on
-  startup (single-tenant); omit it when the tenant module manages per-tenant migrations instead.
-- `pkg/tenant` — `NewModule()`: multi-tenancy lifecycle + Connect-RPC interceptors.
-- `pkg/http`, `pkg/grpc`, `pkg/security`, `pkg/observability`, `pkg/swaggerui` — transport, auth,
-  and telemetry building blocks.
+- `pkg/core/fxconfig` — `NewCoreModule()`: config loading (koanf + dotenv), zap logger, readiness
+  health, and 5-minute Fx start/stop timeouts. This is the foundation every service starts with.
+- `pkg/kafka/fxconfig` — `NewKafkaModule()`: Kafka configuration, producer, protobuf serde, and
+  the outbox pattern. Consumer wiring is opt-in via `pkg/kafka/consumer/fxconfig`.
+- `pkg/mongo/fxconfig` — `NewMongoModule()`: Mongo client, database, transaction manager, metric
+  views, lifecycle, and the default single-database migration runner.
+- `pkg/tenant/fxconfig` — `NewTenantModule()`: multi-tenancy lifecycle, migrations, cleanup worker,
+  and Connect-RPC interceptors.
+- `pkg/http/fxconfig`, `pkg/observability/fxconfig`, and `pkg/security/*/fxconfig` — transport,
+  telemetry, and authentication building blocks.
 
 Config loading is centralized in `config.Load[T](k, "key", staticOverride)` (`pkg/core/config/
 loader.go`): each module loads its own subtree of the service's YAML by key (`"mongo"`, `"kafka"`,
@@ -58,14 +69,14 @@ Tenant data lives in a **separate Mongo database per tenant**, named `{baseDatab
 The slug is resolved per-request from context. This is the single most important cross-cutting
 concern to get right in repository code:
 
-- `mongo.NewTenantRepository[Domain, Entity](...)` — tenant-scoped collections. Uses a
-  `dynamicCollectionProvider` that picks the DB from a `DatabaseResolver` (the tenant module
-  wires this to `MustSlugFromContext`, so a missing tenant in context is a hard failure).
-- `mongo.NewGenericRepository[Domain, Entity](...)` — **non**-tenant collections in the base DB
-  (e.g. the transactional `outbox`). Uses a `staticCollectionProvider`.
+- `mongo.NewGenericRepository[Domain, Entity](...)` accepts a `mongo.CollectionProvider`. The
+  provider resolves a collection for the request context, so services can supply either a fixed
+  collection or tenant-aware collection selection without changing repository code.
+- `mongo.NewStaticCollectionProvider(...)` — fixed collection in the base database, suitable for
+  non-tenant data such as the transactional `outbox`.
 
-Choosing the wrong one silently reads/writes the wrong database, so match the constructor to
-whether the data is tenant-scoped. See `pkg/persistence/mongo/collection_provider.go` and
+Choosing the wrong provider silently reads/writes the wrong database, so match it to whether the
+data is tenant-scoped. See `pkg/mongo/collection_provider.go` and
 `generic_repository.go`.
 
 ## Connect-RPC interceptor ordering
@@ -79,20 +90,13 @@ are coordinated constants — when adding an interceptor, pick a priority that f
 25 Validation  26 Tenant-Validator  30 Timeout  40 RateLimit  50 Bulkhead
 ```
 
-The named constants live in `pkg/tenant/module.go` (`ResolverInterceptorPriority=18`,
-`ValidatorInterceptorPriority=26`), `pkg/security/validation/interceptor.go`
-(`AuthInterceptorPriority=22`), and `pkg/observability/tracing/interceptor.go` (`=15`); the
-built-in chain in `pkg/http/connect/interceptor/module.go`. Tenant/logger/auth ordering is
-deliberate: resolve tenant before logging so the tenant field appears in logs, validate auth
-after logging so failures are logged.
-
-## Mocks / test doubles
-
-Test doubles are **hand-written**, not generated: plain structs (often with a `sync.Mutex` and
-per-method stub fields / func hooks), living in the same package's `_test.go` files. See
-`pkg/messaging/patterns/outbox/repository_mock_test.go` for the established style, and follow it
-for new tests. (The `make generate-mocks` target exists for possible future mockery use, but
-there is no mockery config or generated mock in the tree today.)
+The named constants live in `pkg/tenant/fxconfig/module.go`
+(`ResolverInterceptorPriority=18`, `ValidatorInterceptorPriority=26`) and
+`pkg/security/validation/fxconfig/module.go` (`AuthInterceptorPriority=22`). Tracing uses 15 in
+`pkg/observability/fxconfig/module.go`; the built-in chain is in
+`pkg/http/connect/interceptor/fxconfig/module.go`. Tenant/logger/auth ordering is deliberate:
+resolve tenant before logging so the tenant field appears in logs, validate auth after logging so
+failures are logged.
 
 ## Linting notes
 

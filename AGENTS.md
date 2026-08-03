@@ -17,7 +17,7 @@ make test-unit           # -short (unit only)
 make test-integration    # -tags=integration (spins up real deps via testcontainers — needs Docker)
 make lint                # golangci-lint (v2; stricter-than-services config in .golangci.yml)
 make fmt                 # gofmt -s + goimports
-make generate-mocks      # mockery (not currently used — see "Mocks / test doubles" below)
+make generate-mocks      # mockery (not currently used)
 make vuln-check          # govulncheck (excludes testutil/mocks/test)
 make check-all           # deps + fmt + lint + test + vuln-check (the CI pipeline)
 make install-tools       # golangci-lint, mockery, govulncheck, go-mod-outdated, go-licenses
@@ -72,6 +72,8 @@ concern to get right in repository code:
 - `mongo.NewGenericRepository[Domain, Entity](...)` accepts a `mongo.CollectionProvider`. The
   provider resolves a collection for the request context, so services can supply either a fixed
   collection or tenant-aware collection selection without changing repository code.
+- `tenant.NewMultiTenantCollectionProvider(...)` — tenant-aware collection selection. It resolves
+  the database from the tenant in request context and is required for tenant-scoped data.
 - `mongo.NewStaticCollectionProvider(...)` — fixed collection in the base database, suitable for
   non-tenant data such as the transactional `outbox`.
 

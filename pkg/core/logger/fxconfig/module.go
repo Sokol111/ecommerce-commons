@@ -2,7 +2,6 @@ package fxconfig
 
 import (
 	"context"
-	"fmt"
 
 	"github.com/Sokol111/ecommerce-commons/pkg/core/config"
 	"github.com/Sokol111/ecommerce-commons/pkg/core/logger"
@@ -39,7 +38,7 @@ func NewZapLoggingModule(opts ...Option) fx.Option {
 	return fx.Options(
 		fx.Supply(cfg),
 		fx.Provide(provideConfig),
-		fx.Provide(provideLogger),
+		fx.Provide(logger.NewLogger),
 		fx.Invoke(func(log *zap.Logger, conf logger.Config) {
 			log.Info("Logger initialized",
 				zap.String("level", conf.ParsedLevel().String()),
@@ -52,28 +51,19 @@ func NewZapLoggingModule(opts ...Option) fx.Option {
 			zapLogger.UseLogLevel(zap.DebugLevel)
 			return zapLogger
 		}),
+		fx.Invoke(func(lc fx.Lifecycle, log *zap.Logger) {
+			lc.Append(fx.Hook{
+				OnStop: func(ctx context.Context) error {
+					// Best-effort sync, ignore errors.
+					// Sync errors on stdout/stderr are expected on some systems.
+					_ = log.Sync() //nolint:errcheck // best-effort sync
+					return nil
+				},
+			})
+		}),
 	)
 }
 
 func provideConfig(opts *loggerOptions, loader *config.Loader) (logger.Config, error) {
 	return config.Load[logger.Config](loader, "logger", opts.config)
-}
-
-func provideLogger(lc fx.Lifecycle, conf logger.Config) (*zap.Logger, zap.AtomicLevel, error) {
-	logger, atomicLevel, err := logger.NewLogger(conf)
-
-	if err != nil {
-		return nil, zap.AtomicLevel{}, fmt.Errorf("failed to create logger: %w", err)
-	}
-
-	lc.Append(fx.Hook{
-		OnStop: func(ctx context.Context) error {
-			// Best-effort sync, ignore errors.
-			// Sync errors on stdout/stderr are expected on some systems.
-			_ = logger.Sync() //nolint:errcheck // best-effort sync
-			return nil
-		},
-	})
-
-	return logger, atomicLevel, nil
 }

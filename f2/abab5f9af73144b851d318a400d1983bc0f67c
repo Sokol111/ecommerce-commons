@@ -1,0 +1,19 @@
+AGENTS.md
+  s_13bb8309d0537b::t_7311869799b0fd 102
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.14",
+  "base_commit_sha": "f2abab5f9af73144b851d318a400d1983bc0f67c",
+  "prompts": {},
+  "sessions": {
+    "s_13bb8309d0537b": {
+      "agent_id": {
+        "tool": "opencode",
+        "id": "ses_0372e28d3ffe3q2zhQng1vyXex",
+        "model": "kimi-k2.7-code"
+      },
+      "human_author": "Sokol111 <igorsokol111@gmail.com>"
+    }
+  }
+}

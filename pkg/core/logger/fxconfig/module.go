@@ -10,33 +10,11 @@ import (
 	"go.uber.org/zap"
 )
 
-// loggerOptions holds internal configuration for the logger module.
-type loggerOptions struct {
-	config *logger.Config
-}
-
-// Option is a functional option for configuring the logger module.
-type Option func(*loggerOptions)
-
-// WithLoggerConfig provides a static Config (useful for tests).
-func WithLoggerConfig(cfg logger.Config) Option {
-	return func(opts *loggerOptions) {
-		opts.config = &cfg
-	}
-}
-
 // NewZapLoggingModule creates a new fx module for zap logger initialization.
 // It provides a configured *zap.Logger instance and integrates with fx lifecycle.
 // By default, loads from koanf configuration.
-// Use WithLoggerConfig for static config (useful for tests).
-func NewZapLoggingModule(opts ...Option) fx.Option {
-	cfg := &loggerOptions{}
-	for _, opt := range opts {
-		opt(cfg)
-	}
-
+func NewZapLoggingModule() fx.Option {
 	return fx.Options(
-		fx.Supply(cfg),
 		fx.Provide(provideConfig),
 		fx.Provide(logger.NewLogger),
 		fx.Invoke(func(log *zap.Logger, conf logger.Config) {
@@ -64,6 +42,6 @@ func NewZapLoggingModule(opts ...Option) fx.Option {
 	)
 }
 
-func provideConfig(opts *loggerOptions, loader *config.Loader) (logger.Config, error) {
-	return config.Load[logger.Config](loader, "logger", opts.config)
+func provideConfig(loader *config.Loader) (logger.Config, error) {
+	return config.Load[logger.Config](loader, "logger", nil)
 }

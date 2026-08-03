@@ -13,35 +13,14 @@ import (
 // so that claims are available for tenant validation.
 const AuthInterceptorPriority = 22
 
-// validationOptions holds internal configuration for the validation module.
-type validationOptions struct {
-	config *validation.Config
-}
-
-// Option is a functional option for configuring the validation module.
-type Option func(*validationOptions)
-
-// WithJWKSConfig provides a static Config (useful for tests).
-func WithJWKSConfig(cfg validation.Config) Option {
-	return func(opts *validationOptions) {
-		opts.config = &cfg
-	}
-}
-
 // NewJWKSModule provides SecurityHandler and Validator for dependency injection.
 //
 // Example usage:
 //
 //	// Production - validates JWT tokens via JWKS
 //	validation.NewJWKSModule()
-func NewJWKSModule(opts ...Option) fx.Option {
-	cfg := &validationOptions{}
-	for _, opt := range opts {
-		opt(cfg)
-	}
-
+func NewJWKSModule() fx.Option {
 	return fx.Options(
-		fx.Supply(cfg),
 		fx.Provide(
 			provideConfig,
 			provideTokenValidator,
@@ -72,6 +51,6 @@ func provideTokenValidator(cfg validation.Config) (validation.Validator, error) 
 	return validation.NewTokenValidator(cfg)
 }
 
-func provideConfig(opts *validationOptions, loader *coreconfig.Loader) (validation.Config, error) {
-	return coreconfig.Load[validation.Config](loader, "security.jwks", opts.config)
+func provideConfig(loader *coreconfig.Loader) (validation.Config, error) {
+	return coreconfig.Load[validation.Config](loader, "security.jwks", nil)
 }

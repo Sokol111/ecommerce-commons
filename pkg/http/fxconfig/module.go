@@ -7,31 +7,11 @@ import (
 	"go.uber.org/fx"
 )
 
-// httpOptions holds internal configuration for the HTTP module.
-type httpOptions struct {
-	serverOpts []fx_server.Option
-}
-
-// Option is a functional option for configuring the HTTP module.
-type Option func(*httpOptions)
-
-// WithServerOptions passes options to the underlying server module.
-func WithServerOptions(opts ...fx_server.Option) Option {
-	return func(o *httpOptions) {
-		o.serverOpts = append(o.serverOpts, opts...)
-	}
-}
-
 // NewHTTPModule provides HTTP middleware functionality.
 // It includes server, error handler, health routes, and middleware components.
-func NewHTTPModule(opts ...Option) fx.Option {
-	cfg := &httpOptions{}
-	for _, opt := range opts {
-		opt(cfg)
-	}
-
+func NewHTTPModule() fx.Option {
 	return fx.Options(
-		fx_server.NewHTTPServerModule(cfg.serverOpts...),
+		fx_server.NewHTTPServerModule(),
 		fx_health.NewHealthRoutesModule(),
 		fx_interceptor.NewInterceptorsModule(),
 	)

@@ -13,53 +13,6 @@ import (
 	"go.uber.org/zap"
 )
 
-// configOptions holds configuration for the config module.
-type configOptions struct {
-	dotenvPath   string
-	skipDotEnv   bool
-	configPath   *string
-	noConfigFile bool
-	appConfig    *config.AppConfig
-}
-
-// Option is a functional option for configuring the config module.
-type Option func(*configOptions)
-
-// WithDotEnvPath sets a custom path to the .env file.
-func WithDotEnvPath(path string) Option {
-	return func(cfg *configOptions) {
-		cfg.dotenvPath = path
-	}
-}
-
-// WithoutDotEnv disables loading of a .env file.
-func WithoutDotEnv() Option {
-	return func(cfg *configOptions) {
-		cfg.skipDotEnv = true
-	}
-}
-
-// WithConfigPath sets a direct path to the configuration file.
-func WithConfigPath(path string) Option {
-	return func(cfg *configOptions) {
-		cfg.configPath = &path
-	}
-}
-
-// WithoutConfigFile disables loading of any config file.
-func WithoutConfigFile() Option {
-	return func(cfg *configOptions) {
-		cfg.noConfigFile = true
-	}
-}
-
-// WithAppConfig provides a static AppConfig (useful for tests).
-func WithAppConfig(cfg config.AppConfig) Option {
-	return func(opts *configOptions) {
-		opts.appConfig = &cfg
-	}
-}
-
 type dotenvLoaded bool
 
 // NewConfigModule creates a single fx module that wires all configuration loading:
@@ -77,16 +30,10 @@ type dotenvLoaded bool
 //	OBSERVABILITY__OTEL_COLLECTOR_ENDPOINT → observability.otel-collector-endpoint
 //	MONGO__MAX_POOL_SIZE                   → mongo.max-pool-size
 //	LOGGER__LEVEL                          → logger.level
-func NewConfigModule(opts ...Option) fx.Option {
-	cfg := &configOptions{dotenvPath: ".env"}
-	for _, opt := range opts {
-		opt(cfg)
-	}
-
+func NewConfigModule() fx.Option {
 	return fx.Options(
-		fx.Supply(cfg),
 		fx.Provide(func() (dotenvLoaded, error) {
-			return loadDotEnv(cfg)
+			return loadDotEnv()
 		}),
 		fx.Provide(resolveConfigPath),
 		fx.Provide(func(configPath configPath) (*koanf.Koanf, config.Source, error) {
@@ -99,12 +46,10 @@ func NewConfigModule(opts ...Option) fx.Option {
 		fx.Provide(config.NewLoader),
 		fx.Provide(loadAppConfig),
 		fx.Invoke(func(logger *zap.Logger, dotenvLoaded dotenvLoaded, appCfg config.AppConfig) {
-			if !cfg.skipDotEnv {
-				if dotenvLoaded {
-					logger.Info("Loaded .env file", zap.String("path", cfg.dotenvPath))
-				} else {
-					logger.Debug("No .env file loaded", zap.String("path", cfg.dotenvPath))
-				}
+			if dotenvLoaded {
+				logger.Info("Loaded .env file")
+			} else {
+				logger.Info("No .env file loaded")
 			}
 
 			logger.Info("Loaded application configuration",
@@ -117,13 +62,9 @@ func NewConfigModule(opts ...Option) fx.Option {
 	)
 }
 
-// loadDotEnv loads the .env file unless skipped. Returns true if loaded.
-func loadDotEnv(cfg *configOptions) (dotenvLoaded, error) {
-	if cfg.skipDotEnv {
-		return dotenvLoaded(false), nil
-	}
-
-	err := godotenv.Load(cfg.dotenvPath)
+// loadDotEnv loads the .env file. Returns true if loaded.
+func loadDotEnv() (dotenvLoaded, error) {
+	err := godotenv.Load(".env")
 	if err == nil {
 		return dotenvLoaded(true), nil
 	}
@@ -132,26 +73,22 @@ func loadDotEnv(cfg *configOptions) (dotenvLoaded, error) {
 		return dotenvLoaded(false), nil
 	}
 
-	return dotenvLoaded(false), fmt.Errorf("failed to load .env file %q: %w", cfg.dotenvPath, err)
+	return dotenvLoaded(false), fmt.Errorf("failed to load .env file: %w", err)
 }
 
 // loadAppConfig returns static AppConfig or loads from environment variables.
-func loadAppConfig(loader *config.Loader, cfg *configOptions) (config.AppConfig, error) {
-	return config.Load[config.AppConfig](loader, "", cfg.appConfig)
+func loadAppConfig(loader *config.Loader) (config.AppConfig, error) {
+	return config.Load[config.AppConfig](loader, "", nil)
 }
 
 type configPath string
 
-// resolveConfigPath resolves the config file path from environment or option.
-func resolveConfigPath(cfg *configOptions) configPath {
-	if cfg.noConfigFile {
-		return configPath("")
+// resolveConfigPath resolves the config file path from environment.
+func resolveConfigPath() (configPath, error) {
+	path := os.Getenv("CONFIG_FILE")
+
+	if path == "" {
+		return "", fmt.Errorf("CONFIG_FILE environment variable is not set")
 	}
-	if cfg.configPath != nil {
-		return configPath(*cfg.configPath)
-	}
-	if configFile := os.Getenv("CONFIG_FILE"); configFile != "" {
-		return configPath(configFile)
-	}
-	return configPath("")
+	return configPath(path), nil
 }

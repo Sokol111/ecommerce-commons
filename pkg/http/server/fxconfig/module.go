@@ -14,34 +14,12 @@ import (
 	"go.uber.org/zap"
 )
 
-// serverOptions holds internal configuration for the HTTP server module.
-type serverOptions struct {
-	config *server.Config
-}
-
-// Option is a functional option for configuring the HTTP server module.
-type Option func(*serverOptions)
-
-// WithServerConfig provides a static Config (useful for tests).
-func WithServerConfig(cfg server.Config) Option {
-	return func(opts *serverOptions) {
-		opts.config = &cfg
-	}
-}
-
 // NewHTTPServerModule provides HTTP server components for dependency injection.
 // By default, configuration is loaded from koanf.
-// Use WithServerConfig for static config (useful for tests).
-func NewHTTPServerModule(opts ...Option) fx.Option {
-	cfg := &serverOptions{}
-	for _, opt := range opts {
-		opt(cfg)
-	}
-
+func NewHTTPServerModule() fx.Option {
 	return fx.Options(
-		fx.Supply(cfg),
 		fx.Provide(provideConfig),
-		fx.Provide(func(opts *serverOptions) (*http.ServeMux, http.Handler) {
+		fx.Provide(func() (*http.ServeMux, http.Handler) {
 			mux := http.NewServeMux()
 			return mux, mux
 		}),
@@ -55,8 +33,8 @@ func NewHTTPServerModule(opts ...Option) fx.Option {
 	)
 }
 
-func provideConfig(opts *serverOptions, loader *coreconf.Loader, logger *zap.Logger) (server.Config, error) {
-	return coreconf.Load[server.Config](loader, "server", opts.config)
+func provideConfig(loader *coreconf.Loader, logger *zap.Logger) (server.Config, error) {
+	return coreconf.Load[server.Config](loader, "server", nil)
 }
 
 func startHTTPServer(lc fx.Lifecycle, log *zap.Logger, conf server.Config, handler http.Handler, readiness health.ComponentManager, shutdowner fx.Shutdowner) {

@@ -19,31 +19,10 @@ const ResolverInterceptorPriority = 18
 // so auth failures are logged with the resolved tenant field.
 const ValidatorInterceptorPriority = 26
 
-// tenantOptions holds internal configuration for the tenant module.
-type tenantOptions struct {
-	config *tenant.Config
-}
-
-// Option is a functional option for configuring the tenant module.
-type Option func(*tenantOptions)
-
-// WithTenantConfig provides a static Config (useful for tests).
-func WithTenantConfig(cfg tenant.Config) Option {
-	return func(opts *tenantOptions) {
-		opts.config = &cfg
-	}
-}
-
 // NewTenantModule provides tenant lifecycle management and Connect-RPC interceptors
 // for dependency injection.
-func NewTenantModule(opts ...Option) fx.Option {
-	cfg := &tenantOptions{}
-	for _, opt := range opts {
-		opt(cfg)
-	}
-
+func NewTenantModule() fx.Option {
 	return fx.Options(
-		fx.Supply(cfg),
 		fx.Provide(provideConfig),
 		fx.Provide(fx.Annotate(
 			provideTenantMigrationRunner,
@@ -82,8 +61,8 @@ func provideCleanupWorker(cfg tenant.Config, repository tenant.Repository, clean
 	return tenant.NewDefaultCleanupWorker(repository, cleaners, logger)
 }
 
-func provideConfig(opts *tenantOptions, loader *config.Loader) (tenant.Config, error) {
-	return config.Load[tenant.Config](loader, "multi-tenancy", opts.config)
+func provideConfig(loader *config.Loader) (tenant.Config, error) {
+	return config.Load[tenant.Config](loader, "multi-tenancy", nil)
 }
 
 func provideTenantMigrationRunner(

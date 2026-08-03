@@ -12,32 +12,11 @@ import (
 	"go.uber.org/zap"
 )
 
-// mongoOptions holds internal configuration for the Mongo module.
-type mongoOptions struct {
-	config *mongo.Config
-}
-
-// Option is a functional option for configuring the Mongo module.
-type Option func(*mongoOptions)
-
-// WithMongoConfig provides a static Config (useful for tests).
-func WithMongoConfig(cfg mongo.Config) Option {
-	return func(opts *mongoOptions) {
-		opts.config = &cfg
-	}
-}
-
 // NewMongoModule provides MongoDB components for dependency injection.
 // By default, configuration is loaded from koanf.
-// Use WithMongoConfig for static config (useful for tests).
-func NewMongoModule(opts ...Option) fx.Option {
-	cfg := &mongoOptions{}
-	for _, opt := range opts {
-		opt(cfg)
-	}
+func NewMongoModule() fx.Option {
 
 	return fx.Options(
-		fx.Supply(cfg),
 		fx.Provide(fx.Annotate(metricViews, fx.ResultTags(`group:"metric_views,flatten"`))),
 		fx.Provide(
 			provideMongoClient,
@@ -56,8 +35,8 @@ func NewMongoModule(opts ...Option) fx.Option {
 	)
 }
 
-func provideConfig(opts *mongoOptions, loader *config.Loader) (mongo.Config, error) {
-	return config.Load[mongo.Config](loader, "mongo", opts.config)
+func provideConfig(loader *config.Loader) (mongo.Config, error) {
+	return config.Load[mongo.Config](loader, "mongo", nil)
 }
 
 func applyMongoLifecycle(lc fx.Lifecycle, log *zap.Logger, cfg mongo.Config, client *mongodriver.Client, readiness health.ComponentManager) {

@@ -1,0 +1,45 @@
+pkg/observability/config_test.go
+  s_c7b1403b133464::t_867762abccade2 1-133
+pkg/observability/interceptor.go
+  s_c7b1403b133464::t_a29518db2f5344 11
+pkg/observability/interceptor_test.go
+  s_c7b1403b133464::t_0177394d2ca832 1-91
+pkg/observability/tracing_helpers_test.go
+  s_c7b1403b133464::t_a0375aa969c82a 1-88
+pkg/tenant/cleanup_worker_test.go
+  s_cc47ae6774ed77::t_cd3d236aec09c2 1-99
+pkg/tenant/interceptor_test.go
+  s_cc47ae6774ed77::t_d30b90a9949c5c 8,10-12,53-97
+pkg/tenant/lifecycle_helper_test.go
+  s_cc47ae6774ed77::t_ba286e814bd030 1-37
+pkg/tenant/lifecycle_test.go
+  s_cc47ae6774ed77::t_4220f5d9f34857 1-78
+pkg/tenant/messaging_test.go
+  s_cc47ae6774ed77::t_6911fd4bde1a0d 1-98
+pkg/tenant/sync_test.go
+  s_cc47ae6774ed77::t_ab598b86a9f295 1-215
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.14",
+  "base_commit_sha": "3781540ba5e989a8901392f7453fa82783fe0e84",
+  "prompts": {},
+  "sessions": {
+    "s_c7b1403b133464": {
+      "agent_id": {
+        "tool": "opencode",
+        "id": "ses_03740c7f1ffec0eLwGc9avoVkt",
+        "model": "kimi-k2.7-code"
+      },
+      "human_author": "Sokol111 <igorsokol111@gmail.com>"
+    },
+    "s_cc47ae6774ed77": {
+      "agent_id": {
+        "tool": "opencode",
+        "id": "ses_037544088ffeMPfVv65OfMMm2a",
+        "model": "kimi-k2.7-code"
+      },
+      "human_author": "Sokol111 <igorsokol111@gmail.com>"
+    }
+  }
+}

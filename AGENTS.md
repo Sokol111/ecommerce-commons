@@ -39,13 +39,8 @@ core, HTTP, Mongo, observability, Kafka, tenant, client credentials, and JWKS va
 Services can compose this aggregate or individual `fxconfig` modules; they do not construct
 infrastructure components by hand.
 
-Modules follow a **functional-options** pattern with a consistent testing escape hatch: the
-production path loads config from koanf, while `With*Config(...)` options inject static config
-for tests. Options belong to the relevant `fxconfig` package: for example,
-`core/config/fxconfig.WithAppConfig`, `kafka/config/fxconfig.WithKafkaConfig`, and
-`mongo/fxconfig.WithMongoConfig`. Use `core/config/fxconfig.WithoutDotEnv()` and
-`WithoutConfigFile()` to disable external configuration in tests. Follow this pattern for any
-new module.
+Modules load their configuration from koanf through the shared configuration loader. Tests that
+compose Fx modules must provide the required configuration through the normal configuration path.
 
 Top-level modules and what they wire:
 - `pkg/core/fxconfig` — `NewCoreModule()`: config loading (koanf + dotenv), zap logger, readiness
@@ -59,9 +54,8 @@ Top-level modules and what they wire:
 - `pkg/http/fxconfig`, `pkg/observability/fxconfig`, and `pkg/security/*/fxconfig` — transport,
   telemetry, and authentication building blocks.
 
-Config loading is centralized in `config.Load[T](k, "key", staticOverride)` (`pkg/core/config/
-loader.go`): each module loads its own subtree of the service's YAML by key (`"mongo"`, `"kafka"`,
-etc.), with the static-config option taking precedence when set.
+Config loading is centralized in `config.Load[T]` (`pkg/core/config/loader.go`): each module loads
+its own subtree of the service's YAML by key (`"mongo"`, `"kafka"`, etc.).
 
 ## Multi-tenancy (database-per-tenant)
 

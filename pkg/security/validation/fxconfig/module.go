@@ -46,6 +46,7 @@ func NewJWKSModule() fx.Option {
 
 func provideTokenValidator(cfg validation.Config) (validation.Validator, error) {
 	if cfg.Enabled != nil && !*cfg.Enabled {
+		//nolint:nilnil // No validator is required when JWKS validation is disabled (e.g. integration tests).
 		return nil, nil
 	}
 	return validation.NewTokenValidator(cfg)

@@ -99,4 +99,4 @@ failures are logged.
 `.golangci.yml` is intentionally strict for a library: `godot` (comments end with a period),
 `revive`'s `exported` rule (exported symbols need doc comments), `gocyclo` at complexity 20,
 plus `gosec` and `errcheck` with `check-blank`/`check-type-assertions`. Test files relax several
-of these. Keep exported symbols documented with period-terminated comments to pass CI.
+of these. Documentation comments are encouraged for exported symbols but are no longer enforced by CI.

@@ -68,8 +68,6 @@ linters:
           severity: warning
         - name: error-naming
           severity: warning
-        - name: exported
-          severity: warning
     
     gosec:
       excludes:

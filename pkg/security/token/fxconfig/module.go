@@ -22,6 +22,7 @@ func provideConfig(loader *coreconfig.Loader) (token.Config, error) {
 
 func provideTokenSource(cfg token.Config) (oauth2.TokenSource, error) {
 	if cfg.Enabled != nil && !*cfg.Enabled {
+		//nolint:nilnil // No token source is required when client credentials are disabled (e.g. integration tests).
 		return nil, nil
 	}
 	return token.NewTokenSource(cfg)

@@ -40,7 +40,7 @@ func NewJWKSModule(opts ...Option) fx.Option {
 		opt(cfg)
 	}
 
-	return fx.Module("security-validation",
+	return fx.Options(
 		fx.Supply(cfg),
 		fx.Provide(
 			provideConfig,

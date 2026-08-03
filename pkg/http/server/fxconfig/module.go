@@ -38,7 +38,7 @@ func NewHTTPServerModule(opts ...Option) fx.Option {
 		opt(cfg)
 	}
 
-	return fx.Module("http-server",
+	return fx.Options(
 		fx.Supply(cfg),
 		fx.Provide(provideConfig),
 		fx.Provide(func(opts *serverOptions) (*http.ServeMux, http.Handler) {

@@ -83,7 +83,7 @@ func NewConfigModule(opts ...Option) fx.Option {
 		opt(cfg)
 	}
 
-	return fx.Module("commons-config",
+	return fx.Options(
 		fx.Supply(cfg),
 		fx.Provide(func() (dotenvLoaded, error) {
 			return loadDotEnv(cfg)

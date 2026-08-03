@@ -7,7 +7,7 @@ import (
 
 // NewProtoModule provides proto-based Serializer and Deserializer for dependency injection.
 func NewProtoModule() fx.Option {
-	return fx.Module("kafkaproto",
+	return fx.Options(
 		fx.Provide(
 			func() kafkaproto.Serializer { return kafkaproto.NewSerializer() },
 			func() kafkaproto.Deserializer { return kafkaproto.NewDeserializer() },

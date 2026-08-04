@@ -48,7 +48,12 @@ func (h *ResultHandler) handle(ctx context.Context, err error, record *kgo.Recor
 
 	case errors.Is(err, ErrPermanent):
 		span.SetStatus(codes.Error, "permanent error - sending to DLQ")
-		h.log.Error("permanent error - sending message to DLQ", h.recordFieldsWithError(record, err)...)
+		fields := h.recordFieldsWithError(record, err)
+		var pe *panicError
+		if errors.As(err, &pe) {
+			fields = append(fields, zap.String("stack", string(pe.Stack)))
+		}
+		h.log.Error("permanent error - sending message to DLQ", fields...)
 		h.dlqHandler.SendToDLQ(ctx, record, err)
 
 	default:

@@ -140,10 +140,14 @@ func (p *Processor) process(ctx context.Context, event proto.Message) (err error
 
 	defer func() {
 		if rec := recover(); rec != nil {
+			stack := debug.Stack()
+			p.log.Error("panic while processing kafka message",
+				zap.Any("panic", rec),
+				zap.String("stack", string(stack)))
 			//nolint:errorlint // panicError is intentionally not wrapped, only ErrPermanent is
 			err = fmt.Errorf("%w: %v", ErrPermanent, &panicError{
 				Panic: rec,
-				Stack: debug.Stack(),
+				Stack: stack,
 			})
 		}
 	}()

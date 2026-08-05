@@ -1,0 +1,10 @@
+profile: coverage.out
+
+threshold:
+  total: 30
+
+exclude:
+  paths:
+    - mocks/
+    - /module\.go$
+    - main\.go$

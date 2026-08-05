@@ -1,13 +1,11 @@
 profile: coverage.out
 
 threshold:
-  total: 30
+  total: 80
 
 exclude:
   paths:
-    - /cmd/
-    - /internal/testutil/
     - /mocks/
     - /test/
-    - /module\.go$
-    - main\.go$
+    - /testutil/
+    - /pkg/.*/fxconfig/

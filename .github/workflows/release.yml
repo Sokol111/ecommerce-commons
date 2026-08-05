@@ -1,50 +1,56 @@
 name: Release
 
 on:
-  push:
-    branches:
-      - master
-    paths:
-      - VERSION
+  workflow_run:
+    workflows: ["CI"]
+    branches: [main, master]
+    types:
+      - completed
   workflow_dispatch:
 
 permissions:
   contents: write
 
 jobs:
-  ci:
-    uses: Sokol111/ecommerce-infrastructure/.github/workflows/go-ci.yml@master
-    with:
-      coverage-threshold: 30
+  check-version:
+    if: ${{ github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success' }}
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+      proceed: ${{ steps.check.outputs.proceed }}
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - name: Extract version
+        id: version
+        run: |
+          VERSION="v$(cat VERSION | tr -d '\n' | tr -d '\r')"
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+
+      - name: Check if version is new
+        id: check
+        run: |
+          if git rev-parse "refs/tags/${{ steps.version.outputs.version }}" >/dev/null 2>&1; then
+            echo "proceed=false" >> $GITHUB_OUTPUT
+            echo "No new VERSION, skipping release"
+          else
+            echo "proceed=true" >> $GITHUB_OUTPUT
+          fi
 
   release:
-    needs: ci
+    needs: check-version
+    if: ${{ needs.check-version.outputs.proceed == 'true' }}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6
         with:
           fetch-depth: 0
 
-      - name: Prepare version
-        id: version
-        run: |
-          VERSION="v$(cat VERSION | tr -d '\n' | tr -d '\r')"
-          echo "version=$VERSION" >> $GITHUB_OUTPUT
-
-      - name: Check if tag already exists
-        run: |
-          if git rev-parse "refs/tags/${{ steps.version.outputs.version }}" >/dev/null 2>&1; then
-            echo "❌ Tag ${{ steps.version.outputs.version }} already exists"
-            exit 1
-          fi
-
-      - name: Create Git tag
-        run: |
-          git tag ${{ steps.version.outputs.version }}
-          git push origin ${{ steps.version.outputs.version }}
-
-      - name: Create GitHub Release
-        uses: softprops/action-gh-release@v2
+      - name: Create release
+        uses: ncipollo/release-action@v1
         with:
-          tag_name: ${{ steps.version.outputs.version }}
-          name: Release ${{ steps.version.outputs.version }}
+          tag: ${{ needs.check-version.outputs.version }}
+          name: Release ${{ needs.check-version.outputs.version }}
+          generateReleaseNotes: true

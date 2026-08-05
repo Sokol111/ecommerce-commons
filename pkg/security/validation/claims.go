@@ -16,9 +16,6 @@ type Claims struct {
 	Permissions []string
 }
 
-// WildcardPermission grants access to all permissions.
-const WildcardPermission = "*"
-
 // CrossTenantServiceRole is the only role allowed to select a tenant without
 // carrying a tenant claim.
 const CrossTenantServiceRole = "service_account"
@@ -28,10 +25,6 @@ const CrossTenantServiceRole = "service_account"
 // if the user holds the wildcard permission, or if the user has any of the listed permissions.
 func (c *Claims) HasAnyPermission(permissions []string) bool {
 	if len(permissions) == 0 {
-		return true
-	}
-	// Wildcard grants all permissions
-	if slices.Contains(c.Permissions, WildcardPermission) {
 		return true
 	}
 	for _, perm := range permissions {

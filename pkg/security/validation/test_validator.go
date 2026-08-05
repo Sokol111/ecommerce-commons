@@ -55,8 +55,3 @@ func GenerateTestToken(role string, permissions []string) string {
 	}
 	return base64.StdEncoding.EncodeToString(data)
 }
-
-// GenerateAdminTestToken creates a test token with admin role and wildcard permissions.
-func GenerateAdminTestToken() string {
-	return GenerateTestToken("admin", []string{WildcardPermission})
-}

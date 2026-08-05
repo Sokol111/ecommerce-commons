@@ -22,8 +22,8 @@ func TestValidatorInterceptor(t *testing.T) {
 	}{
 		{name: "matching tenant", claims: &validation.Claims{Tenant: "shop"}},
 		{name: "mismatched tenant", claims: &validation.Claims{Tenant: "other"}, wantErr: true},
-		{name: "service account", claims: &validation.Claims{Role: validation.CrossTenantServiceRole}},
-		{name: "tenantless user", claims: &validation.Claims{Role: "super_admin"}, wantErr: true},
+		{name: "cross-tenant scope", claims: &validation.Claims{Permissions: []string{"cross-tenant"}}},
+		{name: "tenantless without cross-tenant scope", claims: &validation.Claims{Role: "super_admin"}, wantErr: true},
 		{name: "public request"},
 	}
 

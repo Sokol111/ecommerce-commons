@@ -10,10 +10,11 @@ func TestClaimsCanAccessAnyTenant(t *testing.T) {
 		claims Claims
 		want   bool
 	}{
-		{name: "service account", claims: Claims{Role: CrossTenantServiceRole}, want: true},
-		{name: "tenant service account", claims: Claims{Role: CrossTenantServiceRole, Tenant: "shop"}},
-		{name: "tenantless user", claims: Claims{Role: "super_admin"}},
-		{name: "missing role", claims: Claims{}},
+		{name: "with cross-tenant scope", claims: Claims{Permissions: []string{"cross-tenant"}}, want: true},
+		{name: "with cross-tenant scope and tenant", claims: Claims{Permissions: []string{"cross-tenant"}, Tenant: "shop"}},
+		{name: "without cross-tenant scope", claims: Claims{Permissions: []string{"products:write"}}},
+		{name: "empty claims", claims: Claims{}},
+		{name: "service account role without scope", claims: Claims{Role: "service_account"}},
 	}
 
 	for _, tt := range tests {

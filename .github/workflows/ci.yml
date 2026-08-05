@@ -6,14 +6,24 @@ on:
     paths-ignore:
       - 'README.md'
       - 'LICENSE'
-      - 'VERSION'
       - 'docs/**'
+      - '.vscode/**'
+      - '.editorconfig'
+      - '.gitignore'
+      - '.envrc'
+      - '.envrc.example'
+      - '.devcontainer/**'
   pull_request:
     paths-ignore:
       - 'README.md'
       - 'LICENSE'
-      - 'VERSION'
       - 'docs/**'
+      - '.vscode/**'
+      - '.editorconfig'
+      - '.gitignore'
+      - '.envrc'
+      - '.envrc.example'
+      - '.devcontainer/**'
 
 jobs:
   ci:

@@ -5,6 +5,9 @@ threshold:
 
 exclude:
   paths:
-    - mocks/
+    - /cmd/
+    - /internal/testutil/
+    - /mocks/
+    - /test/
     - /module\.go$
     - main\.go$

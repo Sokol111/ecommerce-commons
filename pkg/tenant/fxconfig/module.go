@@ -44,7 +44,10 @@ func NewTenantModule() fx.Option {
 				provideTenantLifecycle,
 				fx.ParamTags(``, ``, `optional:"true"`, ``),
 			),
-			provideTenantCleaner,
+			fx.Annotate(
+				provideTenantCleaner,
+				fx.ResultTags(`group:"tenant_cleaners"`),
+			),
 			fx.Annotate(
 				provideCleanupWorker,
 				fx.ParamTags(``, ``, `group:"tenant_cleaners"`, ``),

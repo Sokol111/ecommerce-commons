@@ -1,0 +1,25 @@
+VERSION
+  s_33986c18fa6503::t_3fb03b17d7b948 1
+pkg/security/validation/claims.go
+  s_33986c18fa6503::t_768a8d42769b0d 19-20,43,45-48
+pkg/security/validation/claims_test.go
+  s_33986c18fa6503::t_5f897e58441737 13-17
+pkg/tenant/interceptor_test.go
+  s_33986c18fa6503::t_2055072f0905e5 25-26
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.14",
+  "base_commit_sha": "d43d113ceda910156b0a31946d93ec8b50d8df64",
+  "prompts": {},
+  "sessions": {
+    "s_33986c18fa6503": {
+      "agent_id": {
+        "tool": "opencode",
+        "id": "ses_02e5a7352ffeHjRbDo4lXZxlqp",
+        "model": "kimi-k2.7-code"
+      },
+      "human_author": "Sokol111 <igorsokol111@gmail.com>"
+    }
+  }
+}

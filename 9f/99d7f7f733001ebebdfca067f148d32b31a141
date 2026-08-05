@@ -1,0 +1,21 @@
+.github/workflows/ci.yml
+  s_399290b5b84af9::t_1a6779259cdad3 10-15,21-26
+.testcoverage.yml
+  s_399290b5b84af9::t_4c6d3763ae6cb4 8-11
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.14",
+  "base_commit_sha": "9f99d7f7f733001ebebdfca067f148d32b31a141",
+  "prompts": {},
+  "sessions": {
+    "s_399290b5b84af9": {
+      "agent_id": {
+        "tool": "opencode",
+        "id": "ses_02f53502affeV3oEBoXEFdN7LQ",
+        "model": "kimi-k2.7-code"
+      },
+      "human_author": "Sokol111 <igorsokol111@gmail.com>"
+    }
+  }
+}
